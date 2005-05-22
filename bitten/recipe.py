@@ -29,15 +29,24 @@ class IReportPreparator(Interface):
         """
 
 
+class Recipe(object):
+
+    def __init__(self, filename='recipe.xml', basedir=os.getcwd()):
+        self.filename = filename
+        self.basedir = basedir
+        self.path = os.path.join(basedir, filename)
+        self.tree = ElementTree.parse(self.path).getroot()
+
+    description = property(fget=lambda self: self.tree.attrib['description'])
+
+
 class RecipeExecutor(Component):
 
     commands = ExtensionPoint(ICommandExecutor)
     reporters = ExtensionPoint(IReportPreparator)
 
-    def execute(self, filename='recipe.xml', basedir=os.getcwd()):
-        path = os.path.join(basedir, filename)
-        recipe = ElementTree.parse(path).getroot()
-        for step in recipe:
+    def execute(self, recipe):
+        for step in recipe.tree:
             print '---> %s' % step.attrib['title']
             for element in step:
                 if element.tag == 'reports':
