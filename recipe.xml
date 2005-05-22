@@ -5,21 +5,26 @@
         <distutils command="build"/>
     </step>
 
+    <step id="test" title="Unit tests"
+          description="Run unit tests and trace code coverage">
+        <distutils command="unittest"/>
+        <reports>
+            <unittest file="build/test-results.xml"/>
+            <trace summary="build/test-coverage.txt" coverdir="build/coverage"
+                   include="trac*" exclude="*.tests.*"/>
+        </reports>
+    </step>
+
     <step id="lint" title="Run Pylint"
           description="Run Pylint to check for bad style and potential errors">
         <make target="pylint"/>
         <reports>
-            <pylint file="build/pylint.txt"/>
+            <pylint file="build/pylint-results.txt"/>
         </reports>
     </step>
 
-    <step id="test" title="Unit tests"
-          description="Run unit tests and trace code coverage">
-        <make target="test"/>
-        <reports>
-            <unittest file="build/test-results.xml"/>
-            <trace.py dir="build/coverage" include="trac*" exclude="*.tests.*"/>
-        </reports>
+    <step id="dist" title="Package up distributions">
+        <distutils command="sdist"/>
     </step>
 
 </recipe>

@@ -12,12 +12,12 @@ class ICommandExecutor(Interface):
         Return the name of the command as used in the XML file.
         """
 
-    def execute(basedir, *attrs):
+    def execute(basedir, **attrs):
         """
         """
 
 
-class IReportPreparator(Interface):
+class IReportProcessor(Interface):
 
     def get_name():
         """
@@ -42,8 +42,8 @@ class Recipe(object):
 
 class RecipeExecutor(Component):
 
-    commands = ExtensionPoint(ICommandExecutor)
-    reporters = ExtensionPoint(IReportPreparator)
+    command_executors = ExtensionPoint(ICommandExecutor)
+    report_processors = ExtensionPoint(IReportProcessor)
 
     def execute(self, recipe):
         for step in recipe.tree:
@@ -51,21 +51,21 @@ class RecipeExecutor(Component):
             for element in step:
                 if element.tag == 'reports':
                     for report in element:
-                        reporter = self._get_reporter(report.tag)
-                        reporter.execute(basedir, **report.attrib)
+                        reporter = self._get_report_processor(report.tag)
+                        reporter.process(recipe.basedir, **report.attrib)
                 else:
-                    cmd = self._get_command(element.tag)
-                    cmd.execute(basedir, **element.attrib)
+                    cmd = self._get_command_executor(element.tag)
+                    cmd.execute(recipe.basedir, **element.attrib)
             print
 
-    def _get_command(self, name):
-        for command in self.commands:
-            if command.get_name() == name:
-                return command
+    def _get_command_executor(self, name):
+        for command_executor in self.command_executors:
+            if command_executor.get_name() == name:
+                return command_executor
         raise Exception, "Unknown command <%s>" % name
 
-    def _get_reporter(self, name):
-        for report in self.reporters:
-            if report.get_name() == name:
-                return report
-        raise Exception, "Unknown report <%s>" % name
+    def _get_report_processor(self, name):
+        for report_processor in self.report_processors:
+            if report_processor.get_name() == name:
+                return report_processor
+        raise Exception, "Unknown report type <%s>" % name
