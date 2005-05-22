@@ -80,6 +80,7 @@ class test(Command):
         self.test_descriptions = None
 
     def finalize_options(self):
+        assert self.test_suite, 'Missing required attribute "test-suite"'
         if self.xml_output is not None:
             self.xml_output = open(self.xml_output, 'w')
 
