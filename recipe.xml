@@ -1,0 +1,25 @@
+<?xml version="1.0"?>
+<recipe description="My project">
+
+    <step id="build" title="Let Distutils build the python code">
+        <distutils command="build"/>
+    </step>
+
+    <step id="lint" title="Run Pylint"
+          description="Run Pylint to check for bad style and potential errors">
+        <make target="pylint"/>
+        <reports>
+            <pylint file="build/pylint.txt"/>
+        </reports>
+    </step>
+
+    <step id="test" title="Unit tests"
+          description="Run unit tests and trace code coverage">
+        <make target="test"/>
+        <reports>
+            <unittest file="build/test-results.xml"/>
+            <trace.py dir="build/coverage" include="trac*" exclude="*.tests.*"/>
+        </reports>
+    </step>
+
+</recipe>
