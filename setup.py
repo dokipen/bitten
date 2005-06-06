@@ -19,11 +19,12 @@
 #
 # Author: Christopher Lenz <cmlenz@gmx.de>
 
-from distutils.core import setup, Command
+from distutils.core import setup
+
 from bitten.distutils.testrunner import unittest
 
 setup(name='bitten', version='1.0',
-      packages=['bitten', 'bitten.general', 'bitten.python'],
+      packages=['bitten', 'bitten.distutils', 'bitten.recipe'],
       author="Christopher Lenz", author_email="cmlenz@gmx.de",
       url="http://projects.edgewall.com/bitten/",
       cmdclass={'unittest': unittest})
