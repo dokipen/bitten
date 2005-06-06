@@ -1,8 +1,8 @@
 import unittest
 
-from bitten.recipe import tests as recipe
+from bitten.recipe.tests import api
 
 def suite():
     suite = unittest.TestSuite()
-    suite.addTest(recipe.suite())
+    suite.addTest(api.suite())
     return suite

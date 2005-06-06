@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 from distutils.core import setup, Command
 from bitten.distutils.testrunner import unittest
 
