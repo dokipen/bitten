@@ -40,11 +40,12 @@ def build():
             steps_run.append(step.id)
 
     if step_id and not step_id in steps_run:
-        raise BuildError, "Recipe has no step named '%s'" % step_id
+        raise BuildError, 'Recipe has no step named "%s"' % step_id
 
 if __name__ == '__main__':
     try:
         build()
     except BuildError, e:
-        print>>sys.stderr, "FAILED: %s" % e
+        print>>sys.stderr, 'FAILED: %s' % e
         sys.exit(-1)
+    print 'SUCCESS'
