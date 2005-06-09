@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 # -*- coding: iso8859-1 -*-
 #
 # Copyright (C) 2005 Christopher Lenz <cmlenz@gmx.de>
@@ -19,11 +18,17 @@
 #
 # Author: Christopher Lenz <cmlenz@gmx.de>
 
-from distutils.core import setup
+import doctest
+import unittest
 
-from bitten.distutils.testrunner import unittest
+from bitten.util import xmlio
+from bitten.util.tests import beep
 
-setup(name='bitten', version='1.0',
-      packages=['bitten', 'bitten.distutils', 'bitten.recipe', 'bitten.util'],
-      author="Christopher Lenz", author_email="cmlenz@gmx.de",
-      url="http://bitten.cmlenz.net/", cmdclass={'unittest': unittest})
+def suite():
+    suite = unittest.TestSuite()
+    suite.addTest(beep.suite())
+    suite.addTest(doctest.DocTestSuite(xmlio))
+    return suite
+
+if __name__ == '__main__':
+    unittest.main(defaultTest='suite')

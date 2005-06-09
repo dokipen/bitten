@@ -21,8 +21,13 @@
 import unittest
 
 from bitten.recipe import tests as recipe
+from bitten.util import tests as util
 
 def suite():
     suite = unittest.TestSuite()
     suite.addTest(recipe.suite())
+    suite.addTest(util.suite())
     return suite
+
+if __name__ == '__main__':
+    unittest.main(defaultTest='suite')
