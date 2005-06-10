@@ -133,6 +133,9 @@ class ParsedElement(object):
     def __init__(self, node):
         self.node = node
 
+    def __del__(self):
+        self.node.unlink()
+
     name = property(fget=lambda self: self.node.tagName)
 
     def __getattr__(self, name):
@@ -145,6 +148,9 @@ class ParsedElement(object):
 
     def __iter__(self):
         return self['*']
+
+    def gettext(self):
+        return ''.join([c.nodeValue for c in self.node.childNodes])
 
 
 if __name__ == '__main__':
