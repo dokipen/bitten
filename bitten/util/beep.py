@@ -427,6 +427,7 @@ class ManagementProfile(Profile):
 
     def send_close(self, channelno=0, code=200, handle_ok=None,
                    handle_error=None):
+
         def handle_reply(cmd, msgno, message):
             if handle_ok is not None and cmd == 'RPY':
                 del self.session.channels[channelno]
@@ -434,6 +435,7 @@ class ManagementProfile(Profile):
             if handle_error is not None and cmd == 'ERR':
                 elem = parse_xml(message.get_payload())
                 handle_error(int(elem.code), elem.gettext())
+
         xml = Element('close', number=channelno, code=code)
         return self.channel.send_msg(MIMEMessage(xml, BEEP_XML), handle_reply)
 
@@ -443,6 +445,7 @@ class ManagementProfile(Profile):
 
     def send_start(self, profiles, handle_ok=None, handle_error=None):
         channelno = self.session.channelno.next()
+
         def handle_reply(cmd, msgno, message):
             if handle_ok is not None and cmd == 'RPY':
                 elem = parse_xml(message.get_payload())
@@ -455,6 +458,7 @@ class ManagementProfile(Profile):
             if handle_error is not None and cmd == 'ERR':
                 elem = parse_xml(message.get_payload())
                 handle_error(int(elem.code), elem.gettext())
+
         xml = Element('start', number=channelno)[
             [Element('profile', uri=profile.URI) for profile in profiles]
         ]

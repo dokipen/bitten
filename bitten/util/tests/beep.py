@@ -59,6 +59,16 @@ class ChannelTestCase(unittest.TestCase):
         self.assertEqual(('MSG', 0, 'foo bar'),
                          self.profile.handled_messages[0])
 
+    def test_handle_out_of_sync_frame(self):
+        """
+        Verify that the channel detects out-of-sync frames and bails.
+        """
+        channel = beep.Channel(self.session, 0, self.profile)
+        channel.handle_frame('MSG', 0, False, 0L, None, 'foo bar')
+        # The next sequence number should be 8; send 12 instead
+        self.assertRaises(beep.ProtocolError, channel.handle_frame, 'MSG', 0,
+                          False, 12L, None, 'foo baz')
+
     def test_send_single_frame_message(self):
         """
         Verify that the channel passes a sent message up to the session for
@@ -71,7 +81,20 @@ class ChannelTestCase(unittest.TestCase):
                          self.session.sent_messages[0])
         assert msgno in channel.msgnos.keys()
 
-    def test_send_message_msgno_inc(self):
+    def test_send_frames_seqno_incrementing(self):
+        """
+        Verify that the sequence numbers of outgoing frames are incremented as
+        expected.
+        """
+        channel = beep.Channel(self.session, 0, self.profile)
+        channel.send_msg(beep.MIMEMessage('foo bar'))
+        channel.send_rpy(0, beep.MIMEMessage('nil'))
+        self.assertEqual(('MSG', 0, 0, False, 0L, None, 'foo bar'),
+                         self.session.sent_messages[0])
+        self.assertEqual(('RPY', 0, 0, False, 8L, None, 'nil'),
+                         self.session.sent_messages[1])
+
+    def test_send_message_msgno_incrementing(self):
         """
         Verify that the message number is incremented for subsequent outgoing
         messages.
@@ -145,4 +168,4 @@ def suite():
     return unittest.makeSuite(ChannelTestCase, 'test')
 
 if __name__ == '__main__':
-	unittest.main()
+    unittest.main()
