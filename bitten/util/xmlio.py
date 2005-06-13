@@ -133,9 +133,6 @@ class ParsedElement(object):
     def __init__(self, node):
         self.node = node
 
-    def __del__(self):
-        self.node.unlink()
-
     name = property(fget=lambda self: self.node.tagName)
 
     def __getattr__(self, name):
