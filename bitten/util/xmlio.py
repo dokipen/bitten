@@ -67,14 +67,14 @@ class Element(object):
     >>> print Element('foo')['Hello ', Element('b')['world']]
     <foo>Hello <b>world</b></foo>
     """
-    __slots__ = ['name', 'attrs', 'children']
+    __slots__ = ['tagname', 'attrs', 'children']
 
-    def __init__(self, name, **attrs):
+    def __init__(self, tagname, **attrs):
         """Create an XML element using the specified tag name.
         
         All keyword arguments are handled as attributes of the element.
         """
-        self.name = name
+        self.tagname = tagname
         self.attrs = attrs
         self.children = []
 
@@ -89,7 +89,7 @@ class Element(object):
         """Return a string representation of the XML element."""
         buf = StringIO()
         buf.write('<')
-        buf.write(self.name)
+        buf.write(self.tagname)
         for name, value in self.attrs.items():
             buf.write(' ')
             buf.write(name)
@@ -104,7 +104,7 @@ class Element(object):
                 else:
                     buf.write(self._escape_text(child))
             buf.write('</')
-            buf.write(self.name)
+            buf.write(self.tagname)
             buf.write('>')
         else:
             buf.write('/>')
@@ -133,7 +133,7 @@ class ParsedElement(object):
     def __init__(self, node):
         self.node = node
 
-    name = property(fget=lambda self: self.node.tagName)
+    tagname = property(fget=lambda self: self.node.tagName)
 
     def __getattr__(self, name):
         return self.node.getAttribute(name)

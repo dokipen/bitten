@@ -45,6 +45,10 @@ class ProtocolError(Exception):
     """Generic root class for BEEP exceptions."""
 
 
+class TerminateSession(Exception):
+    """Signal termination of a session."""
+
+
 class Listener(asyncore.dispatcher):
     """BEEP peer in the listener role.
     
@@ -98,13 +102,16 @@ class Session(asynchat.async_chat):
         pass
 
     def handle_error(self):
+        """Called by asyncore when an exception is raised."""
         t, v = sys.exc_info()[:2]
-        if t is SystemExit:
+        if t is TerminateSession:
             raise t, v
-        else:
-            asynchat.async_chat.handle_error(self)
+        asynchat.async_chat.handle_error(self)
 
     def collect_incoming_data(self, data):
+        """Called by async_chat when data is received.
+        
+        Buffer the data and wait until a terminator is found."""
         self.inbuf.append(data)
 
     def found_terminator(self):
@@ -373,7 +380,7 @@ class ManagementProfile(Profile):
         assert message.get_content_type() == BEEP_XML
         elem = parse_xml(message.get_payload())
 
-        if elem.name == 'start':
+        if elem.tagname == 'start':
             for profile in elem['profile']:
                 if profile.uri in self.session.profiles.keys():
                     print 'Start channel %s for profile <%s>' % (elem.number,
@@ -388,7 +395,7 @@ class ManagementProfile(Profile):
             self.send_error(msgno, 550,
                             'All requested profiles are unsupported')
 
-        elif elem.name == 'close':
+        elif elem.tagname == 'close':
             channelno = int(elem.number)
             if channelno == 0:
                 if len(self.session.channels) > 1:
@@ -408,7 +415,7 @@ class ManagementProfile(Profile):
         assert message.get_content_type() == BEEP_XML
         elem = parse_xml(message.get_payload())
 
-        if elem.name == 'greeting':
+        if elem.tagname == 'greeting':
             if isinstance(self.session, Initiator):
                 profiles = [profile.uri for profile in elem['profile']]
                 self.session.greeting_received(profiles)
@@ -422,7 +429,7 @@ class ManagementProfile(Profile):
         # TODO: Terminate the session, I guess
         assert message.get_content_type() == BEEP_XML
         elem = parse_xml(message.get_payload())
-        assert elem.name == 'error'
+        assert elem.tagname == 'error'
         print elem.code
 
     def send_close(self, channelno=0, code=200, handle_ok=None,
