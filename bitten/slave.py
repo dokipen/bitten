@@ -31,6 +31,7 @@ from bitten.util.xmlio import Element, parse_xml
 class Slave(beep.Initiator):
 
     channelno = None # The channel number used by the bitten profile
+    terminated = False
 
     def channel_started(self, channelno, profile_uri):
         if profile_uri == BittenProfileHandler.URI:
@@ -40,6 +41,7 @@ class Slave(beep.Initiator):
         if BittenProfileHandler.URI in profiles:
             self.channels[0].profile.send_start([BittenProfileHandler],
                                                 handle_ok=self.channel_started)
+
 
 class BittenProfileHandler(beep.Profile):
     """Handles communication on the Bitten profile from the client perspective.
@@ -98,18 +100,6 @@ if __name__ == '__main__':
 
     slave = Slave(host, port)
     try:
-        try:
-            asyncore.loop()
-        except KeyboardInterrupt, beep.TerminateSession:
-            def handle_ok():
-                raise asyncore.ExitNow, 'Session terminated'
-            def handle_error(code, message):
-                print>>sys.stderr, \
-                    'Build master refused to terminate session (%d): %s' \
-                    % (code, message)
-            slave.channels[0].profile.send_close(slave.channelno)
-            slave.channels[0].profile.send_close(handle_ok=handle_ok,
-                                                 handle_error=handle_error)
-            time.sleep(.25)
+        slave.run()
     except beep.TerminateSession, e:
-        print e
+        print 'Session terminated:', e

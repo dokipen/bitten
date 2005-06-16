@@ -32,6 +32,7 @@ from email.Message import Message
 from email.Parser import Parser
 import socket
 import sys
+import time
 
 from bitten.util.xmlio import Element, parse_xml
 
@@ -151,10 +152,12 @@ class Session(asynchat.async_chat):
             self.set_terminator('END\r\n')
         else:
             # Frame trailer received
-            self._handle_frame(self.header, self.payload)
-            self.header = self.payload = None
-            self.inbuf = []
-            self.set_terminator('\r\n')
+            try:
+                self._handle_frame(self.header, self.payload)
+            finally:
+                self.header = self.payload = None
+                self.inbuf = []
+                self.set_terminator('\r\n')
 
     def _handle_frame(self, header, payload):
         """Handle an incoming frame.
@@ -205,8 +208,12 @@ class Initiator(Session):
                          for that profile
         """
         Session.__init__(self, None, None, profiles or {})
+        self.terminated = False
         self.create_socket(socket.AF_INET, socket.SOCK_STREAM)
         self.connect((ip, port))
+
+    def handle_close(self):
+        self.terminated = True
 
     def greeting_received(self, profiles):
         """Sub-classes should override this to start the channels they need.
@@ -214,6 +221,31 @@ class Initiator(Session):
         @param profiles: A list of URIs of the profiles the peer claims to
                          support.
         """
+
+    def run(self):
+        """Start this peer, which will try to connect to the server and send a
+        greeting.
+        """
+        while not self.terminated:
+            try:
+                asyncore.loop()
+                print 'Normal exit'
+                self.terminated = True
+            except (KeyboardInterrupt, TerminateSession):
+                self._quit()
+                time.sleep(.25)
+
+    def _quit(self):
+        channelno = max(self.channels.keys())
+        def handle_ok():
+            if channelno == 0:
+                self.terminated = True
+            else:
+                self._quit()
+        def handle_error(code, message):
+            raise ProtocolError, '%s (%d)' % (message, code)
+        self.channels[0].profile.send_close(channelno, handle_ok=handle_ok,
+                                            handle_error=handle_error)
 
 
 class Channel(object):
@@ -397,6 +429,9 @@ class ManagementProfile(Profile):
 
         elif elem.tagname == 'close':
             channelno = int(elem.number)
+            if not channelno in self.session.channels:
+                self.send_error(msgno, 550, 'Channel not open')
+                return
             if channelno == 0:
                 if len(self.session.channels) > 1:
                     self.send_error(msgno, 550, 'Other channels still open')
@@ -404,11 +439,10 @@ class ManagementProfile(Profile):
             if self.session.channels[channelno].msgnos:
                 self.send_error(msgno, 550, 'Channel waiting for replies')
                 return
-            print 'Close channel %s' % (channelno)
             del self.session.channels[channelno]
             message = MIMEMessage(Element('ok'), BEEP_XML)
             self.channel.send_rpy(msgno, message)
-            if channelno == 0:
+            if not self.session.channels:
                 self.session.close()
 
     def handle_rpy(self, msgno, message):
@@ -430,19 +464,22 @@ class ManagementProfile(Profile):
         assert message.get_content_type() == BEEP_XML
         elem = parse_xml(message.get_payload())
         assert elem.tagname == 'error'
-        print elem.code
+        print 'Received error in response to message #%d: %s (%s)' \
+              % (msgno, elem.gettext(), elem.code)
 
     def send_close(self, channelno=0, code=200, handle_ok=None,
                    handle_error=None):
-
         def handle_reply(cmd, msgno, message):
-            if handle_ok is not None and cmd == 'RPY':
+            if cmd == 'RPY':
                 del self.session.channels[channelno]
-                handle_ok()
-            if handle_error is not None and cmd == 'ERR':
+                if handle_ok is not None:
+                    handle_ok()
+                if not self.session.channels:
+                    self.session.close()
+            elif cmd == 'ERR':
                 elem = parse_xml(message.get_payload())
-                handle_error(int(elem.code), elem.gettext())
-
+                if handle_error is not None:
+                    handle_error(int(elem.code), elem.gettext())
         xml = Element('close', number=channelno, code=code)
         return self.channel.send_msg(MIMEMessage(xml, BEEP_XML), handle_reply)
 
@@ -452,7 +489,6 @@ class ManagementProfile(Profile):
 
     def send_start(self, profiles, handle_ok=None, handle_error=None):
         channelno = self.session.channelno.next()
-
         def handle_reply(cmd, msgno, message):
             if handle_ok is not None and cmd == 'RPY':
                 elem = parse_xml(message.get_payload())
@@ -470,6 +506,18 @@ class ManagementProfile(Profile):
             [Element('profile', uri=profile.URI) for profile in profiles]
         ]
         return self.channel.send_msg(MIMEMessage(xml, BEEP_XML), handle_reply)
+
+
+class MIMEMessage(Message):
+    """Simplified construction of generic MIME messages for transmission as
+    payload with BEEP."""
+
+    def __init__(self, payload, content_type=None):
+        Message.__init__(self)
+        if content_type:
+            self.set_type(content_type)
+        self.set_payload(str(payload))
+        del self['MIME-Version']
 
 
 def cycle_through(start, stop=None, step=1):
@@ -503,31 +551,3 @@ class serial(object):
         if self.value > self.limit:
             self.value -= self.limit
         return self
-
-
-class MIMEMessage(Message):
-    """Simplified construction of generic MIME messages for transmission as
-    payload with BEEP."""
-
-    def __init__(self, payload, content_type=None):
-        Message.__init__(self)
-        if content_type:
-            self.set_type(content_type)
-        self.set_payload(str(payload))
-        del self['MIME-Version']
-
-
-if __name__ == '__main__':
-    # Simple echo profile implementation for testing
-    class EchoProfile(Profile):
-        URI = 'http://beepcore.org/beep/ECHO'
-
-        def handle_msg(self, msgno, message):
-            self.channel.send_rpy(msgno, message)
-
-    listener = Listener('127.0.0.1', 8000)
-    listener.profiles[EchoProfile.URI] = EchoProfile()
-    try:
-        asyncore.loop()
-    except KeyboardInterrupt:
-        pass

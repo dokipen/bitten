@@ -27,7 +27,7 @@ from bitten.util import beep
 from bitten.util.xmlio import Element, parse_xml
 
 
-class BittenProfile(beep.Profile):
+class BittenProfileHandler(beep.Profile):
     URI = 'http://bitten.cmlenz.net/beep-profile/'
 
     def __init__(self):
@@ -46,6 +46,7 @@ class BittenProfile(beep.Profile):
                     os = child.gettext()
                     os_family = child.family
                     os_version = child.version
+
             rpy = beep.MIMEMessage(Element('ok'), beep.BEEP_XML)
             self.channel.send_rpy(msgno, rpy)
             print 'Connected to %s (%s running %s %s [%s])' \
@@ -67,7 +68,7 @@ if __name__ == '__main__':
         port = 7633
 
     listener = beep.Listener('localhost', port)
-    listener.profiles[BittenProfile.URI] = BittenProfile()
+    listener.profiles[BittenProfileHandler.URI] = BittenProfileHandler()
     try:
         asyncore.loop()
     except KeyboardInterrupt:
