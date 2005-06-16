@@ -30,6 +30,7 @@ import asynchat
 import asyncore
 from email.Message import Message
 from email.Parser import Parser
+import logging
 import socket
 import sys
 import time
@@ -37,7 +38,6 @@ import time
 from bitten.util.xmlio import Element, parse_xml
 
 __all__ = ['Listener', 'Initiator', 'Profile']
-
 
 BEEP_XML = 'application/beep+xml'
 
@@ -63,6 +63,7 @@ class Listener(asyncore.dispatcher):
         self.set_reuse_addr()
         self.bind((ip, port))
         self.profiles = {}
+        logging.debug('Listening to connections on %s:%d', ip, port)
         self.listen(5)
 
     def writable(self):
@@ -79,9 +80,9 @@ class Listener(asyncore.dispatcher):
 
     def handle_accept(self):
         """Start a new BEEP session."""
-        conn, addr = self.accept()
-        print 'Connected to %s:%s' % addr
-        Session(conn, addr, self.profiles, first_channelno=2)
+        conn, (ip, port) = self.accept()
+        logging.debug('Connected to %s:%d', ip, port)
+        Session(conn, (ip, port), self.profiles, first_channelno=2)
 
 
 class Session(asynchat.async_chat):
@@ -107,7 +108,8 @@ class Session(asynchat.async_chat):
         t, v = sys.exc_info()[:2]
         if t is TerminateSession:
             raise t, v
-        asynchat.async_chat.handle_error(self)
+        logging.exception(v)
+        self.close()
 
     def collect_incoming_data(self, data):
         """Called by async_chat when data is received.
@@ -138,6 +140,8 @@ class Session(asynchat.async_chat):
                 except ValueError:
                     # TODO: Malformed frame... should we terminate the session
                     # here?
+                    logging.error('Malformed frame header: [%s]',
+                                  ' '.join(self.header))
                     self.header = None
                     return
                 if size == 0:
@@ -164,6 +168,7 @@ class Session(asynchat.async_chat):
         
         This parses the frame header and decides which channel to pass it to.
         """
+        logging.debug('Handling frame [%s]', ' '.join(header))
         msgno = None
         channel = None
         try:
@@ -179,6 +184,7 @@ class Session(asynchat.async_chat):
             self.channels[channel].handle_frame(cmd, msgno, more, seqno,
                                                 ansno, payload)
         except (ValueError, TypeError, ProtocolError), e:
+            logging.exception(e)
             if channel == 0 and msgno is not None:
                 self.channels[0].profile.send_error(msgno, 550, e)
 
@@ -191,6 +197,7 @@ class Session(asynchat.async_chat):
             assert ansno is not None
             headerbits.append(ansno)
         header = ' '.join([str(hb) for hb in headerbits])
+        logging.debug('Sending frame [%s]', header)
         self.push('\r\n'.join((header, payload, 'END', '')))
 
 
@@ -210,7 +217,11 @@ class Initiator(Session):
         Session.__init__(self, None, None, profiles or {})
         self.terminated = False
         self.create_socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.connect((ip, port))
+        logging.debug('Connecting to %s:%s', ip, port)
+        try:
+            self.connect((ip, port))
+        except socket.error, e:
+            raise TerminateSession, 'Connection to %s:%d failed' % ip, port
 
     def handle_close(self):
         self.terminated = True
@@ -229,9 +240,9 @@ class Initiator(Session):
         while not self.terminated:
             try:
                 asyncore.loop()
-                print 'Normal exit'
                 self.terminated = True
-            except (KeyboardInterrupt, TerminateSession):
+            except (KeyboardInterrupt, TerminateSession), e:
+                logging.info('Terminating session')
                 self._quit()
                 time.sleep(.25)
 
@@ -243,6 +254,8 @@ class Initiator(Session):
             else:
                 self._quit()
         def handle_error(code, message):
+            logging.error('Peer refused to close channel %d: %s (%d)',
+                          channelno, message, code)
             raise ProtocolError, '%s (%d)' % (message, code)
         self.channels[0].profile.send_close(channelno, handle_ok=handle_ok,
                                             handle_error=handle_error)
@@ -403,8 +416,10 @@ class ManagementProfile(Profile):
 
     def handle_connect(self):
         """Send a greeting reply directly after connecting to the peer."""
+        profile_uris = self.session.profiles.keys()
+        logging.debug('Send greeting with profiles %s', profile_uris)
         greeting = Element('greeting')[
-            [Element('profile', uri=k) for k in self.session.profiles.keys()]
+            [Element('profile', uri=k) for k in profile_uris]
         ]
         self.channel.send_rpy(0, MIMEMessage(greeting, BEEP_XML))
 
@@ -415,8 +430,8 @@ class ManagementProfile(Profile):
         if elem.tagname == 'start':
             for profile in elem['profile']:
                 if profile.uri in self.session.profiles.keys():
-                    print 'Start channel %s for profile <%s>' % (elem.number,
-                                                                 profile.uri)
+                    logging.debug('Start channel %s for profile <%s>',
+                                  elem.number, profile.uri)
                     channel = Channel(self.session, int(elem.number),
                                       self.session.profiles[profile.uri])
                     self.session.channels[int(elem.number)] = channel
@@ -464,44 +479,63 @@ class ManagementProfile(Profile):
         assert message.get_content_type() == BEEP_XML
         elem = parse_xml(message.get_payload())
         assert elem.tagname == 'error'
-        print 'Received error in response to message #%d: %s (%s)' \
-              % (msgno, elem.gettext(), elem.code)
+        logging.warning('Received error in response to message #%d: %s (%s)',
+                        msgno, elem.gettext(), elem.code)
 
     def send_close(self, channelno=0, code=200, handle_ok=None,
                    handle_error=None):
         def handle_reply(cmd, msgno, message):
             if cmd == 'RPY':
+                logging.debug('Channel %d closed', channelno)
                 del self.session.channels[channelno]
                 if handle_ok is not None:
                     handle_ok()
                 if not self.session.channels:
+                    logging.debug('Session terminated')
                     self.session.close()
             elif cmd == 'ERR':
                 elem = parse_xml(message.get_payload())
+                text = elem.gettext()
+                code = int(elem.code)
+                logging.debug('Peer refused to start channel %d: %s (%d)',
+                              channelno, text, code)
                 if handle_error is not None:
-                    handle_error(int(elem.code), elem.gettext())
+                    handle_error(code, text)
+
+        logging.debug('Requesting closure of channel %d', channelno)
         xml = Element('close', number=channelno, code=code)
         return self.channel.send_msg(MIMEMessage(xml, BEEP_XML), handle_reply)
 
     def send_error(self, msgno, code, message=''):
+        logging.warning('%s (%d)', message, code)
         xml = Element('error', code=code)[message]
         self.channel.send_err(msgno, MIMEMessage(xml, BEEP_XML))
 
     def send_start(self, profiles, handle_ok=None, handle_error=None):
         channelno = self.session.channelno.next()
         def handle_reply(cmd, msgno, message):
-            if handle_ok is not None and cmd == 'RPY':
+            if cmd == 'RPY':
                 elem = parse_xml(message.get_payload())
                 for profile in [p for p in profiles if p.URI == elem.uri]:
+                    logging.debug('Channel %d started with profile %s',
+                                  channelno, elem.uri)
                     self.session.channels[channelno] = Channel(self.session,
                                                                channelno,
                                                                profile())
                     break
-                handle_ok(channelno, elem.uri)
-            if handle_error is not None and cmd == 'ERR':
+                if handle_ok is not None:
+                    handle_ok(channelno, elem.uri)
+            elif cmd == 'ERR':
                 elem = parse_xml(message.get_payload())
-                handle_error(int(elem.code), elem.gettext())
+                text = elem.gettext()
+                code = int(elem.code)
+                logging.debug('Peer refused to start channel %d: %s (%d)',
+                              channelno, text, code)
+                if handle_error is not None:
+                    handle_error(code, text)
 
+        logging.debug('Requesting start of channel %d with profiles %s',
+                      channelno, [profile.URI for profile in profiles])
         xml = Element('start', number=channelno)[
             [Element('profile', uri=profile.URI) for profile in profiles]
         ]

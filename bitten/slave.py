@@ -20,6 +20,7 @@
 
 import asyncore
 import getopt
+import logging
 import os
 import sys
 import time
@@ -38,9 +39,11 @@ class Slave(beep.Initiator):
             self.channelno = channelno
 
     def greeting_received(self, profiles):
-        if BittenProfileHandler.URI in profiles:
-            self.channels[0].profile.send_start([BittenProfileHandler],
-                                                handle_ok=self.channel_started)
+        if BittenProfileHandler.URI not in profiles:
+            logging.error('Peer does not support Bitten profile')
+            raise beep.TerminateSession, 'Peer does not support Bitten profile'
+        self.channels[0].profile.send_start([BittenProfileHandler],
+                                            handle_ok=self.channel_started)
 
 
 class BittenProfileHandler(beep.Profile):
@@ -51,21 +54,20 @@ class BittenProfileHandler(beep.Profile):
     def handle_connect(self):
         """Register with the build master."""
         sysname, nodename, release, version, machine = os.uname()
-        print 'Registering with build master as %s' % nodename
+        logging.info('Registering with build master as %s', nodename)
         register = Element('register', name=nodename)[
             Element('platform')[machine],
             Element('os', family=os.name, version=release)[sysname]
         ]
         def handle_reply(cmd, msgno, msg):
-            if cmd == 'RPY':
-                print 'Registration successful'
-            else:
+            if cmd == 'ERR':
                 if msg.get_content_type() == beep.BEEP_XML:
                     elem = parse_xml(msg.get_payload())
                     if elem.tagname == 'error':
                         raise beep.TerminateSession, \
                               '%s (%s)' % (elem.gettext(), elem.code)
                 raise beep.TerminateSession, 'Registration failed!'
+            logging.info('Registration successful')
         self.channel.send_msg(beep.MIMEMessage(register, beep.BEEP_XML),
                               handle_reply)
 
@@ -75,11 +77,13 @@ class BittenProfileHandler(beep.Profile):
 
 
 if __name__ == '__main__':
-    options, args = getopt.getopt(sys.argv[1:], 'vq', ['verbose', 'qiuet'])
+    options, args = getopt.getopt(sys.argv[1:], 'dvq',
+                                  ['debug', 'verbose', 'quiet'])
     if len(args) < 1:
         print>>sys.stderr, 'Usage: %s [options] host [port]' % sys.argv[0]
         print>>sys.stderr
         print>>sys.stderr, 'Valid options:'
+        print>>sys.stderr, '  -d [--debug]\tenable debugging output'
         print>>sys.stderr, '  -q [--quiet]\tprint as little as possible'
         print>>sys.stderr, '  -v [--verbose]\tprint as much as possible'
         sys.exit(2)
@@ -90,16 +94,19 @@ if __name__ == '__main__':
     else:
         port = 7633
 
-    verbose = False
-    quiet = False
+    loglevel = logging.WARNING
     for opt, arg in options:
-        if opt in ('-v', '--verbose'):
-            verbose = True
+        if opt in ('-d', '--debug'):
+            loglevel = logging.DEBUG
+        elif opt in ('-v', '--verbose'):
+            loglevel = logging.INFO
         elif opt in ('-q', '--quiet'):
-            quiet = True
+            loglevel = logging.ERROR
+    logger = logging.getLogger()
+    logger.setLevel(loglevel)
 
     slave = Slave(host, port)
     try:
         slave.run()
     except beep.TerminateSession, e:
-        print 'Session terminated:', e
+        print>>sys.stderr, 'Session terminated:', e

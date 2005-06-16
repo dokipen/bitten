@@ -20,6 +20,7 @@
 
 import asyncore
 import getopt
+import logging
 import os.path
 import sys
 
@@ -49,23 +50,37 @@ class BittenProfileHandler(beep.Profile):
 
             rpy = beep.MIMEMessage(Element('ok'), beep.BEEP_XML)
             self.channel.send_rpy(msgno, rpy)
-            print 'Connected to %s (%s running %s %s [%s])' \
-                  % (elem.name, platform, os, os_version, os_family)
+            logging.info('Registered  slave %s (%s running %s %s [%s])',
+                         elem.name, platform, os, os_version, os_family)
 
 
 if __name__ == '__main__':
-    options, args = getopt.getopt(sys.argv[1:], 'p:', ['port='])
+    options, args = getopt.getopt(sys.argv[1:], 'p:dvq',
+                                  ['port=', 'debug', 'verbose', 'quiet'])
     if len(args) < 1:
         print>>sys.stderr, 'usage: %s [options] ENV_PATH' % os.path.basename(sys.argv[0])
         print>>sys.stderr
         print>>sys.stderr, 'Valid options:'
         print>>sys.stderr, '  -p [--port] arg\tport number to use (default: 7633)'
+        print>>sys.stderr, '  -q [--quiet]\tprint as little as possible'
+        print>>sys.stderr, '  -v [--verbose]\tprint as much as possible'
         sys.exit(2)
 
-    if len(args) > 1:
-        port = int(args[1])
-    else:
-        port = 7633
+    port = 7633
+    loglevel = logging.WARNING
+    for opt, arg in options:
+        if opt in ('-p', '--port'):
+            try:
+                port = int(arg)
+            except ValueError:
+                print>>sys.stderr, 'Port must be an integer'
+        elif opt in ('-d', '--debug'):
+            loglevel = logging.DEBUG
+        elif opt in ('-v', '--verbose'):
+            loglevel = logging.INFO
+        elif opt in ('-q', '--quiet'):
+            loglevel = logging.ERROR
+    logging.getLogger().setLevel(loglevel)
 
     listener = beep.Listener('localhost', port)
     listener.profiles[BittenProfileHandler.URI] = BittenProfileHandler()
