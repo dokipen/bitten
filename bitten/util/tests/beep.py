@@ -9,8 +9,8 @@ class MockSession(object):
     def __init__(self):
         self.sent_messages = []
 
-    def send_frame(self, cmd, channel, msgno, more, seqno, ansno=None,
-                   payload=''):
+    def send_data_frame(self, cmd, channel, msgno, more, seqno, ansno=None,
+                        payload=''):
         self.sent_messages.append((cmd, channel, msgno, more, seqno, ansno,
                                    payload.strip()))
 
@@ -44,7 +44,7 @@ class ChannelTestCase(unittest.TestCase):
         profile.
         """
         channel = beep.Channel(self.session, 0, self.profile)
-        channel.handle_frame('MSG', 0, False, 0, None, 'foo bar')
+        channel.handle_data_frame('MSG', 0, False, 0, None, 'foo bar')
         self.assertEqual(('MSG', 0, 'foo bar'),
                          self.profile.handled_messages[0])
 
@@ -54,8 +54,8 @@ class ChannelTestCase(unittest.TestCase):
         recombined message to the profile.
         """
         channel = beep.Channel(self.session, 0, self.profile)
-        channel.handle_frame('MSG', 0, True, 0, None, 'foo ')
-        channel.handle_frame('MSG', 0, False, 4, None, 'bar')
+        channel.handle_data_frame('MSG', 0, True, 0, None, 'foo ')
+        channel.handle_data_frame('MSG', 0, False, 4, None, 'bar')
         self.assertEqual(('MSG', 0, 'foo bar'),
                          self.profile.handled_messages[0])
 
@@ -64,10 +64,10 @@ class ChannelTestCase(unittest.TestCase):
         Verify that the channel detects out-of-sync frames and bails.
         """
         channel = beep.Channel(self.session, 0, self.profile)
-        channel.handle_frame('MSG', 0, False, 0L, None, 'foo bar')
+        channel.handle_data_frame('MSG', 0, False, 0L, None, 'foo bar')
         # The next sequence number should be 8; send 12 instead
-        self.assertRaises(beep.ProtocolError, channel.handle_frame, 'MSG', 0,
-                          False, 12L, None, 'foo baz')
+        self.assertRaises(beep.ProtocolError, channel.handle_data_frame, 'MSG',
+                          0, False, 12L, None, 'foo baz')
 
     def test_send_single_frame_message(self):
         """
@@ -130,7 +130,7 @@ class ChannelTestCase(unittest.TestCase):
         self.assertEqual(('MSG', 0, msgno, False, 0L, None, 'foo bar'),
                          self.session.sent_messages[0])
         assert msgno in channel.msgnos.keys()
-        channel.handle_frame('RPY', msgno, False, 0, None, '42')
+        channel.handle_data_frame('RPY', msgno, False, 0, None, '42')
         self.assertEqual(('RPY', msgno, '42'), self.profile.handled_messages[0])
         assert msgno not in channel.msgnos.keys()
 
