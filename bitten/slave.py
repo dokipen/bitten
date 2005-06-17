@@ -18,7 +18,6 @@
 #
 # Author: Christopher Lenz <cmlenz@gmx.de>
 
-import asyncore
 import getopt
 import logging
 import os
@@ -46,7 +45,7 @@ class Slave(beep.Initiator):
                                             handle_ok=self.channel_started)
 
 
-class BittenProfileHandler(beep.Profile):
+class BittenProfileHandler(beep.ProfileHandler):
     """Handles communication on the Bitten profile from the client perspective.
     """
     URI = 'http://bitten.cmlenz.net/beep-profile/'
@@ -90,7 +89,11 @@ if __name__ == '__main__':
 
     host = args[0]
     if len(args) > 1:
-        port = int(args[1])
+        try:
+            port = int(args[1])
+        except ValueError:
+            print>>sys.stderr, 'Port must be an integer'
+            sys.exit(2)
     else:
         port = 7633
 

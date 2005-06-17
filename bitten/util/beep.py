@@ -28,6 +28,7 @@ Current limitations:
 
 import asynchat
 import asyncore
+import bisect
 from email.Message import Message
 from email.Parser import Parser
 import logging
@@ -63,6 +64,7 @@ class Listener(asyncore.dispatcher):
         self.set_reuse_addr()
         self.bind((ip, port))
         self.profiles = {}
+        self.eventqueue = []
         logging.debug('Listening to connections on %s:%d', ip, port)
         self.listen(5)
 
@@ -82,14 +84,44 @@ class Listener(asyncore.dispatcher):
         """Start a new BEEP session."""
         conn, (ip, port) = self.accept()
         logging.debug('Connected to %s:%d', ip, port)
-        Session(conn, (ip, port), self.profiles, first_channelno=2)
+        Session(self, conn, (ip, port), self.profiles, first_channelno=2)
+
+    def run(self, timeout=15.0, granularity=5):
+        socket_map = asyncore.socket_map
+        last_event_check = 0
+        while socket_map:
+            now = int(time.time())
+            if (now - last_event_check) >= granularity:
+                last_event_check = now
+                fired = []
+                # yuck. i want my lisp.
+                i = j = 0
+                while i < len(self.eventqueue):
+                    when, what = self.eventqueue[i]
+                    if now >= when:
+                        fired.append(what)
+                        j = i + 1
+                    else:
+                        break
+                    i = i + 1
+                if fired:
+                    self.eventqueue = self.eventqueue[j:]
+                    for what in fired:
+                        what (self, now)
+            asyncore.poll(timeout)
+
+    def schedule (self, delta, callback):
+        now = int(time.time())
+        bisect.insort(self.eventqueue, (now + delta, callback))
 
 
 class Session(asynchat.async_chat):
     """A BEEP session between two peers."""
 
-    def __init__(self, conn, addr, profiles, first_channelno=1):
+    def __init__(self, listener=None, conn=None, addr=None, profiles=None,
+                 first_channelno=1):
         asynchat.async_chat.__init__(self, conn)
+        self.listener = listener
         self.addr = addr
         self.set_terminator('\r\n')
 
@@ -98,7 +130,7 @@ class Session(asynchat.async_chat):
         self.header = self.payload = None
         
         self.channelno = cycle_through(first_channelno, 2147483647, step=2)
-        self.channels = {0: Channel(self, 0, ManagementProfile())}
+        self.channels = {0: Channel(self, 0, ManagementProfileHandler())}
 
     def handle_connect(self):
         pass
@@ -214,7 +246,7 @@ class Initiator(Session):
                          `Profile` instance that will handle the communication
                          for that profile
         """
-        Session.__init__(self, None, None, profiles or {})
+        Session.__init__(self, profiles=profiles or {})
         self.terminated = False
         self.create_socket(socket.AF_INET, socket.SOCK_STREAM)
         logging.debug('Connecting to %s:%s', ip, port)
@@ -378,7 +410,7 @@ class Channel(object):
         del self.ansnos[msgno] # dealloc answer numbers for the message
 
 
-class Profile(object):
+class ProfileHandler(object):
     """Abstract base class for handlers of specific BEEP profiles.
     
     Concrete subclasses need to at least implement the `handle_msg()` method,
@@ -411,7 +443,7 @@ class Profile(object):
         pass
 
 
-class ManagementProfile(Profile):
+class ManagementProfileHandler(ProfileHandler):
     """Implementation of the BEEP management profile."""
 
     def handle_connect(self):

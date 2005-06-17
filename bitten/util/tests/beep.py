@@ -15,7 +15,7 @@ class MockSession(object):
                                    payload.strip()))
 
 
-class MockProfile(object):
+class MockProfileHandler(object):
 
     def __init__(self):
         self.handled_messages = []
@@ -36,7 +36,7 @@ class ChannelTestCase(unittest.TestCase):
 
     def setUp(self):
         self.session = MockSession()
-        self.profile = MockProfile()
+        self.profile = MockProfileHandler()
 
     def test_handle_single_msg_frame(self):
         """
