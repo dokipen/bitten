@@ -19,11 +19,8 @@
 # Author: Christopher Lenz <cmlenz@gmx.de>
 
 import logging
-import os.path
-import time
 
 from trac.env import Environment
-
 from bitten import __version__ as VERSION
 from bitten.util import beep
 from bitten.util.xmlio import Element, parse_xml
@@ -35,7 +32,7 @@ class Master(beep.Listener):
 
     def __init__(self, env_path, ip, port):
         beep.Listener.__init__(self, ip, port)
-        self.profiles[OrchestrationProfileHandler.URI] = OrchestrationProfileHandler()
+        self.profiles[OrchestrationProfileHandler.URI] = OrchestrationProfileHandler
 
         self.env = Environment(env_path)
         self.youngest_rev = None
@@ -43,12 +40,11 @@ class Master(beep.Listener):
         self.schedule(self.TRIGGER_INTERVAL, self.check_trigger)
 
     def check_trigger(self, master, when):
-        logging.debug('Checking for build triggers... (%s)'
-                      % time.strftime('%x %X', time.localtime(when)))
+        logging.debug('Checking for build triggers...')
         repos = self.env.get_repository()
         repos.sync()
         if repos.youngest_rev != self.youngest_rev:
-            logging.debug('New changesets detected: %s'
+            logging.info('New changeset detected: [%s]'
                           % repos.youngest_rev)
             self.youngest_rev = repos.youngest_rev
         repos.close()
@@ -64,6 +60,11 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
     def handle_connect(self):
         self.master = self.session.listener
         assert self.master
+        self.slave_name = None
+
+    def handle_disconnect(self):
+        del self.master.slaves[self.slave_name]
+        logging.info('Unregistered slave "%s"', self.slave_name)
 
     def handle_msg(self, msgno, msg):
         assert msg.get_content_type() == beep.BEEP_XML
@@ -79,12 +80,13 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
                     os_family = child.family
                     os_version = child.version
 
-            self.master.slaves[elem.name] = self
+            self.slave_name = elem.name
+            self.master.slaves[self.slave_name] = self
 
             rpy = beep.MIMEMessage(Element('ok'), beep.BEEP_XML)
             self.channel.send_rpy(msgno, rpy)
-            logging.info('Registered slave %s (%s running %s %s [%s])',
-                         elem.name, platform, os, os_version, os_family)
+            logging.info('Registered slave "%s" (%s running %s %s [%s])',
+                         self.slave_name, platform, os, os_version, os_family)
 
 
 if __name__ == '__main__':

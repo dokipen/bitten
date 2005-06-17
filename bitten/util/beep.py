@@ -63,7 +63,7 @@ class Listener(asyncore.dispatcher):
         self.create_socket(socket.AF_INET, socket.SOCK_STREAM)
         self.set_reuse_addr()
         self.bind((ip, port))
-        self.profiles = {}
+        self.profiles = {} # Mapping from URIs to ProfileHandler sub-classes
         self.eventqueue = []
         logging.debug('Listening to connections on %s:%d', ip, port)
         self.listen(5)
@@ -120,6 +120,18 @@ class Session(asynchat.async_chat):
 
     def __init__(self, listener=None, conn=None, addr=None, profiles=None,
                  first_channelno=1):
+        """Create the BEEP session.
+        
+        @param listener: The `Listener` this session belongs to, or `None` for
+                         a session by the initiating peer
+        @param conn: The connection
+        @param addr: The address of the remote peer, a (IP-address, port) tuple
+        @param profiles: A dictionary of supported profiles; the keys are the
+                         URIs of the profiles, the values are corresponding
+                         sub-classes of `ProfileHandler`
+        @param first_channelno: The first channel number to request; 0 for the
+                                peer in the listening role, 1 for initiators
+        """
         asynchat.async_chat.__init__(self, conn)
         self.listener = listener
         self.addr = addr
@@ -130,7 +142,7 @@ class Session(asynchat.async_chat):
         self.header = self.payload = None
         
         self.channelno = cycle_through(first_channelno, 2147483647, step=2)
-        self.channels = {0: Channel(self, 0, ManagementProfileHandler())}
+        self.channels = {0: Channel(self, 0, ManagementProfileHandler)}
 
     def handle_connect(self):
         pass
@@ -306,12 +318,12 @@ class Initiator(Session):
 class Channel(object):
     """A specific channel of a BEEP session."""
 
-    def __init__(self, session, channelno, profile):
+    def __init__(self, session, channelno, profile_cls):
         """Create the channel.
 
         @param session The `Session` object that the channel belongs to
         @param channelno The channel number
-        @param profile The associated `Profile` object
+        @param profile The associated `ProfileHandler` class
         """
         self.session = session
         self.channelno = channelno
@@ -326,11 +338,15 @@ class Channel(object):
         self.seqno = [serial(), serial()] # incoming, outgoing sequence numbers
         self.mime_parser = Parser()
 
-        self.profile = profile
+        self.profile = profile_cls()
         self.profile.session = self.session
         self.profile.channel = self
 
         self.profile.handle_connect()
+
+    def close(self):
+        self.profile.handle_disconnect()
+        del self.session.channels[self.channelno]
 
     def handle_seq_frame(self, ackno, window):
         """Process a TCP mapping frame (SEQ).
@@ -457,7 +473,9 @@ class ProfileHandler(object):
     def handle_connect(self):
         """Called when the channel this profile is associated with is
         initially started."""
-        pass
+
+    def handle_disconnect(self):
+        """Called when the channel this profile is associated with is closed."""
 
     def handle_msg(self, msgno, message):
         raise NotImplementedError
@@ -518,7 +536,7 @@ class ManagementProfileHandler(ProfileHandler):
             if self.session.channels[channelno].msgnos:
                 self.send_error(msgno, 550, 'Channel waiting for replies')
                 return
-            del self.session.channels[channelno]
+            self.session.channels[channelno].close()
             message = MIMEMessage(Element('ok'), BEEP_XML)
             self.channel.send_rpy(msgno, message)
             if not self.session.channels:
@@ -551,7 +569,7 @@ class ManagementProfileHandler(ProfileHandler):
         def handle_reply(cmd, msgno, message):
             if cmd == 'RPY':
                 logging.debug('Channel %d closed', channelno)
-                del self.session.channels[channelno]
+                self.session.channels[channelno].close()
                 if handle_ok is not None:
                     handle_ok()
                 if not self.session.channels:
@@ -580,12 +598,11 @@ class ManagementProfileHandler(ProfileHandler):
         def handle_reply(cmd, msgno, message):
             if cmd == 'RPY':
                 elem = parse_xml(message.get_payload())
-                for profile in [p for p in profiles if p.URI == elem.uri]:
+                for cls in [cls for cls in profiles if cls.URI == elem.uri]:
                     logging.debug('Channel %d started with profile %s',
                                   channelno, elem.uri)
                     self.session.channels[channelno] = Channel(self.session,
-                                                               channelno,
-                                                               profile())
+                                                               channelno, cls)
                     break
                 if handle_ok is not None:
                     handle_ok(channelno, elem.uri)
