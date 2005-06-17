@@ -36,34 +36,33 @@ class ChannelTestCase(unittest.TestCase):
 
     def setUp(self):
         self.session = MockSession()
-        self.profile = MockProfileHandler()
 
     def test_handle_single_msg_frame(self):
         """
         Verify that the channel correctly passes a single frame MSG to the
         profile.
         """
-        channel = beep.Channel(self.session, 0, self.profile)
+        channel = beep.Channel(self.session, 0, MockProfileHandler)
         channel.handle_data_frame('MSG', 0, False, 0, None, 'foo bar')
         self.assertEqual(('MSG', 0, 'foo bar'),
-                         self.profile.handled_messages[0])
+                         channel.profile.handled_messages[0])
 
     def test_handle_segmented_msg_frames(self):
         """
         Verify that the channel combines two segmented messages and passed the
         recombined message to the profile.
         """
-        channel = beep.Channel(self.session, 0, self.profile)
+        channel = beep.Channel(self.session, 0, MockProfileHandler)
         channel.handle_data_frame('MSG', 0, True, 0, None, 'foo ')
         channel.handle_data_frame('MSG', 0, False, 4, None, 'bar')
         self.assertEqual(('MSG', 0, 'foo bar'),
-                         self.profile.handled_messages[0])
+                         channel.profile.handled_messages[0])
 
     def test_handle_out_of_sync_frame(self):
         """
         Verify that the channel detects out-of-sync frames and bails.
         """
-        channel = beep.Channel(self.session, 0, self.profile)
+        channel = beep.Channel(self.session, 0, MockProfileHandler)
         channel.handle_data_frame('MSG', 0, False, 0L, None, 'foo bar')
         # The next sequence number should be 8; send 12 instead
         self.assertRaises(beep.ProtocolError, channel.handle_data_frame, 'MSG',
@@ -75,7 +74,7 @@ class ChannelTestCase(unittest.TestCase):
         transmission with the correct parameters. Also assert that the
         corresponding message number (0) is reserved.
         """
-        channel = beep.Channel(self.session, 0, self.profile)
+        channel = beep.Channel(self.session, 0, MockProfileHandler)
         msgno = channel.send_msg(beep.MIMEMessage('foo bar'))
         self.assertEqual(('MSG', 0, msgno, False, 0L, None, 'foo bar'),
                          self.session.sent_messages[0])
@@ -86,7 +85,7 @@ class ChannelTestCase(unittest.TestCase):
         Verify that the sequence numbers of outgoing frames are incremented as
         expected.
         """
-        channel = beep.Channel(self.session, 0, self.profile)
+        channel = beep.Channel(self.session, 0, MockProfileHandler)
         channel.send_msg(beep.MIMEMessage('foo bar'))
         channel.send_rpy(0, beep.MIMEMessage('nil'))
         self.assertEqual(('MSG', 0, 0, False, 0L, None, 'foo bar'),
@@ -99,7 +98,7 @@ class ChannelTestCase(unittest.TestCase):
         Verify that the message number is incremented for subsequent outgoing
         messages.
         """
-        channel = beep.Channel(self.session, 0, self.profile)
+        channel = beep.Channel(self.session, 0, MockProfileHandler)
         msgno = channel.send_msg(beep.MIMEMessage('foo bar'))
         assert msgno == 0
         self.assertEqual(('MSG', 0, msgno, False, 0L, None, 'foo bar'),
@@ -115,7 +114,7 @@ class ChannelTestCase(unittest.TestCase):
         """
         Verify that sending an ANS message is processed correctly.
         """
-        channel = beep.Channel(self.session, 0, self.profile)
+        channel = beep.Channel(self.session, 0, MockProfileHandler)
         channel.send_rpy(0, beep.MIMEMessage('foo bar'))
         self.assertEqual(('RPY', 0, 0, False, 0L, None, 'foo bar'),
                          self.session.sent_messages[0])
@@ -125,20 +124,21 @@ class ChannelTestCase(unittest.TestCase):
         Verify that a message number is deallocated after a final reply has been
         received.
         """
-        channel = beep.Channel(self.session, 0, self.profile)
+        channel = beep.Channel(self.session, 0, MockProfileHandler)
         msgno = channel.send_msg(beep.MIMEMessage('foo bar'))
         self.assertEqual(('MSG', 0, msgno, False, 0L, None, 'foo bar'),
                          self.session.sent_messages[0])
         assert msgno in channel.msgnos.keys()
         channel.handle_data_frame('RPY', msgno, False, 0, None, '42')
-        self.assertEqual(('RPY', msgno, '42'), self.profile.handled_messages[0])
+        self.assertEqual(('RPY', msgno, '42'),
+                         channel.profile.handled_messages[0])
         assert msgno not in channel.msgnos.keys()
 
     def test_send_error(self):
         """
         Verify that sending an ERR message is processed correctly.
         """
-        channel = beep.Channel(self.session, 0, self.profile)
+        channel = beep.Channel(self.session, 0, MockProfileHandler)
         channel.send_err(0, beep.MIMEMessage('oops'))
         self.assertEqual(('ERR', 0, 0, False, 0L, None, 'oops'),
                          self.session.sent_messages[0])
@@ -147,7 +147,7 @@ class ChannelTestCase(unittest.TestCase):
         """
         Verify that sending an ANS message is processed correctly.
         """
-        channel = beep.Channel(self.session, 0, self.profile)
+        channel = beep.Channel(self.session, 0, MockProfileHandler)
         ansno = channel.send_ans(0, beep.MIMEMessage('foo bar'))
         assert ansno == 0
         self.assertEqual(('ANS', 0, 0, False, 0L, ansno, 'foo bar'),
