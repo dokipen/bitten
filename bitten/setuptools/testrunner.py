@@ -24,8 +24,7 @@ import time
 from distutils.core import Command
 from unittest import _TextTestResult, TextTestRunner
 
-from elementtree.ElementTree import Element, ElementTree, SubElement
-
+from bitten.util.xmlio import Element, SubElement
 
 class XMLTestResult(_TextTestResult):
 
@@ -56,7 +55,6 @@ class XMLTestRunner(TextTestRunner):
 
     def run(self, test):
         result = TextTestRunner.run(self, test)
-
         if not self.xml_stream:
             return result
 
@@ -72,20 +70,15 @@ class XMLTestRunner(TextTestRunner):
                 status = 'failure'
                 tb = [f[1] for f in result.failures if f[0] is testcase][0]
 
-            test_elem = SubElement(root, 'test', file=filename,
-                                   name=str(testcase), status=status,
-                                   duration=str(timetaken))
-
+            test_elem = SubElement(root, 'test', file=filename, name=testcase,
+                                   status=status, duration=timetaken)
             description = testcase.shortDescription()
             if description:
-                desc_elem = SubElement(test_elem, 'description')
-                desc_elem.test = description
-
+                desc_elem = SubElement(test_elem, 'description')[description]
             if tb:
-                tb_elem = SubElement(test_elem, 'traceback')
-                tb_elem.text = tb
+                tb_elem = SubElement(test_elem, 'traceback')[tb]
 
-        ElementTree(root).write(self.xml_stream)
+        root.write(self.xml_stream, newlines=True)
         return result
 
 
@@ -117,7 +110,6 @@ class unittest(Command):
             trace = Trace(ignoredirs=[sys.prefix, sys.exec_prefix],
                           trace=False, count=True)
             trace.runfunc(self._run_tests)
-            # make a report, telling it where you want output
             results = trace.results()
             real_stdout = sys.stdout
             sys.stdout = open(self.coverage_results, 'w')

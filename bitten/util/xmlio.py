@@ -18,6 +18,7 @@
 #
 # Author: Christopher Lenz <cmlenz@gmx.de>
 
+import os
 try:
     from cStringIO import StringIO
 except ImportError:
@@ -88,27 +89,29 @@ class Element(object):
     def __str__(self):
         """Return a string representation of the XML element."""
         buf = StringIO()
-        buf.write('<')
-        buf.write(self.tagname)
+        self.write(buf)
+        return buf.getvalue()
+
+    def write(self, out, newlines=False):
+        """Serializes the element and writes the XML to the given output
+        stream.
+        """
+        out.write('<')
+        out.write(self.tagname)
         for name, value in self.attrs.items():
-            buf.write(' ')
-            buf.write(name)
-            buf.write('="')
-            buf.write(self._escape_attr(value))
-            buf.write('"')
+            out.write(' %s="%s"' % (name, self._escape_attr(value)))
         if self.children:
-            buf.write('>')
+            out.write('>')
             for child in self.children:
                 if isinstance(child, Element):
-                    buf.write(str(child))
+                    child.write(out, newlines=newlines)
                 else:
-                    buf.write(self._escape_text(child))
-            buf.write('</')
-            buf.write(self.tagname)
-            buf.write('>')
+                    out.write(self._escape_text(child))
+            out.write('</' + self.tagname + '>')
         else:
-            buf.write('/>')
-        return buf.getvalue()
+            out.write('/>')
+        if newlines:
+            out.write(os.linesep)
 
     def _escape_text(self, text):
         return str(text).replace('&', '&amp;').replace('<', '&lt;') \
@@ -116,6 +119,19 @@ class Element(object):
 
     def _escape_attr(self, attr):
         return self._escape_text(attr).replace('"', '&#34;')
+
+
+class SubElement(Element):
+
+    __slots__ = []
+
+    def __init__(self, parent, tagname, **attrs):
+        """Create an XML element using the specified tag name.
+        
+        All keyword arguments are handled as attributes of the element.
+        """
+        Element.__init__(self, tagname, **attrs)
+        parent.children.append(self)
 
 
 def parse_xml(text):
