@@ -21,9 +21,10 @@
 
 from distutils.core import setup
 
+from bitten import __version__ as VERSION
 from bitten.setuptools.testrunner import unittest
 
-setup(name='bitten', version='1.0',
-      packages=['bitten', 'bitten.distutils', 'bitten.recipe', 'bitten.util'],
+setup(name='bitten', version=VERSION,
+      packages=['bitten', 'bitten.recipe', 'bitten.setuptools', 'bitten.util'],
       author="Christopher Lenz", author_email="cmlenz@gmx.de",
       url="http://bitten.cmlenz.net/", cmdclass={'unittest': unittest})

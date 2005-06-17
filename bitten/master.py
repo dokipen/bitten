@@ -18,14 +18,13 @@
 #
 # Author: Christopher Lenz <cmlenz@gmx.de>
 
-import getopt
 import logging
 import os.path
-import sys
 import time
 
 from trac.env import Environment
 
+from bitten import __version__ as VERSION
 from bitten.util import beep
 from bitten.util.xmlio import Element, parse_xml
 
@@ -36,7 +35,7 @@ class Master(beep.Listener):
 
     def __init__(self, env_path, ip, port):
         beep.Listener.__init__(self, ip, port)
-        self.profiles[BittenProfileHandler.URI] = BittenProfileHandler()
+        self.profiles[OrchestrationProfileHandler.URI] = OrchestrationProfileHandler()
 
         self.env = Environment(env_path)
         self.youngest_rev = None
@@ -56,8 +55,11 @@ class Master(beep.Listener):
         self.schedule(self.TRIGGER_INTERVAL, self.check_trigger)
 
 
-class BittenProfileHandler(beep.ProfileHandler):
-    URI = 'http://bitten.cmlenz.net/beep-profile/'
+class OrchestrationProfileHandler(beep.ProfileHandler):
+    """Handler for communication on the Bitten build orchestration profile from
+    the perspective of the build master.
+    """
+    URI = 'http://bitten.cmlenz.net/beep/orchestration'
 
     def handle_connect(self):
         self.master = self.session.listener
@@ -86,37 +88,43 @@ class BittenProfileHandler(beep.ProfileHandler):
 
 
 if __name__ == '__main__':
-    options, args = getopt.getopt(sys.argv[1:], 'p:dvq',
-                                  ['port=', 'debug', 'verbose', 'quiet'])
+    from optparse import OptionParser
+
+    parser = OptionParser(usage='usage: %prog [options] env-path',
+                          version='%%prog %s' % VERSION)
+    parser.add_option('-p', '--port', action='store', type='int', dest='port',
+                      help='port number to use')
+    parser.add_option('-H', '--host', action='store', dest='host',
+                      help='the host name of IP address to bind to')
+    parser.add_option('--debug', action='store_const', dest='loglevel',
+                      const=logging.DEBUG, help='enable debugging output')
+    parser.add_option('-v', '--verbose', action='store_const', dest='loglevel',
+                      const=logging.INFO, help='print as much as possible')
+    parser.add_option('-q', '--quiet', action='store_const', dest='loglevel',
+                      const=logging.ERROR, help='print as little as possible')
+    parser.set_defaults(port=7633, loglevel=logging.WARNING)
+    options, args = parser.parse_args()
+    
     if len(args) < 1:
-        print>>sys.stderr, 'usage: %s [options] ENV_PATH' \
-                           % os.path.basename(sys.argv[0])
-        print>>sys.stderr
-        print>>sys.stderr, 'Valid options:'
-        print>>sys.stderr, '  -p [--port] arg\tport number to use (default: 7633)'
-        print>>sys.stderr, '  -q [--quiet]\tprint as little as possible'
-        print>>sys.stderr, '  -v [--verbose]\tprint as much as possible'
-        sys.exit(2)
+        parser.error('incorrect number of arguments')
     env_path = args[0]
 
-    port = 7633
-    loglevel = logging.WARNING
-    for opt, arg in options:
-        if opt in ('-p', '--port'):
-            try:
-                port = int(arg)
-            except ValueError:
-                print>>sys.stderr, 'Port must be an integer'
-                sys.exit(2)
-        elif opt in ('-d', '--debug'):
-            loglevel = logging.DEBUG
-        elif opt in ('-v', '--verbose'):
-            loglevel = logging.INFO
-        elif opt in ('-q', '--quiet'):
-            loglevel = logging.ERROR
-    logging.getLogger().setLevel(loglevel)
+    logging.getLogger().setLevel(options.loglevel)
+    port = options.port
+    if not (1 <= port <= 65535):
+        parser.error('port must be an integer in the range 1-65535')
 
-    master = Master(env_path, 'localhost', port)
+    host = options.host
+    if not host:
+        import socket
+        ip = socket.gethostbyname(socket.gethostname())
+        try:
+            host = socket.gethostbyaddr(ip)[0]
+        except socket.error, e:
+            logging.warning('Reverse host name lookup failed (%s)', e)
+            host = ip
+
+    master = Master(env_path, host, port)
     try:
         master.run()
     except KeyboardInterrupt:

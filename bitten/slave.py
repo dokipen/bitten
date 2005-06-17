@@ -18,12 +18,12 @@
 #
 # Author: Christopher Lenz <cmlenz@gmx.de>
 
-import getopt
 import logging
 import os
 import sys
 import time
 
+from bitten import __version__ as VERSION
 from bitten.util import beep
 from bitten.util.xmlio import Element, parse_xml
 
@@ -34,21 +34,22 @@ class Slave(beep.Initiator):
     terminated = False
 
     def channel_started(self, channelno, profile_uri):
-        if profile_uri == BittenProfileHandler.URI:
+        if profile_uri == OrchestrationProfileHandler.URI:
             self.channelno = channelno
 
     def greeting_received(self, profiles):
-        if BittenProfileHandler.URI not in profiles:
+        if OrchestrationProfileHandler.URI not in profiles:
             logging.error('Peer does not support Bitten profile')
             raise beep.TerminateSession, 'Peer does not support Bitten profile'
-        self.channels[0].profile.send_start([BittenProfileHandler],
+        self.channels[0].profile.send_start([OrchestrationProfileHandler],
                                             handle_ok=self.channel_started)
 
 
-class BittenProfileHandler(beep.ProfileHandler):
-    """Handles communication on the Bitten profile from the client perspective.
+class OrchestrationProfileHandler(beep.ProfileHandler):
+    """Handler for communication on the Bitten build orchestration profile from
+    the perspective of the build slave.
     """
-    URI = 'http://bitten.cmlenz.net/beep-profile/'
+    URI = 'http://bitten.cmlenz.net/beep/orchestration'
 
     def handle_connect(self):
         """Register with the build master."""
@@ -71,45 +72,37 @@ class BittenProfileHandler(beep.ProfileHandler):
                               handle_reply)
 
     def handle_msg(self, msgno, msg):
-        # TODO: Handle build initiation requests
+        # TODO: Handle build initiation requests etc
         pass
 
 
 if __name__ == '__main__':
-    options, args = getopt.getopt(sys.argv[1:], 'dvq',
-                                  ['debug', 'verbose', 'quiet'])
-    if len(args) < 1:
-        print>>sys.stderr, 'Usage: %s [options] host [port]' % sys.argv[0]
-        print>>sys.stderr
-        print>>sys.stderr, 'Valid options:'
-        print>>sys.stderr, '  -d [--debug]\tenable debugging output'
-        print>>sys.stderr, '  -q [--quiet]\tprint as little as possible'
-        print>>sys.stderr, '  -v [--verbose]\tprint as much as possible'
-        sys.exit(2)
+    from optparse import OptionParser
 
+    parser = OptionParser(usage='usage: %prog [options] host [port]',
+                          version='%%prog %s' % VERSION)
+    parser.add_option('--debug', action='store_const', dest='loglevel',
+                      const=logging.DEBUG, help='enable debugging output')
+    parser.add_option('-v', '--verbose', action='store_const', dest='loglevel',
+                      const=logging.INFO, help='print as much as possible')
+    parser.add_option('-q', '--quiet', action='store_const', dest='loglevel',
+                      const=logging.ERROR, help='print as little as possible')
+    parser.set_defaults(loglevel=logging.WARNING)
+    options, args = parser.parse_args()
+
+    if len(args) < 1:
+        parser.error('incorrect number of arguments')
     host = args[0]
     if len(args) > 1:
         try:
             port = int(args[1])
-        except ValueError:
-            print>>sys.stderr, 'Port must be an integer'
-            sys.exit(2)
+            assert (1 <= port <= 65535), 'port number out of range'
+        except AssertionError, ValueError:
+            parser.error('port must be an integer in the range 1-65535')
     else:
         port = 7633
 
-    loglevel = logging.WARNING
-    for opt, arg in options:
-        if opt in ('-d', '--debug'):
-            loglevel = logging.DEBUG
-        elif opt in ('-v', '--verbose'):
-            loglevel = logging.INFO
-        elif opt in ('-q', '--quiet'):
-            loglevel = logging.ERROR
-    logger = logging.getLogger()
-    logger.setLevel(loglevel)
+    logging.getLogger().setLevel(options.loglevel)
 
     slave = Slave(host, port)
-    try:
-        slave.run()
-    except beep.TerminateSession, e:
-        print>>sys.stderr, 'Session terminated:', e
+    slave.run()
