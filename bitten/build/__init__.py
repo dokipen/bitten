@@ -17,5 +17,3 @@
 # Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 #
 # Author: Christopher Lenz <cmlenz@gmx.de>
-
-from bitten.recipe.api import *

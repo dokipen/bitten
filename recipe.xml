@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <recipe description="My project"
-    xmlns:c="bitten:bitten.recipe.ctools"
-    xmlns:python="bitten:bitten.recipe.pythontools">
+    xmlns:c="bitten:bitten.build.ctools"
+    xmlns:python="bitten:bitten.build.pythontools">
 
     <step id="build" title="Let Distutils build the python code">
         <python:distutils command="build"/>

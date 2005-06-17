@@ -25,6 +25,6 @@ from bitten import __version__ as VERSION
 from bitten.setuptools.testrunner import unittest
 
 setup(name='bitten', version=VERSION,
-      packages=['bitten', 'bitten.recipe', 'bitten.setuptools', 'bitten.util'],
+      packages=['bitten', 'bitten.build', 'bitten.setuptools', 'bitten.util'],
       author="Christopher Lenz", author_email="cmlenz@gmx.de",
       url="http://bitten.cmlenz.net/", cmdclass={'unittest': unittest})

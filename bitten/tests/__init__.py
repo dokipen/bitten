@@ -20,7 +20,7 @@
 
 import unittest
 
-from bitten.recipe import tests as recipe
+from bitten.tests import recipe
 from bitten.util import tests as util
 
 def suite():
