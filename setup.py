@@ -21,7 +21,7 @@
 
 from distutils.core import setup
 
-from bitten.distutils.testrunner import unittest
+from bitten.setuptools.testrunner import unittest
 
 setup(name='bitten', version='1.0',
       packages=['bitten', 'bitten.distutils', 'bitten.recipe', 'bitten.util'],
