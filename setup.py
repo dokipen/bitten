@@ -22,7 +22,7 @@
 from distutils.core import setup
 
 from bitten import __version__ as VERSION
-from bitten.setuptools.testrunner import unittest
+from bitten.util.testrunner import unittest
 
 setup(name='bitten', version=VERSION,
       packages=['bitten', 'bitten.build', 'bitten.setuptools', 'bitten.util'],
