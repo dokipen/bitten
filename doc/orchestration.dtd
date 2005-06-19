@@ -1,0 +1,22 @@
+<!-- DTD for the Bitten build orchestration BEEP profile. -->
+
+<!ELEMENT register    (platform, os)>
+<!ATTLIST register
+          name        CDATA             #REQUIRED
+          maintainer  CDATA             #IMPLIED>
+
+<!ELEMENT platform    #PCDATA>
+
+<!ELEMENT os          #PCDATA>
+<!ATTLIST os
+          family      CDATA             #REQUIRED
+          version     CDATA             #IMPLIED>
+
+<!ELEMENT build       #PCDATA>
+
+<!ELEMENT ok          EMPTY>
+
+<!ELEMENT error       #PCDATA>
+<!ATTLIST error
+          code        CDATA             #REQUIRED
+          xml:lang    CDATA             #IMPLIED>
