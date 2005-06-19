@@ -24,25 +24,16 @@ import sys
 import time
 
 from bitten import __version__ as VERSION
-from bitten.util import beep
-from bitten.util.xmlio import Element, parse_xml
+from bitten.util import beep, xmlio
 
 
 class Slave(beep.Initiator):
-
-    channelno = None # The channel number used by the bitten profile
-    terminated = False
-
-    def channel_started(self, channelno, profile_uri):
-        if profile_uri == OrchestrationProfileHandler.URI:
-            self.channelno = channelno
 
     def greeting_received(self, profiles):
         if OrchestrationProfileHandler.URI not in profiles:
             logging.error('Peer does not support Bitten profile')
             raise beep.TerminateSession, 'Peer does not support Bitten profile'
-        self.channels[0].profile.send_start([OrchestrationProfileHandler],
-                                            handle_ok=self.channel_started)
+        self.channels[0].profile.send_start([OrchestrationProfileHandler])
 
 
 class OrchestrationProfileHandler(beep.ProfileHandler):
@@ -51,25 +42,25 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
     """
     URI = 'http://bitten.cmlenz.net/beep/orchestration'
 
-    def handle_connect(self):
+    def handle_connect(self, init_elem=None):
         """Register with the build master."""
-        sysname, nodename, release, version, machine = os.uname()
-        logging.info('Registering with build master as %s', nodename)
-        register = Element('register', name=nodename)[
-            Element('platform')[machine],
-            Element('os', family=os.name, version=release)[sysname]
-        ]
         def handle_reply(cmd, msgno, msg):
             if cmd == 'ERR':
                 if msg.get_content_type() == beep.BEEP_XML:
-                    elem = parse_xml(msg.get_payload())
+                    elem = xmlio.parse(msg.get_payload())
                     if elem.tagname == 'error':
                         raise beep.TerminateSession, \
-                              '%s (%s)' % (elem.gettext(), elem.code)
+                              '%s (%d)' % (elem.gettext(), int(elem.code))
                 raise beep.TerminateSession, 'Registration failed!'
             logging.info('Registration successful')
-        self.channel.send_msg(beep.MIMEMessage(register, beep.BEEP_XML),
-                              handle_reply)
+
+        sysname, nodename, release, version, machine = os.uname()
+        logging.info('Registering with build master as %s', nodename)
+        xml = xmlio.Element('register', name=nodename)[
+            xmlio.Element('platform')[machine],
+            xmlio.Element('os', family=os.name, version=release)[sysname]
+        ]
+        self.channel.send_msg(beep.MIMEMessage(xml), handle_reply)
 
     def handle_msg(self, msgno, msg):
         # TODO: Handle build initiation requests etc

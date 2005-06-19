@@ -67,6 +67,14 @@ class Element(object):
 
     >>> print Element('foo')['Hello ', Element('b')['world']]
     <foo>Hello <b>world</b></foo>
+
+    Finally, text starting with an opening angle bracket is treated specially:
+    under the assumption that the text actually contains XML itself, the whole
+    thing is wrapped in a CDATA block instead of escaping all special characters
+    individually:
+
+    >>> print Element('foo')['<bar a="3" b="4"><baz/></bar>']
+    <foo><![CDATA[<bar a="3" b="4"><baz/></bar>]]></foo>
     """
     __slots__ = ['tagname', 'attrs', 'children']
 
@@ -83,7 +91,8 @@ class Element(object):
         """Add child nodes to an element."""
         if not isinstance(children, (list, tuple)):
             children = [children]
-        self.children = children
+        self.children = [child for child in children
+                         if child is not None and child != '']
         return self
 
     def __str__(self):
@@ -106,7 +115,10 @@ class Element(object):
                 if isinstance(child, Element):
                     child.write(out, newlines=newlines)
                 else:
-                    out.write(self._escape_text(child))
+                    if child[0] == '<':
+                        out.write('<![CDATA[' + child + ']]>')
+                    else:
+                        out.write(self._escape_text(child))
             out.write('</' + self.tagname + '>')
         else:
             out.write('/>')
@@ -134,7 +146,7 @@ class SubElement(Element):
         parent.children.append(self)
 
 
-def parse_xml(text):
+def parse(text):
     from xml.dom import minidom
     if isinstance(text, (str, unicode)):
         dom = minidom.parseString(text)

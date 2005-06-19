@@ -1,8 +1,7 @@
 import logging
 import unittest
 
-from bitten.util import beep
-from bitten.util.xmlio import Element
+from bitten.util import beep, xmlio
 
 
 class MockSession(beep.Initiator):
@@ -12,9 +11,10 @@ class MockSession(beep.Initiator):
         self.profiles = {}
         self.sent_messages = []
         self.channelno = beep.cycle_through(1, 2147483647, step=2)
-        self.channels = {0: beep.Channel(self, 0, beep.ManagementProfileHandler)}
+        self.channels = {0: beep.Channel(self, 0,
+                                         beep.ManagementProfileHandler)}
         del self.sent_messages[0] # Clear out the management greeting
-        self.channels[0].seqno = [beep.serial(), beep.serial()]
+        self.channels[0].seqno = [beep.SerialNumber(), beep.SerialNumber()]
 
     def close(self):
         self.closed = True
@@ -31,9 +31,10 @@ class MockProfileHandler(object):
 
     def __init__(self, channel):
         self.handled_messages = []
+        self.init_elem = None
 
-    def handle_connect(self):
-        pass
+    def handle_connect(self, init_elem=None):
+        self.init_elem = init_elem
 
     def handle_disconnect(self):
         pass
@@ -90,7 +91,7 @@ class ChannelTestCase(unittest.TestCase):
         corresponding message number (0) is reserved.
         """
         channel = beep.Channel(self.session, 0, MockProfileHandler)
-        msgno = channel.send_msg(beep.MIMEMessage('foo bar'))
+        msgno = channel.send_msg(beep.MIMEMessage('foo bar', None))
         self.assertEqual(('MSG', 0, msgno, False, 0L, None, 'foo bar'),
                          self.session.sent_messages[0])
         assert msgno in channel.msgnos
@@ -101,8 +102,8 @@ class ChannelTestCase(unittest.TestCase):
         expected.
         """
         channel = beep.Channel(self.session, 0, MockProfileHandler)
-        channel.send_msg(beep.MIMEMessage('foo bar'))
-        channel.send_rpy(0, beep.MIMEMessage('nil'))
+        channel.send_msg(beep.MIMEMessage('foo bar', None))
+        channel.send_rpy(0, beep.MIMEMessage('nil', None))
         self.assertEqual(('MSG', 0, 0, False, 0L, None, 'foo bar'),
                          self.session.sent_messages[0])
         self.assertEqual(('RPY', 0, 0, False, 8L, None, 'nil'),
@@ -114,12 +115,12 @@ class ChannelTestCase(unittest.TestCase):
         messages.
         """
         channel = beep.Channel(self.session, 0, MockProfileHandler)
-        msgno = channel.send_msg(beep.MIMEMessage('foo bar'))
+        msgno = channel.send_msg(beep.MIMEMessage('foo bar', None))
         assert msgno == 0
         self.assertEqual(('MSG', 0, msgno, False, 0L, None, 'foo bar'),
                          self.session.sent_messages[0])
         assert msgno in channel.msgnos
-        msgno = channel.send_msg(beep.MIMEMessage('foo baz'))
+        msgno = channel.send_msg(beep.MIMEMessage('foo baz', None))
         assert msgno == 1
         self.assertEqual(('MSG', 0, msgno, False, 8L, None, 'foo baz'),
                          self.session.sent_messages[1])
@@ -130,7 +131,7 @@ class ChannelTestCase(unittest.TestCase):
         Verify that sending an ANS message is processed correctly.
         """
         channel = beep.Channel(self.session, 0, MockProfileHandler)
-        channel.send_rpy(0, beep.MIMEMessage('foo bar'))
+        channel.send_rpy(0, beep.MIMEMessage('foo bar', None))
         self.assertEqual(('RPY', 0, 0, False, 0L, None, 'foo bar'),
                          self.session.sent_messages[0])
 
@@ -140,7 +141,7 @@ class ChannelTestCase(unittest.TestCase):
         received.
         """
         channel = beep.Channel(self.session, 0, MockProfileHandler)
-        msgno = channel.send_msg(beep.MIMEMessage('foo bar'))
+        msgno = channel.send_msg(beep.MIMEMessage('foo bar', None))
         self.assertEqual(('MSG', 0, msgno, False, 0L, None, 'foo bar'),
                          self.session.sent_messages[0])
         assert msgno in channel.msgnos
@@ -154,7 +155,7 @@ class ChannelTestCase(unittest.TestCase):
         Verify that sending an ERR message is processed correctly.
         """
         channel = beep.Channel(self.session, 0, MockProfileHandler)
-        channel.send_err(0, beep.MIMEMessage('oops'))
+        channel.send_err(0, beep.MIMEMessage('oops', None))
         self.assertEqual(('ERR', 0, 0, False, 0L, None, 'oops'),
                          self.session.sent_messages[0])
 
@@ -163,12 +164,12 @@ class ChannelTestCase(unittest.TestCase):
         Verify that sending an ANS message is processed correctly.
         """
         channel = beep.Channel(self.session, 0, MockProfileHandler)
-        ansno = channel.send_ans(0, beep.MIMEMessage('foo bar'))
+        ansno = channel.send_ans(0, beep.MIMEMessage('foo bar', None))
         assert ansno == 0
         self.assertEqual(('ANS', 0, 0, False, 0L, ansno, 'foo bar'),
                          self.session.sent_messages[0])
         assert 0 in channel.ansnos
-        ansno = channel.send_ans(0, beep.MIMEMessage('foo baz'))
+        ansno = channel.send_ans(0, beep.MIMEMessage('foo baz', None))
         assert ansno == 1
         self.assertEqual(('ANS', 0, 0, False, 8L, ansno, 'foo baz'),
                          self.session.sent_messages[1])
@@ -193,8 +194,8 @@ class ManagementProfileHandlerTestCase(unittest.TestCase):
         """
         self.profile.handle_connect()
         self.assertEqual(1, len(self.session.sent_messages))
-        xml = Element('greeting')
-        message = beep.MIMEMessage(xml, beep.BEEP_XML).as_string()
+        xml = xmlio.Element('greeting')
+        message = beep.MIMEMessage(xml).as_string()
         self.assertEqual(('RPY', 0, 0, False, 0, None, message),
                          self.session.sent_messages[0])
 
@@ -206,10 +207,10 @@ class ManagementProfileHandlerTestCase(unittest.TestCase):
         self.session.profiles[MockProfileHandler.URI] = MockProfileHandler
         self.profile.handle_connect()
         self.assertEqual(1, len(self.session.sent_messages))
-        xml = Element('greeting')[
-            Element('profile', uri=MockProfileHandler.URI)
+        xml = xmlio.Element('greeting')[
+            xmlio.Element('profile', uri=MockProfileHandler.URI)
         ]
-        message = beep.MIMEMessage(xml, beep.BEEP_XML).as_string()
+        message = beep.MIMEMessage(xml).as_string()
         self.assertEqual(('RPY', 0, 0, False, 0, None, message),
                          self.session.sent_messages[0])
 
@@ -223,38 +224,38 @@ class ManagementProfileHandlerTestCase(unittest.TestCase):
             self.assertEqual(['test'], profiles)
         greeting_received.called = False
         self.session.greeting_received = greeting_received
-        xml = Element('greeting')[Element('profile', uri='test')]
-        message = beep.MIMEMessage(xml, beep.BEEP_XML).as_string()
+        xml = xmlio.Element('greeting')[xmlio.Element('profile', uri='test')]
+        message = beep.MIMEMessage(xml).as_string()
         self.channel.handle_data_frame('RPY', 0, False, 0L, None, message)
         assert greeting_received.called
 
     def test_handle_start(self):
         self.session.profiles[MockProfileHandler.URI] = MockProfileHandler
-        xml = Element('start', number=2)[
-            Element('profile', uri=MockProfileHandler.URI),
-            Element('profile', uri='http://example.com/bogus')
+        xml = xmlio.Element('start', number=2)[
+            xmlio.Element('profile', uri=MockProfileHandler.URI),
+            xmlio.Element('profile', uri='http://example.com/bogus')
         ]
-        self.profile.handle_msg(0, beep.MIMEMessage(xml, beep.BEEP_XML))
+        self.profile.handle_msg(0, beep.MIMEMessage(xml))
 
         assert 2 in self.session.channels
-        xml = Element('profile', uri=MockProfileHandler.URI)
-        message = beep.MIMEMessage(xml, beep.BEEP_XML).as_string()
+        xml = xmlio.Element('profile', uri=MockProfileHandler.URI)
+        message = beep.MIMEMessage(xml).as_string()
         self.assertEqual(('RPY', 0, 0, False, 0, None, message),
                          self.session.sent_messages[0])
 
     def test_handle_start_unsupported_profile(self):
         self.session.profiles[MockProfileHandler.URI] = MockProfileHandler
-        xml = Element('start', number=2)[
-            Element('profile', uri='http://example.com/foo'),
-            Element('profile', uri='http://example.com/bar')
+        xml = xmlio.Element('start', number=2)[
+            xmlio.Element('profile', uri='http://example.com/foo'),
+            xmlio.Element('profile', uri='http://example.com/bar')
         ]
-        self.profile.handle_msg(0, beep.MIMEMessage(xml, beep.BEEP_XML))
+        self.profile.handle_msg(0, beep.MIMEMessage(xml))
 
         assert 2 not in self.session.channels
-        xml = Element('error', code=550)[
+        xml = xmlio.Element('error', code=550)[
             'None of the requested profiles is supported'
         ]
-        message = beep.MIMEMessage(xml, beep.BEEP_XML).as_string()
+        message = beep.MIMEMessage(xml).as_string()
         self.assertEqual(('ERR', 0, 0, False, 0, None, message),
                          self.session.sent_messages[0])
 
@@ -263,46 +264,46 @@ class ManagementProfileHandlerTestCase(unittest.TestCase):
                                                 MockProfileHandler)
         orig_profile = self.session.channels[2].profile
         self.session.profiles[MockProfileHandler.URI] = MockProfileHandler
-        xml = Element('start', number=2)[
-            Element('profile', uri=MockProfileHandler.URI)
+        xml = xmlio.Element('start', number=2)[
+            xmlio.Element('profile', uri=MockProfileHandler.URI)
         ]
-        self.profile.handle_msg(0, beep.MIMEMessage(xml, beep.BEEP_XML))
+        self.profile.handle_msg(0, beep.MIMEMessage(xml))
 
         assert self.session.channels[2].profile is orig_profile
-        xml = Element('error', code=550)['Channel already in use']
-        message = beep.MIMEMessage(xml, beep.BEEP_XML).as_string()
+        xml = xmlio.Element('error', code=550)['Channel already in use']
+        message = beep.MIMEMessage(xml).as_string()
         self.assertEqual(('ERR', 0, 0, False, 0, None, message),
                          self.session.sent_messages[0])
 
     def test_handle_close(self):
         self.session.channels[1] = beep.Channel(self.session, 1,
                                                 MockProfileHandler)
-        xml = Element('close', number=1, code=200)
-        self.profile.handle_msg(0, beep.MIMEMessage(xml, beep.BEEP_XML))
+        xml = xmlio.Element('close', number=1, code=200)
+        self.profile.handle_msg(0, beep.MIMEMessage(xml))
 
         assert 1 not in self.session.channels
-        xml = Element('ok')
-        message = beep.MIMEMessage(xml, beep.BEEP_XML).as_string()
+        xml = xmlio.Element('ok')
+        message = beep.MIMEMessage(xml).as_string()
         self.assertEqual(('RPY', 0, 0, False, 0, None, message),
                          self.session.sent_messages[0])
 
     def test_handle_close_session(self):
-        xml = Element('close', number=0, code=200)
-        self.profile.handle_msg(0, beep.MIMEMessage(xml, beep.BEEP_XML))
+        xml = xmlio.Element('close', number=0, code=200)
+        self.profile.handle_msg(0, beep.MIMEMessage(xml))
 
         assert 1 not in self.session.channels
-        xml = Element('ok')
-        message = beep.MIMEMessage(xml, beep.BEEP_XML).as_string()
+        xml = xmlio.Element('ok')
+        message = beep.MIMEMessage(xml).as_string()
         self.assertEqual(('RPY', 0, 0, False, 0, None, message),
                          self.session.sent_messages[0])
         assert self.session.closed
 
     def test_handle_close_channel_not_open(self):
-        xml = Element('close', number=1, code=200)
-        self.profile.handle_msg(0, beep.MIMEMessage(xml, beep.BEEP_XML))
+        xml = xmlio.Element('close', number=1, code=200)
+        self.profile.handle_msg(0, beep.MIMEMessage(xml))
 
-        xml = Element('error', code=550)['Channel not open']
-        message = beep.MIMEMessage(xml, beep.BEEP_XML).as_string()
+        xml = xmlio.Element('error', code=550)['Channel not open']
+        message = beep.MIMEMessage(xml).as_string()
         self.assertEqual(('ERR', 0, 0, False, 0, None, message),
                          self.session.sent_messages[0])
 
@@ -312,11 +313,11 @@ class ManagementProfileHandlerTestCase(unittest.TestCase):
         self.session.channels[1].send_msg(beep.MIMEMessage('test'))
         assert self.session.channels[1].msgnos
 
-        xml = Element('close', number=1, code=200)
-        self.profile.handle_msg(0, beep.MIMEMessage(xml, beep.BEEP_XML))
+        xml = xmlio.Element('close', number=1, code=200)
+        self.profile.handle_msg(0, beep.MIMEMessage(xml))
 
-        xml = Element('error', code=550)['Channel waiting for replies']
-        message = beep.MIMEMessage(xml, beep.BEEP_XML).as_string()
+        xml = xmlio.Element('error', code=550)['Channel waiting for replies']
+        message = beep.MIMEMessage(xml).as_string()
         self.assertEqual(('ERR', 0, 0, False, 0, None, message),
                          self.session.sent_messages[1])
 
@@ -324,11 +325,11 @@ class ManagementProfileHandlerTestCase(unittest.TestCase):
         self.session.channels[1] = beep.Channel(self.session, 1,
                                                 MockProfileHandler)
 
-        xml = Element('close', number=0, code=200)
-        self.profile.handle_msg(0, beep.MIMEMessage(xml, beep.BEEP_XML))
+        xml = xmlio.Element('close', number=0, code=200)
+        self.profile.handle_msg(0, beep.MIMEMessage(xml))
 
-        xml = Element('error', code=550)['Other channels still open']
-        message = beep.MIMEMessage(xml, beep.BEEP_XML).as_string()
+        xml = xmlio.Element('error', code=550)['Other channels still open']
+        message = beep.MIMEMessage(xml).as_string()
         self.assertEqual(('ERR', 0, 0, False, 0, None, message),
                          self.session.sent_messages[0])
 
@@ -337,8 +338,8 @@ class ManagementProfileHandlerTestCase(unittest.TestCase):
         Verify that a negative reply is sent as expected.
         """
         self.profile.send_error(0, 521, 'ouch')
-        xml = Element('error', code=521)['ouch']
-        message = beep.MIMEMessage(xml, beep.BEEP_XML).as_string()
+        xml = xmlio.Element('error', code=521)['ouch']
+        message = beep.MIMEMessage(xml).as_string()
         self.assertEqual(('ERR', 0, 0, False, 0, None, message),
                          self.session.sent_messages[0])
 
@@ -347,10 +348,10 @@ class ManagementProfileHandlerTestCase(unittest.TestCase):
         Verify that a <start> request is sent correctly.
         """
         self.profile.send_start([MockProfileHandler])
-        xml = Element('start', number="1")[
-            Element('profile', uri=MockProfileHandler.URI)
+        xml = xmlio.Element('start', number="1")[
+            xmlio.Element('profile', uri=MockProfileHandler.URI)
         ]
-        message = beep.MIMEMessage(xml, beep.BEEP_XML).as_string()
+        message = beep.MIMEMessage(xml).as_string()
         self.assertEqual(('MSG', 0, 0, False, 0, None, message),
                          self.session.sent_messages[0])
 
@@ -360,8 +361,8 @@ class ManagementProfileHandlerTestCase(unittest.TestCase):
         and the channel is created.
         """
         self.profile.send_start([MockProfileHandler])
-        xml = Element('profile', uri=MockProfileHandler.URI)
-        message = beep.MIMEMessage(xml, beep.BEEP_XML).as_string()
+        xml = xmlio.Element('profile', uri=MockProfileHandler.URI)
+        message = beep.MIMEMessage(xml).as_string()
         self.channel.handle_data_frame('RPY', 0, False, 0L, None, message)
         assert isinstance(self.session.channels[1].profile, MockProfileHandler)
 
@@ -371,8 +372,8 @@ class ManagementProfileHandlerTestCase(unittest.TestCase):
         and no channel gets created.
         """
         self.profile.send_start([MockProfileHandler])
-        xml = Element('error', code=500)['ouch']
-        message = beep.MIMEMessage(xml, beep.BEEP_XML).as_string()
+        xml = xmlio.Element('error', code=500)['ouch']
+        message = beep.MIMEMessage(xml).as_string()
         self.channel.handle_data_frame('ERR', 0, False, 0L, None, message)
         assert 1 not in self.session.channels
 
@@ -392,8 +393,8 @@ class ManagementProfileHandlerTestCase(unittest.TestCase):
         self.profile.send_start([MockProfileHandler], handle_ok=handle_ok,
                                 handle_error=handle_error)
 
-        xml = Element('profile', uri=MockProfileHandler.URI)
-        message = beep.MIMEMessage(xml, beep.BEEP_XML).as_string()
+        xml = xmlio.Element('profile', uri=MockProfileHandler.URI)
+        message = beep.MIMEMessage(xml).as_string()
         self.channel.handle_data_frame('RPY', 0, False, 0L, None, message)
         assert isinstance(self.session.channels[1].profile, MockProfileHandler)
         assert handle_ok.called
@@ -415,8 +416,8 @@ class ManagementProfileHandlerTestCase(unittest.TestCase):
         self.profile.send_start([MockProfileHandler], handle_ok=handle_ok,
                                 handle_error=handle_error)
 
-        xml = Element('error', code=500)['ouch']
-        message = beep.MIMEMessage(xml, beep.BEEP_XML).as_string()
+        xml = xmlio.Element('error', code=500)['ouch']
+        message = beep.MIMEMessage(xml).as_string()
         self.channel.handle_data_frame('ERR', 0, False, 0L, None, message)
         assert 1 not in self.session.channels
         assert not handle_ok.called
@@ -427,8 +428,8 @@ class ManagementProfileHandlerTestCase(unittest.TestCase):
         Verify that a <close> request is sent correctly.
         """
         self.profile.send_close(1, code=200)
-        xml = Element('close', number=1, code=200)
-        message = beep.MIMEMessage(xml, beep.BEEP_XML).as_string()
+        xml = xmlio.Element('close', number=1, code=200)
+        message = beep.MIMEMessage(xml).as_string()
         self.assertEqual(('MSG', 0, 0, False, 0, None, message),
                          self.session.sent_messages[0])
 
@@ -441,8 +442,8 @@ class ManagementProfileHandlerTestCase(unittest.TestCase):
                                                 MockProfileHandler)
         self.profile.send_close(1, code=200)
 
-        xml = Element('ok')
-        message = beep.MIMEMessage(xml, beep.BEEP_XML).as_string()
+        xml = xmlio.Element('ok')
+        message = beep.MIMEMessage(xml).as_string()
         self.channel.handle_data_frame('RPY', 0, False, 0L, None, message)
         assert 1 not in self.session.channels
 
@@ -453,8 +454,8 @@ class ManagementProfileHandlerTestCase(unittest.TestCase):
         """
         self.profile.send_close(0, code=200)
 
-        xml = Element('ok')
-        message = beep.MIMEMessage(xml, beep.BEEP_XML).as_string()
+        xml = xmlio.Element('ok')
+        message = beep.MIMEMessage(xml).as_string()
         self.channel.handle_data_frame('RPY', 0, False, 0L, None, message)
         assert 0 not in self.session.channels
         assert self.session.closed
@@ -468,8 +469,8 @@ class ManagementProfileHandlerTestCase(unittest.TestCase):
                                                 MockProfileHandler)
         self.profile.send_close(1, code=200)
 
-        xml = Element('error', code=500)['ouch']
-        message = beep.MIMEMessage(xml, beep.BEEP_XML).as_string()
+        xml = xmlio.Element('error', code=500)['ouch']
+        message = beep.MIMEMessage(xml).as_string()
         self.channel.handle_data_frame('ERR', 0, False, 0L, None, message)
         assert 1 in self.session.channels
 
@@ -489,8 +490,8 @@ class ManagementProfileHandlerTestCase(unittest.TestCase):
         self.profile.send_close(1, code=200, handle_ok=handle_ok,
                                 handle_error=handle_error)
 
-        xml = Element('profile', uri=MockProfileHandler.URI)
-        message = beep.MIMEMessage(xml, beep.BEEP_XML).as_string()
+        xml = xmlio.Element('profile', uri=MockProfileHandler.URI)
+        message = beep.MIMEMessage(xml).as_string()
         self.channel.handle_data_frame('RPY', 0, False, 0L, None, message)
         assert 1 not in self.session.channels
         assert handle_ok.called
@@ -514,8 +515,8 @@ class ManagementProfileHandlerTestCase(unittest.TestCase):
         self.profile.send_close(1, code=200, handle_ok=handle_ok,
                                 handle_error=handle_error)
 
-        xml = Element('error', code=500)['ouch']
-        message = beep.MIMEMessage(xml, beep.BEEP_XML).as_string()
+        xml = xmlio.Element('error', code=500)['ouch']
+        message = beep.MIMEMessage(xml).as_string()
         self.channel.handle_data_frame('ERR', 0, False, 0L, None, message)
         assert 1 in self.session.channels
         assert not handle_ok.called
@@ -529,4 +530,5 @@ def suite():
     return suite
 
 if __name__ == '__main__':
+    logging.getLogger().setLevel(logging.CRITICAL)
     unittest.main(defaultTest='suite')

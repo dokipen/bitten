@@ -22,8 +22,7 @@ import logging
 
 from trac.env import Environment
 from bitten import __version__ as VERSION
-from bitten.util import beep
-from bitten.util.xmlio import Element, parse_xml
+from bitten.util import beep, xmlio
 
 
 class Master(beep.Listener):
@@ -57,7 +56,7 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
     """
     URI = 'http://bitten.cmlenz.net/beep/orchestration'
 
-    def handle_connect(self):
+    def handle_connect(self, init_elem=None):
         self.master = self.session.listener
         assert self.master
         self.slave_name = None
@@ -68,7 +67,7 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
 
     def handle_msg(self, msgno, msg):
         assert msg.get_content_type() == beep.BEEP_XML
-        elem = parse_xml(msg.get_payload())
+        elem = xmlio.parse(msg.get_payload())
 
         if elem.tagname == 'register':
             platform, os, os_family, os_version = None, None, None, None
@@ -83,8 +82,8 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
             self.slave_name = elem.name
             self.master.slaves[self.slave_name] = self
 
-            rpy = beep.MIMEMessage(Element('ok'), beep.BEEP_XML)
-            self.channel.send_rpy(msgno, rpy)
+            xml = xmlio.Element('ok')
+            self.channel.send_rpy(msgno, beep.MIMEMessage(xml))
             logging.info('Registered slave "%s" (%s running %s %s [%s])',
                          self.slave_name, platform, os, os_version, os_family)
 
