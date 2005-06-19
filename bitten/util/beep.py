@@ -338,10 +338,7 @@ class Channel(object):
         self.seqno = [serial(), serial()] # incoming, outgoing sequence numbers
         self.mime_parser = Parser()
 
-        self.profile = profile_cls()
-        self.profile.session = self.session
-        self.profile.channel = self
-
+        self.profile = profile_cls(self)
         self.profile.handle_connect()
 
     def close(self):
@@ -379,11 +376,11 @@ class Channel(object):
             return
 
         # Complete message received, so handle it
-        if msgno in self.inqueue.keys():
+        if msgno in self.inqueue:
             # Recombine queued messages
             payload = ''.join(self.inqueue[msgno]) + payload
             del self.inqueue[msgno]
-        if cmd == 'RPY' and msgno in self.msgnos.keys():
+        if cmd == 'RPY' and msgno in self.msgnos:
             # Final reply using this message number, so dealloc
             del self.msgnos[msgno]
         message = None
@@ -393,7 +390,7 @@ class Channel(object):
         if cmd == 'MSG':
             self.profile.handle_msg(msgno, message)
         else:
-            if msgno in self.reply_handlers.keys():
+            if msgno in self.reply_handlers:
                 self.reply_handlers[msgno](cmd, msgno, message)
                 del self.reply_handlers[msgno]
             elif cmd == 'RPY':
@@ -429,7 +426,7 @@ class Channel(object):
     def send_msg(self, message, handle_reply=None):
         while True: # Find a unique message number
             msgno = self.msgno.next()
-            if msgno not in self.msgnos.keys():
+            if msgno not in self.msgnos:
                 break
         self.msgnos[msgno] = True # Flag the chosen message number as in use
         if handle_reply is not None:
@@ -444,7 +441,7 @@ class Channel(object):
         self._send('ERR', msgno, None, message)
 
     def send_ans(self, msgno, message):
-        if not msgno in self.ansnos.keys():
+        if not msgno in self.ansnos:
             ansno = cycle_through(0, 2147483647)
             self.ansnos[msgno] = ansno
         else:
@@ -465,10 +462,10 @@ class ProfileHandler(object):
     and may override any of the others.
     """
 
-    def __init__(self):
+    def __init__(self, channel):
         """Create the profile."""
-        self.session = None
-        self.channel = None
+        self.session = channel.session
+        self.channel = channel
 
     def handle_connect(self):
         """Called when the channel this profile is associated with is
@@ -511,7 +508,7 @@ class ManagementProfileHandler(ProfileHandler):
 
         if elem.tagname == 'start':
             for profile in elem['profile']:
-                if profile.uri in self.session.profiles.keys():
+                if profile.uri in self.session.profiles:
                     logging.debug('Start channel %s for profile <%s>',
                                   elem.number, profile.uri)
                     channel = Channel(self.session, int(elem.number),
