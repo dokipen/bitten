@@ -88,7 +88,7 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
                          self.slave_name, platform, os, os_version, os_family)
 
 
-if __name__ == '__main__':
+def main():
     from optparse import OptionParser
 
     parser = OptionParser(usage='usage: %prog [options] env-path',
@@ -130,3 +130,6 @@ if __name__ == '__main__':
         master.run()
     except KeyboardInterrupt:
         pass
+
+if __name__ == '__main__':
+    main()

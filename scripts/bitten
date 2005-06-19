@@ -19,13 +19,9 @@
 #
 # Author: Christopher Lenz <cmlenz@gmx.de>
 
-from distutils.core import setup
+import logging
+from optparse import OptionParser
 
-from bitten import __version__ as VERSION
-from bitten.util.testrunner import unittest
+from bitten import slave
 
-setup(name='bitten', version=VERSION,
-      packages=['bitten', 'bitten.build', 'bitten.util'],
-      scripts=['scripts/bitten', 'scripts/bittend'],
-      author="Christopher Lenz", author_email="cmlenz@gmx.de",
-      url="http://bitten.cmlenz.net/", cmdclass={'unittest': unittest})
+slave.main()

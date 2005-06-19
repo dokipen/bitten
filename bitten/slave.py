@@ -67,7 +67,7 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
         pass
 
 
-if __name__ == '__main__':
+def main():
     from optparse import OptionParser
 
     parser = OptionParser(usage='usage: %prog [options] host [port]',
@@ -97,3 +97,6 @@ if __name__ == '__main__':
 
     slave = Slave(host, port)
     slave.run()
+
+if __name__ == '__main__':
+    main()
