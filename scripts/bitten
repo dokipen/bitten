@@ -19,9 +19,6 @@
 #
 # Author: Christopher Lenz <cmlenz@gmx.de>
 
-import logging
-from optparse import OptionParser
-
 from bitten import slave
 
 slave.main()
