@@ -507,19 +507,23 @@ class ManagementProfileHandler(ProfileHandler):
         elem = parse_xml(message.get_payload())
 
         if elem.tagname == 'start':
+            channelno = int(elem.number)
+            if channelno in self.session.channels:
+                self.send_error(msgno, 550, 'Channel already in use')
+                return
             for profile in elem['profile']:
                 if profile.uri in self.session.profiles:
                     logging.debug('Start channel %s for profile <%s>',
                                   elem.number, profile.uri)
-                    channel = Channel(self.session, int(elem.number),
+                    channel = Channel(self.session, channelno,
                                       self.session.profiles[profile.uri])
-                    self.session.channels[int(elem.number)] = channel
+                    self.session.channels[channelno] = channel
                     message = MIMEMessage(Element('profile', uri=profile.uri),
                                           BEEP_XML)
                     self.channel.send_rpy(msgno, message)
                     return
             self.send_error(msgno, 550,
-                            'All requested profiles are unsupported')
+                            'None of the requested profiles is supported')
 
         elif elem.tagname == 'close':
             channelno = int(elem.number)

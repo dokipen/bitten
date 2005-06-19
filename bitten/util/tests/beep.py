@@ -8,6 +8,7 @@ from bitten.util.xmlio import Element
 class MockSession(beep.Initiator):
 
     def __init__(self):
+        self.closed = False
         self.profiles = {}
         self.sent_messages = []
         self.channelno = beep.cycle_through(1, 2147483647, step=2)
@@ -15,8 +16,12 @@ class MockSession(beep.Initiator):
         del self.sent_messages[0] # Clear out the management greeting
         self.channels[0].seqno = [beep.serial(), beep.serial()]
 
+    def close(self):
+        self.closed = True
+
     def send_data_frame(self, cmd, channel, msgno, more, seqno, ansno=None,
                         payload=''):
+        assert not self.closed
         self.sent_messages.append((cmd, channel, msgno, more, seqno, ansno,
                                    payload.strip()))
 
@@ -198,10 +203,12 @@ class ManagementProfileHandlerTestCase(unittest.TestCase):
         Verify that the management profile sends a greeting with a list of
         supported profiles reply when initialized.
         """
-        self.session.profiles['test'] = MockProfileHandler
+        self.session.profiles[MockProfileHandler.URI] = MockProfileHandler
         self.profile.handle_connect()
         self.assertEqual(1, len(self.session.sent_messages))
-        xml = Element('greeting')[Element('profile', uri='test')]
+        xml = Element('greeting')[
+            Element('profile', uri=MockProfileHandler.URI)
+        ]
         message = beep.MIMEMessage(xml, beep.BEEP_XML).as_string()
         self.assertEqual(('RPY', 0, 0, False, 0, None, message),
                          self.session.sent_messages[0])
@@ -220,6 +227,110 @@ class ManagementProfileHandlerTestCase(unittest.TestCase):
         message = beep.MIMEMessage(xml, beep.BEEP_XML).as_string()
         self.channel.handle_data_frame('RPY', 0, False, 0L, None, message)
         assert greeting_received.called
+
+    def test_handle_start(self):
+        self.session.profiles[MockProfileHandler.URI] = MockProfileHandler
+        xml = Element('start', number=2)[
+            Element('profile', uri=MockProfileHandler.URI),
+            Element('profile', uri='http://example.com/bogus')
+        ]
+        self.profile.handle_msg(0, beep.MIMEMessage(xml, beep.BEEP_XML))
+
+        assert 2 in self.session.channels
+        xml = Element('profile', uri=MockProfileHandler.URI)
+        message = beep.MIMEMessage(xml, beep.BEEP_XML).as_string()
+        self.assertEqual(('RPY', 0, 0, False, 0, None, message),
+                         self.session.sent_messages[0])
+
+    def test_handle_start_unsupported_profile(self):
+        self.session.profiles[MockProfileHandler.URI] = MockProfileHandler
+        xml = Element('start', number=2)[
+            Element('profile', uri='http://example.com/foo'),
+            Element('profile', uri='http://example.com/bar')
+        ]
+        self.profile.handle_msg(0, beep.MIMEMessage(xml, beep.BEEP_XML))
+
+        assert 2 not in self.session.channels
+        xml = Element('error', code=550)[
+            'None of the requested profiles is supported'
+        ]
+        message = beep.MIMEMessage(xml, beep.BEEP_XML).as_string()
+        self.assertEqual(('ERR', 0, 0, False, 0, None, message),
+                         self.session.sent_messages[0])
+
+    def test_handle_start_channel_in_use(self):
+        self.session.channels[2] = beep.Channel(self.session, 2,
+                                                MockProfileHandler)
+        orig_profile = self.session.channels[2].profile
+        self.session.profiles[MockProfileHandler.URI] = MockProfileHandler
+        xml = Element('start', number=2)[
+            Element('profile', uri=MockProfileHandler.URI)
+        ]
+        self.profile.handle_msg(0, beep.MIMEMessage(xml, beep.BEEP_XML))
+
+        assert self.session.channels[2].profile is orig_profile
+        xml = Element('error', code=550)['Channel already in use']
+        message = beep.MIMEMessage(xml, beep.BEEP_XML).as_string()
+        self.assertEqual(('ERR', 0, 0, False, 0, None, message),
+                         self.session.sent_messages[0])
+
+    def test_handle_close(self):
+        self.session.channels[1] = beep.Channel(self.session, 1,
+                                                MockProfileHandler)
+        xml = Element('close', number=1, code=200)
+        self.profile.handle_msg(0, beep.MIMEMessage(xml, beep.BEEP_XML))
+
+        assert 1 not in self.session.channels
+        xml = Element('ok')
+        message = beep.MIMEMessage(xml, beep.BEEP_XML).as_string()
+        self.assertEqual(('RPY', 0, 0, False, 0, None, message),
+                         self.session.sent_messages[0])
+
+    def test_handle_close_session(self):
+        xml = Element('close', number=0, code=200)
+        self.profile.handle_msg(0, beep.MIMEMessage(xml, beep.BEEP_XML))
+
+        assert 1 not in self.session.channels
+        xml = Element('ok')
+        message = beep.MIMEMessage(xml, beep.BEEP_XML).as_string()
+        self.assertEqual(('RPY', 0, 0, False, 0, None, message),
+                         self.session.sent_messages[0])
+        assert self.session.closed
+
+    def test_handle_close_channel_not_open(self):
+        xml = Element('close', number=1, code=200)
+        self.profile.handle_msg(0, beep.MIMEMessage(xml, beep.BEEP_XML))
+
+        xml = Element('error', code=550)['Channel not open']
+        message = beep.MIMEMessage(xml, beep.BEEP_XML).as_string()
+        self.assertEqual(('ERR', 0, 0, False, 0, None, message),
+                         self.session.sent_messages[0])
+
+    def test_handle_close_channel_busy(self):
+        self.session.channels[1] = beep.Channel(self.session, 1,
+                                                MockProfileHandler)
+        self.session.channels[1].send_msg(beep.MIMEMessage('test'))
+        assert self.session.channels[1].msgnos
+
+        xml = Element('close', number=1, code=200)
+        self.profile.handle_msg(0, beep.MIMEMessage(xml, beep.BEEP_XML))
+
+        xml = Element('error', code=550)['Channel waiting for replies']
+        message = beep.MIMEMessage(xml, beep.BEEP_XML).as_string()
+        self.assertEqual(('ERR', 0, 0, False, 0, None, message),
+                         self.session.sent_messages[1])
+
+    def test_handle_close_session_busy(self):
+        self.session.channels[1] = beep.Channel(self.session, 1,
+                                                MockProfileHandler)
+
+        xml = Element('close', number=0, code=200)
+        self.profile.handle_msg(0, beep.MIMEMessage(xml, beep.BEEP_XML))
+
+        xml = Element('error', code=550)['Other channels still open']
+        message = beep.MIMEMessage(xml, beep.BEEP_XML).as_string()
+        self.assertEqual(('ERR', 0, 0, False, 0, None, message),
+                         self.session.sent_messages[0])
 
     def test_send_error(self):
         """
@@ -263,7 +374,7 @@ class ManagementProfileHandlerTestCase(unittest.TestCase):
         xml = Element('error', code=500)['ouch']
         message = beep.MIMEMessage(xml, beep.BEEP_XML).as_string()
         self.channel.handle_data_frame('ERR', 0, False, 0L, None, message)
-        assert not 1 in self.session.channels
+        assert 1 not in self.session.channels
 
     def test_send_start_ok_with_callback(self):
         """
@@ -307,7 +418,7 @@ class ManagementProfileHandlerTestCase(unittest.TestCase):
         xml = Element('error', code=500)['ouch']
         message = beep.MIMEMessage(xml, beep.BEEP_XML).as_string()
         self.channel.handle_data_frame('ERR', 0, False, 0L, None, message)
-        assert not 1 in self.session.channels
+        assert 1 not in self.session.channels
         assert not handle_ok.called
         assert handle_error.called
 
@@ -334,6 +445,19 @@ class ManagementProfileHandlerTestCase(unittest.TestCase):
         message = beep.MIMEMessage(xml, beep.BEEP_XML).as_string()
         self.channel.handle_data_frame('RPY', 0, False, 0L, None, message)
         assert 1 not in self.session.channels
+
+    def test_send_close_session_ok(self):
+        """
+        Verify that a positive reply to a <close> request is handled correctly,
+        and the channel is closed.
+        """
+        self.profile.send_close(0, code=200)
+
+        xml = Element('ok')
+        message = beep.MIMEMessage(xml, beep.BEEP_XML).as_string()
+        self.channel.handle_data_frame('RPY', 0, False, 0L, None, message)
+        assert 0 not in self.session.channels
+        assert self.session.closed
 
     def test_send_close_error(self):
         """
@@ -405,5 +529,4 @@ def suite():
     return suite
 
 if __name__ == '__main__':
-    logging.getLogger().setLevel(logging.CRITICAL)
     unittest.main(defaultTest='suite')
