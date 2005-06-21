@@ -129,8 +129,7 @@ def main():
     try:
         master.run()
     except KeyboardInterrupt:
-        # FIXME: gracefully shutdown all active sessions
-        pass
+        master.quit()
 
 if __name__ == '__main__':
     main()

@@ -96,7 +96,10 @@ def main():
     logging.getLogger().setLevel(options.loglevel)
 
     slave = Slave(host, port)
-    slave.run()
+    try:
+        slave.run()
+    except KeyboardInterrupt:
+        slave.quit()
 
 if __name__ == '__main__':
     main()
