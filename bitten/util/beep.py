@@ -23,7 +23,8 @@
 
 Current limitations:
  * No support for the TSL and SASL profiles.
- * No support for mapping frames (SEQ frames for TCP mapping). 
+ * No support for mapping frames (SEQ frames for TCP mapping).
+ * No localization support (xml:lang attribute).
 """
 
 import asynchat
@@ -148,6 +149,10 @@ class Session(asynchat.async_chat):
         
         self.channelno = cycle_through(first_channelno, 2147483647, step=2)
         self.channels = {0: Channel(self, 0, ManagementProfileHandler)}
+
+    def handle_close(self):
+        logging.debug('Connection closed by peer')
+        self.close()
 
     def handle_connect(self):
         """Called by asyncore when the connection is established."""
@@ -299,6 +304,7 @@ class Initiator(Session):
     def handle_close(self):
         """Called by asyncore when the socket has been closed."""
         self.terminated = True
+        Session.handle_close(self)
 
     def greeting_received(self, profiles):
         """Sub-classes should override this to start the channels they need.
@@ -644,7 +650,16 @@ class ManagementProfileHandler(ProfileHandler):
         self.channel.send_err(msgno, MIMEMessage(xml))
 
     def send_start(self, profiles, handle_ok=None, handle_error=None):
-        """Send a request to start a new channel to the peer."""
+        """Send a request to start a new channel to the peer.
+        
+        @param profiles A list of profiles to request for the channel, each
+                        element being an instance of a `ProfileHandler`
+                        sub-class
+        @param handle_ok An optional callback function that will be invoked when
+                         the channel has been successfully started
+        @param handle_error An optional callback function that will be invoked
+                            when the peer refuses to start the channel
+        """
         channelno = self.session.channelno.next()
         def handle_reply(cmd, msgno, message):
             if cmd == 'RPY':

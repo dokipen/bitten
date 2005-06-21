@@ -96,7 +96,7 @@ def main():
     parser.add_option('-p', '--port', action='store', type='int', dest='port',
                       help='port number to use')
     parser.add_option('-H', '--host', action='store', dest='host',
-                      help='the host name of IP address to bind to')
+                      help='the host name or IP address to bind to')
     parser.add_option('--debug', action='store_const', dest='loglevel',
                       const=logging.DEBUG, help='enable debugging output')
     parser.add_option('-v', '--verbose', action='store_const', dest='loglevel',
@@ -129,6 +129,7 @@ def main():
     try:
         master.run()
     except KeyboardInterrupt:
+        # FIXME: gracefully shutdown all active sessions
         pass
 
 if __name__ == '__main__':
