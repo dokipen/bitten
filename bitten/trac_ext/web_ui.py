@@ -18,25 +18,24 @@
 #
 # Author: Christopher Lenz <cmlenz@gmx.de>
 
-from __future__ import generators
 import re
 
 from trac.core import *
 from trac.web.chrome import INavigationContributor
-from trac.web.main import AbstractView, IRequestHandler
+from trac.web.main import IRequestHandler
 
 
-class BuildModule(AbstractView):
+class BuildModule(Component):
 
     implements(INavigationContributor, IRequestHandler)
 
     build_cs = """
 <?cs include:"header.cs" ?>
-<div id="main">
  <div id="ctxtnav" class="nav"></div>
+ <div id="content">
   <h1>Build Status</h1>
- <div id="content"></div>
-</div>
+  <p>Not yet implemented</p>
+ </div>
 <?cs include:"footer.cs" ?>
 """
 
@@ -46,7 +45,7 @@ class BuildModule(AbstractView):
         return 'build'
 
     def get_navigation_items(self, req):
-        yield 'mainnav', 'build', '<a href="%s">Builds</a>' \
+        yield 'mainnav', 'build', '<a href="%s">Build Status</a>' \
                                   % self.env.href.build()
 
     # IRequestHandler methods
