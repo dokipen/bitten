@@ -38,7 +38,7 @@ class BuildSystem(Component):
         for table in [Build._table]:
             cursor.execute(db.to_sql(table))
 
-        tarballs_dir = os.path.join(self.env.path, 'tarballs')
+        tarballs_dir = os.path.join(self.env.path, 'snapshots')
 
         cursor.execute("INSERT INTO system (name,value) "
                        "VALUES ('bitten_version',%s)", (schema_version,))

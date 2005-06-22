@@ -19,7 +19,7 @@
 # Author: Christopher Lenz <cmlenz@gmx.de>
 
 import os.path
-import tarfile
+import time
 
 _formats = {'gzip': ('.tar.gz', 'gz'), 'bzip2': ('.tar.bz2', 'bz2'),
             'zip': ('.zip', None)}
@@ -32,10 +32,10 @@ def make_archive(env, path=None, rev=None, format='gzip'):
 
     assert format in _formats, 'Unknown archive format: %s' % format
 
-    filedir = os.path.join(env.path, 'tarballs')
+    filedir = os.path.join(env.path, 'snapshots')
     if not os.access(filedir, os.R_OK + os.W_OK):
         raise IOError, 'Insufficient permissions to create tarball'
-    prefix = '%s-%s' % (root.path.replace('/', '-'), root.rev)
+    prefix = '%s_r%s' % (root.path.replace('/', '-'), root.rev)
     filename = os.path.join(filedir, prefix + _formats[format][0])
 
     if format in ('bzip2', 'gzip'):
@@ -43,7 +43,8 @@ def make_archive(env, path=None, rev=None, format='gzip'):
     else:
         _make_zip_archive(env, root, filename, prefix)
 
-def _make_tar_archive(env, root, filename, prefix, format='gzip'):
+def _make_tar_archive(env, root, filename, prefix, format):
+    import tarfile
     tar = tarfile.open(filename, 'w:' + _formats[format][1])
 
     def _add_entry(prefix, node):
@@ -63,8 +64,23 @@ def _make_tar_archive(env, root, filename, prefix, format='gzip'):
 
     tar.close()
 
+def _make_zip_archive(env, root, filename, prefix):
+    import zipfile
+    zip = zipfile.ZipFile(filename, 'w', zipfile.ZIP_DEFLATED)
 
-if __name__ == '__main__':
-    from trac.env import Environment
-    env = Environment('/var/trac/bitten')
-    make_archive(env, 'bitten/trunk')
+    def _add_entry(prefix, node):
+        name = node.path[len(root.path):]
+        if name.startswith('/'):
+            name = name[1:]
+        if node.isdir:
+            for entry in node.get_entries():
+                _add_entry(os.path.join(prefix, name), entry)
+        else:
+            info = zipfile.ZipInfo(os.path.join(prefix, name))
+            info.compress_type = zipfile.ZIP_DEFLATED
+            info.date_time = time.gmtime(node.last_modified)[:6]
+            info.file_size = node.content_length
+            zip.writestr(info, node.get_content().read())
+    _add_entry(prefix, root)
+
+    zip.close()
