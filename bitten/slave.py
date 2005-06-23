@@ -64,7 +64,7 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
         self.channel.send_msg(beep.MIMEMessage(xml), handle_reply)
 
     def handle_msg(self, msgno, msg):
-        if msg.get_content_type() == in ('application/tar', 'application/zip'):
+        if msg.get_content_type() == 'application/tar':
             logging.info('Received snapshot')
             workdir = tempfile.mkdtemp(prefix='bitten')
             archive_name = msg.get('Content-Disposition', 'snapshot.tar.gz')
