@@ -718,12 +718,17 @@ class MIMEMessage(Message):
     """Simplified construction of generic MIME messages for transmission as
     payload with BEEP."""
 
-    def __init__(self, payload, content_type=BEEP_XML):
+    def __init__(self, payload, content_type=BEEP_XML, content_disposition=None,
+                 content_encoding=None):
         """Create the MIME message."""
         Message.__init__(self)
         if content_type:
             self.set_type(content_type)
             del self['MIME-Version']
+        if content_disposition:
+            self['Content-Disposition'] = content_disposition
+        if content_encoding:
+            self['Content-Transfer-Encoding'] = content_encoding
         self.set_payload(str(payload))
 
 
