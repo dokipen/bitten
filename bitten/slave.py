@@ -21,6 +21,7 @@
 import logging
 import os
 import sys
+import tempfile
 import time
 
 from bitten import __version__ as VERSION
@@ -63,8 +64,23 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
         self.channel.send_msg(beep.MIMEMessage(xml), handle_reply)
 
     def handle_msg(self, msgno, msg):
-        # TODO: Handle build initiation requests etc
-        pass
+        if msg.get_content_type() == in ('application/tar', 'application/zip'):
+            logging.info('Received snapshot')
+            workdir = tempfile.mkdtemp(prefix='bitten')
+            archive_name = msg.get('Content-Disposition', 'snapshot.tar.gz')
+            archive_path = os.path.join(workdir, archive_name)
+            file(archive_path, 'wb').write(msg.get_payload())
+            logging.info('Stored snapshot archive at %s', archive_path)
+
+            # TODO: Spawn the build process
+
+            xml = xmlio.Element('ok')
+            self.channel.send_rpy(msgno, beep.MIMEMessage(xml))
+            logging.info('Sent <ok/> in reply to build request')
+
+        else:
+            xml = xmlio.Element('error', code=500)['Sorry, what?']
+            self.channel.send_err(msgno, beep.MIMEMessage(xml))
 
 
 def main():
