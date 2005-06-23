@@ -22,7 +22,7 @@ import os.path
 
 from trac.core import *
 from trac.env import IEnvironmentSetupParticipant
-from bitten.model import Build, schema_version
+from bitten.model import Build, Configuration, schema_version
 from bitten.trac_ext import web_ui
 
 class BuildSystem(Component):
@@ -35,7 +35,7 @@ class BuildSystem(Component):
         # Create the required tables
         db = self.env.get_db_cnx()
         cursor = db.cursor()
-        for table in [Build._table]:
+        for table in [Build._table, Configuration._table]:
             cursor.execute(db.to_sql(table))
 
         tarballs_dir = os.path.join(self.env.path, 'snapshots')
@@ -57,3 +57,19 @@ class BuildSystem(Component):
         row = cursor.fetchone()
         if not row:
             self.environment_created()
+        else:
+            current_version = int(row.fetchone()[0])
+            for i in range(current_version + 1, schema_version + 1):
+                name  = 'db%i' % i
+                try:
+                    upgrades = __import__('upgrades', globals(), locals(),
+                                          [name])
+                    script = getattr(upgrades, name)
+                except AttributeError:
+                    err = 'No upgrade module for version %i (%s.py)' % (i, name)
+                    raise TracError, err
+                script.do_upgrade(self.env, i, cursor)
+            cursor.execute("UPDATE system SET value=%s WHERE "
+                           "name='bitten_version'", (schema_version))
+            self.log.info('Upgraded Bitten tables from version %d to %d',
+                          current_version, schema_version)

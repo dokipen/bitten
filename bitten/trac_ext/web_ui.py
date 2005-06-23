@@ -21,9 +21,11 @@
 import re
 
 from trac.core import *
+from trac.util import escape
 from trac.web.chrome import INavigationContributor
 from trac.web.main import IRequestHandler
-
+from trac.wiki import wiki_to_html
+from bitten.model import Configuration
 
 class BuildModule(Component):
 
@@ -32,9 +34,71 @@ class BuildModule(Component):
     build_cs = """
 <?cs include:"header.cs" ?>
  <div id="ctxtnav" class="nav"></div>
- <div id="content">
-  <h1>Build Status</h1>
-  <p>Not yet implemented</p>
+ <div id="content" class="build">
+  <h1><?cs var:title ?></h1><?cs
+
+  if:build.mode == 'overview' ?><?cs
+   each:config = build.configs ?>
+    <h2><a href="<?cs var:config.href ?>"><?cs var:config.label ?></a></h2><?cs
+    if:config.description ?><div class="description"><?cs
+     var:config.description ?></div><?cs
+    /if ?><?cs
+   /each ?>
+   <div class="buttons">
+    <form method="get" action=""><div>
+     <input type="hidden" name="action" value="new" />
+     <input type="submit" value="Add new configuration" />
+    </div></form>
+   </div><?cs
+
+  elif:build.mode == 'edit_config' ?>
+   <form method="post" action="">
+    <div class="field"><label>Name:<br />
+     <input type="text" name="name" value="<?cs var:build.config.name ?>" />
+    </label></div>
+    <div class="field"><label>Label (for display):<br />
+     <input type="text" name="label" size="32" value="<?cs
+       var:build.config.label ?>" />
+    </label></div>
+    <div class="field"><label><input type="checkbox" name="active"<?cs
+      if:build.config.active ?> checked="checked" <?cs /if ?>/> Active
+    </label></div>
+    <div class="field"><label>Repository path:<br />
+     <input type="text" name="path" size="48" value="<?cs
+       var:build.config.path ?>" />
+    </label></div>
+    <div class="field"><fieldset class="iefix">
+     <label for="description">Description (you may use <a tabindex="42" href="<?cs
+       var:trac.href.wiki ?>/WikiFormatting">WikiFormatting</a> here):</label>
+     <p><textarea id="description" name="description" class="wikitext" rows="10" cols="78"><?cs
+       var:build.config.description ?></textarea></p>
+     <script type="text/javascript" src="<?cs
+       var:htdocs_location ?>js/wikitoolbar.js"></script>
+    </fieldset></div>
+    <div class="buttons">
+     <input type="hidden" name="action" value="<?cs
+       if:build.config.exists ?>edit<?cs else ?>new<?cs /if ?>" />
+     <input type="submit" name="cancel" value="Cancel" />
+     <input type="submit" value="<?cs
+       if:build.config.exists ?>Save changes<?cs else ?>Create<?cs /if ?>" />
+    </div>
+   </form><?cs
+
+  elif:build.mode == 'view_config' ?><ul>
+   <li>Active: <?cs if:build.config.active ?>yes<?cs else ?>no<?cs /if ?></li>
+   <li>Path: <?cs if:build.config.path ?><a href="<?cs
+     var:build.config.browser_href ?>"><?cs
+     var:build.config.path ?></a></li><?cs /if ?></ul>
+   <?cs if:build.config.description ?><div class="description"><?cs
+    var:build.config.description ?></div><?cs /if ?>
+   <div class="buttons">
+    <form method="get" action=""><div>
+     <input type="hidden" name="action" value="edit" />
+     <input type="submit" value="Edit configuration" />
+    </div></form>
+   </div><?cs
+  /if ?>
+
  </div>
 <?cs include:"footer.cs" ?>
 """
@@ -45,17 +109,118 @@ class BuildModule(Component):
         return 'build'
 
     def get_navigation_items(self, req):
-        yield 'mainnav', 'build', '<a href="%s">Build Status</a>' \
-                                  % self.env.href.build()
+        yield 'mainnav', 'build', \
+              '<a href="%s" accesskey="5">Build Status</a>' \
+              % self.env.href.build()
 
     # IRequestHandler methods
 
     def match_request(self, req):
-        match = re.match(r'/build(:?/(\w+))?', req.path_info)
+        match = re.match(r'/build(?:/(\w+))?(?:/(\w+))?', req.path_info)
         if match:
             if match.group(1):
-                req.args['id'] = match.group(1)
+                req.args['config'] = match.group(1)
+                if match.group(2):
+                    req.args['id'] = match.group(2)
             return True
 
     def process_request(self, req):
+        action = req.args.get('action')
+        config = req.args.get('config')
+        id = req.args.get('id')
+
+        if req.method == 'POST':
+            if not config and action == 'new':
+                self._do_create(req)
+            elif config and action == 'edit':
+                self._do_save(req, config)
+        else:
+            if not config:
+                if action == 'new':
+                    self._render_config_form(req)
+                else:
+                    self._render_overview(req)
+            elif not id:
+                if action == 'edit':
+                    self._render_config_form(req, config)
+                else:
+                    self._render_config(req, config)
+            else:
+                self._render_build(req, config, id)
+
         return req.hdf.parse(self.build_cs), None
+
+    def _do_create(self, req):
+        """Create a new build configuration."""
+        if 'cancel' in req.args.keys():
+            req.redirect(self.env.href.build())
+
+        config = Configuration(self.env)
+        config.name = req.args.get('name')
+        config.active = req.args.has_key('active')
+        config.label = req.args.get('label', '')
+        config.path = req.args.get('path', '')
+        config.description = req.args.get('description', '')
+        config.insert()
+
+        req.redirect(self.env.href.build(config.name))
+
+    def _do_save(self, req, config_name):
+        """Save changes to a build configuration."""
+        if 'cancel' in req.args.keys():
+            req.redirect(self.env.href.build(config_name))
+
+        config = Configuration(self.env, config_name)
+        config.name = req.args.get('name')
+        config.active = req.args.has_key('active')
+        config.label = req.args.get('label', '')
+        config.path = req.args.get('path', '')
+        config.description = req.args.get('description', '')
+        config.update()
+
+        req.redirect(self.env.href.build(config.name))
+
+    def _render_overview(self, req):
+        req.hdf['title'] = 'Build Status'
+        configurations = Configuration.select(self.env, include_inactive=True)
+        for idx, config in enumerate(configurations):
+            description = config.description
+            if description:
+                description = wiki_to_html(description, self.env, req)
+            req.hdf['build.configs.%d' % idx] = {
+                'name': config.name, 'label': config.label or config.name,
+                'path': config.path, 'description': description,
+                'href': self.env.href.build(config.name)
+            }
+        req.hdf['build.mode'] = 'overview'
+
+    def _render_config(self, req, config_name):
+        config = Configuration(self.env, config_name)
+        req.hdf['title'] = 'Build Configuration "%s"' \
+                           % escape(config.label or config.name)
+        description = config.description
+        if description:
+            description = wiki_to_html(description, self.env, req)
+        req.hdf['build.config'] = {
+            'name': config.name, 'label': config.label, 'path': config.path,
+            'active': config.active, 'description': description,
+            'browser_href': self.env.href.browser(config.path)
+        }
+        req.hdf['build.mode'] = 'view_config'
+
+    def _render_config_form(self, req, config_name=None):
+        config = Configuration(self.env, config_name)
+        if config.exists:
+            req.hdf['title'] = 'Edit Build Configuration "%s"' \
+                               % escape(config.label or config.name)
+            req.hdf['build.config'] = {
+                'name': config.name, 'label': config.label, 'path': config.path,
+                'active': config.active, 'description': config.description,
+                'exists': config.exists
+            }
+        else:
+            req.hdf['title'] = 'Create Build Configuration'
+        req.hdf['build.mode'] = 'edit_config'
+
+    def _render_build(self, req, config_name, build_id):
+        raise NotImplementedError, 'Not implemented yet'
