@@ -25,7 +25,7 @@ from trac.util import escape
 from trac.web.chrome import INavigationContributor
 from trac.web.main import IRequestHandler
 from trac.wiki import wiki_to_html
-from bitten.model import Configuration
+from bitten.model import BuildConfig
 
 class BuildModule(Component):
 
@@ -155,7 +155,7 @@ class BuildModule(Component):
         if 'cancel' in req.args.keys():
             req.redirect(self.env.href.build())
 
-        config = Configuration(self.env)
+        config = BuildConfig(self.env)
         config.name = req.args.get('name')
         config.active = req.args.has_key('active')
         config.label = req.args.get('label', '')
@@ -170,7 +170,7 @@ class BuildModule(Component):
         if 'cancel' in req.args.keys():
             req.redirect(self.env.href.build(config_name))
 
-        config = Configuration(self.env, config_name)
+        config = BuildConfig(self.env, config_name)
         config.name = req.args.get('name')
         config.active = req.args.has_key('active')
         config.label = req.args.get('label', '')
@@ -182,7 +182,7 @@ class BuildModule(Component):
 
     def _render_overview(self, req):
         req.hdf['title'] = 'Build Status'
-        configurations = Configuration.select(self.env, include_inactive=True)
+        configurations = BuildConfig.select(self.env, include_inactive=True)
         for idx, config in enumerate(configurations):
             description = config.description
             if description:
@@ -195,7 +195,7 @@ class BuildModule(Component):
         req.hdf['build.mode'] = 'overview'
 
     def _render_config(self, req, config_name):
-        config = Configuration(self.env, config_name)
+        config = BuildConfig(self.env, config_name)
         req.hdf['title'] = 'Build Configuration "%s"' \
                            % escape(config.label or config.name)
         description = config.description
@@ -209,7 +209,7 @@ class BuildModule(Component):
         req.hdf['build.mode'] = 'view_config'
 
     def _render_config_form(self, req, config_name=None):
-        config = Configuration(self.env, config_name)
+        config = BuildConfig(self.env, config_name)
         if config.exists:
             req.hdf['title'] = 'Edit Build Configuration "%s"' \
                                % escape(config.label or config.name)

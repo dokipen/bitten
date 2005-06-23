@@ -23,7 +23,7 @@ from trac.db_default import Table, Column
 schema_version = 1
 
 
-class Configuration(object):
+class BuildConfig(object):
     """Representation of a build configuration."""
 
     _table = Table('bitten_config', key='name')[
@@ -106,7 +106,7 @@ class Configuration(object):
                            "FROM bitten_config WHERE active=1 "
                            "ORDER BY name")
         for name, path, label, active, description in cursor:
-            config = Configuration(env)
+            config = BuildConfig(env)
             config.name = name
             config.path = path or ''
             config.label = label or ''

@@ -22,7 +22,7 @@ import os.path
 
 from trac.core import *
 from trac.env import IEnvironmentSetupParticipant
-from bitten.model import Build, Configuration, schema_version
+from bitten.model import Build, BuildConfig, schema_version
 from bitten.trac_ext import web_ui
 
 class BuildSystem(Component):
@@ -35,7 +35,7 @@ class BuildSystem(Component):
         # Create the required tables
         db = self.env.get_db_cnx()
         cursor = db.cursor()
-        for table in [Build._table, Configuration._table]:
+        for table in [Build._table, BuildConfig._table]:
             cursor.execute(db.to_sql(table))
 
         tarballs_dir = os.path.join(self.env.path, 'snapshots')

@@ -23,7 +23,7 @@ import os.path
 
 from trac.env import Environment
 from bitten import __version__ as VERSION
-from bitten.model import Build, Configuration
+from bitten.model import Build, BuildConfig
 from bitten.util import archive, beep, xmlio
 
 
@@ -50,7 +50,7 @@ class Master(beep.Listener):
         try:
             repos.sync()
 
-            for config in Configuration.select(self.env):
+            for config in BuildConfig.select(self.env):
                 node = repos.get_node(config.path)
                 if (node.path, node.rev) in self.build_queue:
                     # Builds already pending
