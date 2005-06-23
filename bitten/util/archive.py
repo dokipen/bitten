@@ -24,8 +24,10 @@ import time
 _formats = {'gzip': ('.tar.gz', 'gz'), 'bzip2': ('.tar.bz2', 'bz2'),
             'zip': ('.zip', None)}
 
-def make_archive(env, path=None, rev=None, format='gzip'):
-    repos = env.get_repository()
+def make_archive(env, repos=None, path=None, rev=None, prefix=None,
+                format='gzip'):
+    if repos is None:
+        repos = env.get_repository()
     root = repos.get_node(path or '/', rev)
     if not root.isdir:
         raise Exception, '"%s" is not a directory' % path
@@ -35,7 +37,9 @@ def make_archive(env, path=None, rev=None, format='gzip'):
     filedir = os.path.join(env.path, 'snapshots')
     if not os.access(filedir, os.R_OK + os.W_OK):
         raise IOError, 'Insufficient permissions to create tarball'
-    prefix = '%s_r%s' % (root.path.replace('/', '-'), root.rev)
+    if not prefix:
+        prefix = root.path.replace('/', '-')
+    prefix += '_r%s' % root.rev
     filename = os.path.join(filedir, prefix + _formats[format][0])
 
     if format in ('bzip2', 'gzip'):
@@ -43,24 +47,26 @@ def make_archive(env, path=None, rev=None, format='gzip'):
     else:
         _make_zip_archive(env, root, filename, prefix)
 
+    return filename
+
 def _make_tar_archive(env, root, filename, prefix, format):
     import tarfile
     tar = tarfile.open(filename, 'w:' + _formats[format][1])
 
-    def _add_entry(prefix, node):
+    def _add_entry(node):
         name = node.path[len(root.path):]
         if name.startswith('/'):
             name = name[1:]
         if node.isdir:
             for entry in node.get_entries():
-                _add_entry(os.path.join(prefix, name), entry)
+                _add_entry(entry)
         else:
             info = tarfile.TarInfo(os.path.join(prefix, name))
             info.type = tarfile.REGTYPE
             info.mtime = node.last_modified
             info.size = node.content_length
             tar.addfile(info, node.get_content())
-    _add_entry(prefix, root)
+    _add_entry(root)
 
     tar.close()
 
@@ -68,19 +74,19 @@ def _make_zip_archive(env, root, filename, prefix):
     import zipfile
     zip = zipfile.ZipFile(filename, 'w', zipfile.ZIP_DEFLATED)
 
-    def _add_entry(prefix, node):
+    def _add_entry(node):
         name = node.path[len(root.path):]
         if name.startswith('/'):
             name = name[1:]
         if node.isdir:
             for entry in node.get_entries():
-                _add_entry(os.path.join(prefix, name), entry)
+                _add_entry(entry)
         else:
             info = zipfile.ZipInfo(os.path.join(prefix, name))
             info.compress_type = zipfile.ZIP_DEFLATED
             info.date_time = time.gmtime(node.last_modified)[:6]
             info.file_size = node.content_length
             zip.writestr(info, node.get_content().read())
-    _add_entry(prefix, root)
+    _add_entry(root)
 
     zip.close()
