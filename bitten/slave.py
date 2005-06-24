@@ -25,7 +25,7 @@ import tempfile
 import time
 
 from bitten import __version__ as VERSION
-from bitten.util import beep, xmlio
+from bitten.util import archive, beep, xmlio
 
 
 class Slave(beep.Initiator):
@@ -70,12 +70,24 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
             archive_name = msg.get('Content-Disposition', 'snapshot.tar.gz')
             archive_path = os.path.join(workdir, archive_name)
             file(archive_path, 'wb').write(msg.get_payload())
-            logging.info('Received snapshot archive: %s', archive_path)
+            logging.debug('Received snapshot archive: %s', archive_path)
 
-            # TODO: Spawn the build process
+            # Unpack the archive
+            prefix = archive.unpack(archive_path, workdir)
+            path = os.path.join(workdir, prefix)
+            logging.info('Unpacked snapshot to %s' % path)
+
+            # Fix permissions
+            for root, dirs, files in os.walk(workdir, topdown=False):
+                for dirname in dirs:
+                    os.chmod(os.path.join(root, dirname), 0700)
+                for filename in files:
+                    os.chmod(os.path.join(root, filename), 0400)
 
             xml = xmlio.Element('ok')
             self.channel.send_rpy(msgno, beep.MIMEMessage(xml))
+
+            # TODO: Start the build process
 
         else:
             xml = xmlio.Element('error', code=500)['Sorry, what?']

@@ -65,8 +65,8 @@ class Master(beep.Listener):
                 # already been built
                 builds = Build.select(self.env, config.name, node.rev)
                 if not list(builds):
-                    snapshot = archive.make_archive(self.env, repos, node.path,
-                                                    node.rev, config.name)
+                    snapshot = archive.pack(self.env, repos, node.path,
+                                            node.rev, config.name)
                     logging.info('Created snapshot archive at %s' % snapshot)
                     self.snapshots[(config.name, str(node.rev))] = snapshot
 

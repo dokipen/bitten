@@ -18,14 +18,16 @@
 #
 # Author: Christopher Lenz <cmlenz@gmx.de>
 
+import logging
 import os.path
+import tarfile
 import time
+import zipfile
 
 _formats = {'gzip': ('.tar.gz', 'gz'), 'bzip2': ('.tar.bz2', 'bz2'),
             'zip': ('.zip', None)}
 
-def make_archive(env, repos=None, path=None, rev=None, prefix=None,
-                format='gzip'):
+def pack(env, repos=None, path=None, rev=None, prefix=None, format='gzip'):
     if repos is None:
         repos = env.get_repository()
     root = repos.get_node(path or '/', rev)
@@ -43,15 +45,9 @@ def make_archive(env, repos=None, path=None, rev=None, prefix=None,
     filename = os.path.join(filedir, prefix + _formats[format][0])
 
     if format in ('bzip2', 'gzip'):
-        _make_tar_archive(env, root, filename, prefix, format)
+        archive = tarfile.open(filename, 'w:' + _formats[format][1])
     else:
-        _make_zip_archive(env, root, filename, prefix)
-
-    return filename
-
-def _make_tar_archive(env, root, filename, prefix, format):
-    import tarfile
-    tar = tarfile.open(filename, 'w:' + _formats[format][1])
+        archive = zipfile.ZipFile(filename, 'w', zipfile.ZIP_DEFLATED)
 
     def _add_entry(node):
         name = node.path[len(root.path):]
@@ -60,33 +56,46 @@ def _make_tar_archive(env, root, filename, prefix, format):
         if node.isdir:
             for entry in node.get_entries():
                 _add_entry(entry)
-        else:
+        elif format in ('bzip2', 'gzip'):
             info = tarfile.TarInfo(os.path.join(prefix, name))
             info.type = tarfile.REGTYPE
             info.mtime = node.last_modified
             info.size = node.content_length
-            tar.addfile(info, node.get_content())
-    _add_entry(root)
-
-    tar.close()
-
-def _make_zip_archive(env, root, filename, prefix):
-    import zipfile
-    zip = zipfile.ZipFile(filename, 'w', zipfile.ZIP_DEFLATED)
-
-    def _add_entry(node):
-        name = node.path[len(root.path):]
-        if name.startswith('/'):
-            name = name[1:]
-        if node.isdir:
-            for entry in node.get_entries():
-                _add_entry(entry)
-        else:
+            archive.addfile(info, node.get_content())
+        else: # ZIP format
             info = zipfile.ZipInfo(os.path.join(prefix, name))
             info.compress_type = zipfile.ZIP_DEFLATED
             info.date_time = time.gmtime(node.last_modified)[:6]
             info.file_size = node.content_length
-            zip.writestr(info, node.get_content().read())
+            archive.writestr(info, node.get_content().read())
     _add_entry(root)
 
-    zip.close()
+    archive.close()
+
+    return filename
+
+def unpack(filename, dest_path, format=None):
+    if not format:
+        for name, (extension, compression) in _formats.items():
+            if filename.endswith(extension):
+                format = name
+                break
+        if not format:
+            raise Exception, 'Unkown archive extension: %s' \
+                             % os.path.splitext(filename)[1]
+
+    names = []
+    if format in ('bzip2', 'gzip'):
+        tar = tarfile.open(filename)
+        for tarinfo in tar:
+            names.append(tarinfo.name)
+            tar.extract(tarinfo, dest_path)
+    elif format == 'zip':
+        zip = zipfile.ZipFile(filename, 'r')
+        for name in zip.namelist():
+            names.append(name)
+            if name.endswith('/'):
+                os.makedirs(os.path.join(path, name))
+            else:
+                file(os.path.join(path, name), 'wb').write(zip.read(name))
+    return os.path.commonprefix(names)
