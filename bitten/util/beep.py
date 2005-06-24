@@ -34,6 +34,7 @@ import email
 from email.Message import Message
 import logging
 import socket
+from sets import Set
 import sys
 import time
 
@@ -385,7 +386,7 @@ class Channel(object):
         self.reply_handlers = {}
 
         self.msgno = cycle_through(0, 2147483647)
-        self.msgnos = {} # message numbers currently in use
+        self.msgnos = Set() # message numbers currently in use
         self.ansnos = {} # answer numbers keyed by msgno, each 0-2147483647
 
         # incoming, outgoing sequence numbers
@@ -436,7 +437,7 @@ class Channel(object):
             del self.inqueue[msgno]
         if cmd == 'RPY' and msgno in self.msgnos:
             # Final reply using this message number, so dealloc
-            del self.msgnos[msgno]
+            self.msgnos.remove(msgno)
         message = None
         if payload:
             message = email.message_from_string(payload)
@@ -486,7 +487,7 @@ class Channel(object):
             msgno = self.msgno.next()
             if msgno not in self.msgnos:
                 break
-        self.msgnos[msgno] = True # Flag the chosen message number as in use
+        self.msgnos.add(msgno) # Flag the chosen message number as in use
         if handle_reply is not None:
             self.reply_handlers[msgno] = handle_reply
         self._send('MSG', msgno, None, message)
