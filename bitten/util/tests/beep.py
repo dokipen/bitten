@@ -530,5 +530,4 @@ def suite():
     return suite
 
 if __name__ == '__main__':
-    logging.getLogger().setLevel(logging.CRITICAL)
     unittest.main(defaultTest='suite')

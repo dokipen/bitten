@@ -69,8 +69,8 @@ class BuildConfig(object):
         cursor.execute("INSERT INTO bitten_config "
                        "(name,path,label,active,description) "
                        "VALUES (%s,%s,%s,%s,%s)",
-                       (self.name, self.path, self.label, int(self.active or 0),
-                        self.description))
+                       (self.name, self.path, self.label or '',
+                        int(self.active or 0), self.description or ''))
 
         if handle_ta:
             db.commit()
@@ -119,46 +119,62 @@ class BuildConfig(object):
 class Build(object):
     """Representation of a build."""
 
-    _table = Table('bitten_build', key=('path', 'rev', 'slave'))[
-        Column('rev'), Column('path'), Column('slave'),
+    _table = Table('bitten_build', key=('config', 'rev', 'slave'))[
+        Column('config'), Column('rev'), Column('slave'),
         Column('time', type='int'), Column('duration', type='int'),
-        Column('status', type='int')
+        Column('status', size='1')
     ]
 
-    FAILURE = 'failure'
-    IN_PROGRESS = 'in-progress'
-    SUCCESS = 'success'
+    PENDING = 'P'
+    IN_PROGRESS = 'I'
+    SUCCESS = 'S'
+    FAILURE = 'F'
 
-    def __init__(self, env, path=None, rev=None, slave=None, db=None):
+    def __init__(self, env, config=None, rev=None, slave=None, db=None):
         self.env = env
-        self.rev = self.path = self.slave = None
-        self.time = self.duration = self.status = None
-        if rev:
-            self._fetch(rev, path, slave, db)
+        self.config = self.rev = self.slave = self.time = self.duration = None
+        if config and rev and slave:
+            self._fetch(config, rev, slave, db)
+        else:
+            self.time = self.duration = 0
+            self.status = self.PENDING
 
-    def _fetch(self, rev, path, slave, db=None):
+    def _fetch(self, config, rev, slave, db=None):
         if not db:
             db = self.env.get_db_cnx()
 
         cursor = db.cursor()
         cursor.execute("SELECT time,duration,status FROM bitten_build "
-                       "WHERE rev=%s AND path=%s AND slave=%s",
-                       (rev, path, slave))
+                       "WHERE config=%s AND rev=%s AND slave=%s",
+                       (config, rev, slave))
         row = cursor.fetchone()
         if not row:
             raise Exception, "Build not found"
+        self.config = config
         self.rev = rev
-        self.path = path
         self.slave = slave
         self.time = row[0] and int(row[0])
         self.duration = row[1] and int(row[1])
-        if row[2] is not None:
-            self.status = row[2] and Build.SUCCESS or Build.FAILURE
-        else:
-            self.status = Build.IN_PROGRESS
+        self.status = row[2]
 
     completed = property(fget=lambda self: self.status != Build.IN_PROGRESS)
     successful = property(fget=lambda self: self.status == Build.SUCCESS)
+
+    def delete(self, db=None):
+        if not db:
+            db = self.env.get_db_cnx()
+            handle_ta = True
+        else:
+            handle_ta = False
+
+        assert self.status == self.PENDING, 'Only pending builds can be deleted'
+
+        cursor = db.cursor()
+        cursor.execute("DELETE FROM bitten_build WHERE config=%s AND rev=%s "
+                       "AND slave=%s", (self.config, self.rev,
+                       self.slave or ''))
+        if handle_ta:
+            db.commit()
 
     def insert(self, db=None):
         if not db:
@@ -167,41 +183,70 @@ class Build(object):
         else:
             handle_ta = False
 
+        assert self.config and self.rev
+        assert self.status in (self.PENDING, self.IN_PROGRESS, self.SUCCESS,
+                               self.FAILURE)
+        if not self.slave:
+            assert self.status == self.PENDING
+
         cursor = db.cursor()
         cursor.execute("INSERT INTO bitten_build VALUES (%s,%s,%s,%s,%s,%s)",
-                       (self.rev, self.path, self.slave, self.time,
-                        self.duration, self.status or Build.IN_PROGRESS))
+                       (self.config, self.rev, self.slave or '', self.time or 0,
+                        self.duration or 0, self.status))
+        if handle_ta:
+            db.commit()
 
-    def select(cls, env, path=None, rev=None, slave=None, db=None):
+    def update(self, db=None):
+        if not db:
+            db = self.env.get_db_cnx()
+            handle_ta = True
+        else:
+            handle_ta = False
+
+        assert self.config and self.rev
+        assert self.status in (self.PENDING, self.IN_PROGRESS, self.SUCCESS,
+                               self.FAILURE)
+        if not self.slave:
+            assert self.status == self.PENDING
+
+        cursor = db.cursor()
+        cursor.execute("UPDATE bitten_build SET slave=%s,time=%s,duration=%s,"
+                       "status=%s WHERE config=%s AND rev=%s",
+                       (self.slave or '', self.time or 0, self.duration or 0,
+                        self.status, self.config, self.rev))
+        if handle_ta:
+            db.commit()
+
+    def select(cls, env, config=None, rev=None, slave=None, status=None,
+               db=None):
         if not db:
             db = env.get_db_cnx()
 
         where_clauses = []
+        if config is not None:
+            where_clauses.append(("config=%s", config))
         if rev is not None:
             where_clauses.append(("rev=%s", rev))
-        if path is not None:
-            where_clauses.append(("path=%s", path))
         if slave is not None:
-            where_clauses.append(("slave=%s", path))
+            where_clauses.append(("slave=%s", slave))
+        if status is not None:
+            where_clauses.append(("status=%s", status))
         if where_clauses:
             where = "WHERE " + " AND ".join([wc[0] for wc in where_clauses])
         else:
             where = ""
 
         cursor = db.cursor()
-        cursor.execute("SELECT rev,path,slave,time,duration,status "
-                       "FROM bitten_build " + where,
+        cursor.execute("SELECT config,rev,slave,time,duration,status "
+                       "FROM bitten_build %s ORDER BY config,rev,slave" % where,
                        [wc[1] for wc in where_clauses])
-        for rev, path, slave, time, duration, status in cursor:
+        for config, rev, slave, time, duration, status in cursor:
             build = Build(env)
+            build.config = config
             build.rev = rev
-            build.path = path
             build.slave = slave
-            build.time = time and int(time)
-            build.duration = duration and int(duration)
-            if status is not None:
-                build.status = status and Build.SUCCESS or Build.FAILURE
-            else:
-                build.status = Build.FAILURE
+            build.time = time and int(time) or 0
+            build.duration = duration and int(duration) or 0
+            build.status = status
             yield build
     select = classmethod(select)

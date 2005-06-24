@@ -20,11 +20,12 @@
 
 import unittest
 
-from bitten.tests import recipe
+from bitten.tests import model, recipe
 from bitten.util import tests as util
 
 def suite():
     suite = unittest.TestSuite()
+    suite.addTest(model.suite())
     suite.addTest(recipe.suite())
     suite.addTest(util.suite())
     return suite

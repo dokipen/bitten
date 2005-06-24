@@ -32,8 +32,9 @@ class Slave(beep.Initiator):
 
     def greeting_received(self, profiles):
         if OrchestrationProfileHandler.URI not in profiles:
-            logging.error('Peer does not support Bitten profile')
-            raise beep.TerminateSession, 'Peer does not support Bitten profile'
+            err = 'Peer does not support the Bitten orchestration profile'
+            logging.error(err)
+            raise beep.TerminateSession, err
         self.channels[0].profile.send_start([OrchestrationProfileHandler])
 
 
@@ -65,18 +66,16 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
 
     def handle_msg(self, msgno, msg):
         if msg.get_content_type() == 'application/tar':
-            logging.info('Received snapshot')
             workdir = tempfile.mkdtemp(prefix='bitten')
             archive_name = msg.get('Content-Disposition', 'snapshot.tar.gz')
             archive_path = os.path.join(workdir, archive_name)
             file(archive_path, 'wb').write(msg.get_payload())
-            logging.info('Stored snapshot archive at %s', archive_path)
+            logging.info('Received snapshot archive: %s', archive_path)
 
             # TODO: Spawn the build process
 
             xml = xmlio.Element('ok')
             self.channel.send_rpy(msgno, beep.MIMEMessage(xml))
-            logging.info('Sent <ok/> in reply to build request')
 
         else:
             xml = xmlio.Element('error', code=500)['Sorry, what?']
@@ -104,7 +103,7 @@ def main():
         try:
             port = int(args[1])
             assert (1 <= port <= 65535), 'port number out of range'
-        except AssertionError, ValueError:
+        except (AssertionError, ValueError):
             parser.error('port must be an integer in the range 1-65535')
     else:
         port = 7633

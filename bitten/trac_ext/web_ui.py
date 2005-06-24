@@ -19,13 +19,14 @@
 # Author: Christopher Lenz <cmlenz@gmx.de>
 
 import re
+import time
 
 from trac.core import *
-from trac.util import escape
+from trac.util import escape, pretty_timedelta
 from trac.web.chrome import INavigationContributor
 from trac.web.main import IRequestHandler
 from trac.wiki import wiki_to_html
-from bitten.model import BuildConfig
+from bitten.model import Build, BuildConfig
 
 class BuildModule(Component):
 
@@ -88,9 +89,30 @@ class BuildModule(Component):
    <li>Active: <?cs if:build.config.active ?>yes<?cs else ?>no<?cs /if ?></li>
    <li>Path: <?cs if:build.config.path ?><a href="<?cs
      var:build.config.browser_href ?>"><?cs
-     var:build.config.path ?></a></li><?cs /if ?></ul>
-   <?cs if:build.config.description ?><div class="description"><?cs
-    var:build.config.description ?></div><?cs /if ?>
+     var:build.config.path ?></a></li><?cs /if ?></ul><?cs
+   if:build.config.description ?><div class="description"><?cs
+     var:build.config.description ?></div><?cs /if ?>
+   <div id="builds"><h3>Builds</h3><?cs
+    if:len(build.config.builds) ?><ul><?cs
+     each:b = build.config.builds ?><li><a href="<?cs
+      var:b.href ?>">[<?cs var:b.rev ?>]</a> built by <?cs
+      var:len(b.slaves) ?> slave(s)<?cs
+      if:len(b.slaves) ?>:<ul><?cs
+       each:slave = b.slaves ?><li><strong><?cs var:slave.name ?></strong>: <?cs
+        var:slave.status ?> (started <?cs
+        var:slave.started_delta ?> ago<?cs
+        if:slave.stopped ?>, stopped <?cs
+         var:slave.stopped_delta ?> ago, took <?cs
+         var:slave.duration ?><?cs
+        /if ?>)</li><?cs
+       /each ?>
+      </ul><?cs
+      /if ?>
+      </li><?cs
+     /each ?>
+    </ul><?cs
+   else ?><p>None</p><?cs
+   /if ?></div>
    <div class="buttons">
     <form method="get" action=""><div>
      <input type="hidden" name="action" value="edit" />
@@ -116,7 +138,7 @@ class BuildModule(Component):
     # IRequestHandler methods
 
     def match_request(self, req):
-        match = re.match(r'/build(?:/(\w+))?(?:/(\w+))?', req.path_info)
+        match = re.match(r'/build(?:/([\w.-]+))?(?:/([\w+.-]))?', req.path_info)
         if match:
             if match.group(1):
                 req.args['config'] = match.group(1)
@@ -206,6 +228,36 @@ class BuildModule(Component):
             'active': config.active, 'description': description,
             'browser_href': self.env.href.browser(config.path)
         }
+
+        builds = Build.select(self.env, config=config.name)
+        curr_rev = None
+        slave_idx = 0
+        for idx, build in enumerate(builds):
+            if build.rev != curr_rev:
+                slave_idx = 0
+                curr_rev = build.rev
+                req.hdf['build.config.builds.%d' % idx] = {
+                    'rev': build.rev,
+                    'href': self.env.href.changeset(build.rev)
+                }
+            if not build.slave:
+                continue
+            status_label = {Build.PENDING: 'pending',
+                            Build.IN_PROGRESS: 'in progress',
+                            Build.SUCCESS: 'success', Build.FAILURE: 'failed'}
+            prefix = 'build.config.builds.%d.slaves.%d' % (idx, slave_idx)
+            req.hdf[prefix] = {'name': build.slave,
+                               'status': status_label[build.status]}
+            if build.time:
+                started = build.time
+                req.hdf[prefix + '.started'] = time.strftime('%x %X', time.localtime(started))
+                req.hdf[prefix + '.started_delta'] = pretty_timedelta(started)
+            if build.duration:
+                stopped = build.time + build.duration
+                req.hdf[prefix + '.duration'] = pretty_timedelta(stopped, build.time)
+                req.hdf[prefix + '.stopped'] = time.strftime('%x %X', time.localtime(stopped))
+                req.hdf[prefix + '.stopped_delta'] = pretty_timedelta(stopped)
+
         req.hdf['build.mode'] = 'view_config'
 
     def _render_config_form(self, req, config_name=None):
