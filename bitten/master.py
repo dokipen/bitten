@@ -84,10 +84,10 @@ class Master(beep.Listener):
     def _check_build_queue(self, master, when):
         if not self.slaves:
             return
-        logging.info('Checking for pending builds...')
+        logging.debug('Checking for pending builds...')
         for build in Build.select(self.env, status=Build.PENDING):
-            logging.info('Building configuration "%s" as of revision [%s]',
-                         build.config, build.rev)
+            logging.debug('Building configuration "%s" as of revision [%s]',
+                          build.config, build.rev)
             snapshot = self.snapshots[(build.config, build.rev)]
             for slave in self.slaves.values():
                 active_builds = Build.select(self.env, slave=slave.name,
@@ -146,7 +146,7 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
                          self.name, platform, os, os_version, os_family)
 
     def send_build(self, build, snapshot_path, handle_reply=None):
-        logging.info('Initiating build on slave %s', self.name)
+        logging.debug('Initiating build on slave %s', self.name)
         self.building = True
 
         def handle_reply(cmd, msgno, msg):
@@ -160,7 +160,8 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
             build.time = int(time.time())
             build.status = Build.IN_PROGRESS
             build.update()
-            logging.info('Build started')
+            logging.info('Slave %s started build of "%s" at [%s]', self.name,
+                         build.config, build.rev)
 
         # TODO: should not block while reading the file; rather stream it using
         #       asyncore push_with_producer()

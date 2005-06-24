@@ -136,7 +136,7 @@ class Listener(asyncore.dispatcher):
                     self.close()
             def handle_error(channelno, code, message):
                 logging.error('Failed to close channel %d', channelno)
-            logging.info('Should close session with %s', session.addr)
+            logging.debug('Closing session with %s', session.addr)
             session.terminate(handle_ok=handle_ok)
         self.schedule(0, terminate_next_session)
         self.run(.5)
