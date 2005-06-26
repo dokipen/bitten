@@ -27,7 +27,8 @@ import zipfile
 _formats = {'gzip': ('.tar.gz', 'gz'), 'bzip2': ('.tar.bz2', 'bz2'),
             'zip': ('.zip', None)}
 
-def pack(env, repos=None, path=None, rev=None, prefix=None, format='gzip'):
+def pack(env, repos=None, path=None, rev=None, prefix=None, format='gzip',
+         overwrite=False):
     if repos is None:
         repos = env.get_repository()
     root = repos.get_node(path or '/', rev)
@@ -43,6 +44,9 @@ def pack(env, repos=None, path=None, rev=None, prefix=None, format='gzip'):
         prefix = root.path.replace('/', '-')
     prefix += '_r%s' % root.rev
     filename = os.path.join(filedir, prefix + _formats[format][0])
+
+    if not overwrite and os.path.isfile(filename):
+        return filename
 
     if format in ('bzip2', 'gzip'):
         archive = tarfile.open(filename, 'w:' + _formats[format][1])

@@ -76,14 +76,15 @@ class Element(object):
     >>> print Element('foo')['<bar a="3" b="4"><baz/></bar>']
     <foo><![CDATA[<bar a="3" b="4"><baz/></bar>]]></foo>
     """
-    __slots__ = ['tagname', 'attrs', 'children']
+    __slots__ = ['name', 'attrs', 'children']
 
-    def __init__(self, tagname, **attrs):
+    def __init__(self, *args, **attrs):
         """Create an XML element using the specified tag name.
         
-        All keyword arguments are handled as attributes of the element.
+        The tag name must be supplied as the first positional argument. All
+        keyword arguments following it are handled as attributes of the element.
         """
-        self.tagname = tagname
+        self.name = args[0]
         self.attrs = attrs
         self.children = []
 
@@ -106,7 +107,7 @@ class Element(object):
         stream.
         """
         out.write('<')
-        out.write(self.tagname)
+        out.write(self.name)
         for name, value in self.attrs.items():
             out.write(' %s="%s"' % (name, self._escape_attr(value)))
         if self.children:
@@ -119,7 +120,7 @@ class Element(object):
                         out.write('<![CDATA[' + child + ']]>')
                     else:
                         out.write(self._escape_text(child))
-            out.write('</' + self.tagname + '>')
+            out.write('</' + self.name + '>')
         else:
             out.write('/>')
         if newlines:
@@ -137,13 +138,17 @@ class SubElement(Element):
 
     __slots__ = []
 
-    def __init__(self, parent, tagname, **attrs):
+    def __init__(self, *args, **attrs):
         """Create an XML element using the specified tag name.
         
-        All keyword arguments are handled as attributes of the element.
+        The first positional argument is the instance of the parent element that
+        this subelement should be appended to; the second positional argument is
+        the name of the tag. All keyword arguments are handled as attributes of
+        the element.
         """
-        Element.__init__(self, tagname, **attrs)
-        parent.children.append(self)
+        assert len(args) == 2
+        Element.__init__(self, args[1], **attrs)
+        args[0].children.append(self)
 
 
 def parse(text):
@@ -156,26 +161,26 @@ def parse(text):
 
 
 class ParsedElement(object):
-    __slots__ = ['node']
+    __slots__ = ['_node', 'attr']
 
     def __init__(self, node):
-        self.node = node
+        self._node = node
+        self.attr = dict([(name.encode(), value.encode()) for name, value
+                          in node.attributes.items()])
 
-    tagname = property(fget=lambda self: self.node.tagName)
+    name = property(fget=lambda self: self._node.localName)
+    namespace = property(fget=lambda self: self._node.namespaceURI)
 
-    def __getattr__(self, name):
-        return self.node.getAttribute(name)
-
-    def __getitem__(self, name):
-        for child in [c for c in self.node.childNodes if c.nodeType == 1]:
-            if name in ('*', child.tagName):
+    def children(self, name=None):
+        for child in [c for c in self._node.childNodes if c.nodeType == 1]:
+            if name in (None, child.tagName):
                 yield ParsedElement(child)
 
     def __iter__(self):
-        return self['*']
+        return self.children()
 
     def gettext(self):
-        return ''.join([c.nodeValue for c in self.node.childNodes])
+        return ''.join([c.nodeValue for c in self._node.childNodes])
 
 
 if __name__ == '__main__':

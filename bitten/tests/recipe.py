@@ -35,10 +35,10 @@ class RecipeTestCase(unittest.TestCase):
     def tearDown(self):
         os.unlink(os.path.join(self.temp_dir, 'recipe.xml'))
 
-    def testDescription(self):
+    def test_description(self):
         self.recipe_xml.write('<?xml version="1.0"?>'
-                              '<recipe description="test">'
-                              '</recipe>')
+                              '<build description="test">'
+                              '</build>')
         self.recipe_xml.close()
         recipe = Recipe(basedir=self.temp_dir)
         self.assertEqual('test', recipe.description)

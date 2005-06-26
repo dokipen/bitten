@@ -65,11 +65,6 @@ class Master(beep.Listener):
                 # already been built
                 builds = Build.select(self.env, config.name, node.rev)
                 if not list(builds):
-                    snapshot = archive.pack(self.env, repos, node.path,
-                                            node.rev, config.name)
-                    logging.info('Created snapshot archive at %s' % snapshot)
-                    self.snapshots[(config.name, str(node.rev))] = snapshot
-
                     logging.info('Enqueuing build of configuration "%s" as of revision [%s]',
                                  config.name, node.rev)
                     build = Build(self.env)
@@ -88,14 +83,28 @@ class Master(beep.Listener):
         for build in Build.select(self.env, status=Build.PENDING):
             logging.debug('Building configuration "%s" as of revision [%s]',
                           build.config, build.rev)
-            snapshot = self.snapshots[(build.config, build.rev)]
             for slave in self.slaves.values():
                 active_builds = Build.select(self.env, slave=slave.name,
                                              status=Build.IN_PROGRESS)
                 if not list(active_builds):
-                    slave.send_build(build, snapshot)
+                    slave.initiate_build(build)
                     break
 
+    def get_snapshot(self, build, type, encoding):
+        formats = {
+            ('application/tar', 'bzip2'): 'bzip2',
+            ('application/tar', 'gzip'): 'bzip',
+            ('application/tar', None): 'tar',
+            ('application/zip', None): 'zip',
+        }
+        if not (build.config, build.rev, type, encoding) in self.snapshots:
+            config = BuildConfig(self.env, build.config)
+            snapshot = archive.pack(self.env, path=config.path, rev=build.rev,
+                                    prefix=config.name,
+                                    format=formats[(type, encoding)])
+            logging.info('Prepared snapshot archive at %s' % snapshot)
+            self.snapshots[(build.config, build.rev, type, encoding)] = snapshot
+        return self.snapshots[(build.config, build.rev, type, encoding)]
 
 class OrchestrationProfileHandler(beep.ProfileHandler):
     """Handler for communication on the Bitten build orchestration profile from
@@ -103,41 +112,40 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
     """
     URI = 'http://bitten.cmlenz.net/beep/orchestration'
 
-    def handle_connect(self, init_elem=None):
+    def handle_connect(self):
         self.master = self.session.listener
         assert self.master
-        self.building = False
         self.name = None
 
     def handle_disconnect(self):
         del self.master.slaves[self.name]
+
+        for build in Build.select(self.master.env, slave=self.name,
+                                  status=Build.IN_PROGRESS):
+            logging.info('Build [%s] of "%s" by %s cancelled', build.rev,
+                         build.config, self.name)
+            build.slave = None
+            build.status = Build.PENDING
+            build.time = None
+            build.update()
+            break
         logging.info('Unregistered slave "%s"', self.name)
-        if self.building:
-            for build in Build.select(self.master.env, slave=self.name,
-                                      status=Build.IN_PROGRESS):
-                logging.info('Build [%s] of "%s" by %s cancelled', build.rev,
-                             build.config, self.name)
-                build.slave = None
-                build.status = Build.PENDING
-                build.time = None
-                build.update()
-                break
 
     def handle_msg(self, msgno, msg):
         assert msg.get_content_type() == beep.BEEP_XML
         elem = xmlio.parse(msg.get_payload())
 
-        if elem.tagname == 'register':
+        if elem.name == 'register':
             platform, os, os_family, os_version = None, None, None, None
-            for child in elem['*']:
-                if child.tagname == 'platform':
+            for child in elem.children():
+                if child.name == 'platform':
                     platform = child.gettext()
-                elif child.tagname == 'os':
+                elif child.name == 'os':
                     os = child.gettext()
-                    os_family = child.family
-                    os_version = child.version
+                    os_family = child.attr['family']
+                    os_version = child.attr['version']
 
-            self.name = elem.name
+            self.name = elem.attr['name']
             self.master.slaves[self.name] = self
 
             xml = xmlio.Element('ok')
@@ -145,17 +153,49 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
             logging.info('Registered slave "%s" (%s running %s %s [%s])',
                          self.name, platform, os, os_version, os_family)
 
-    def send_build(self, build, snapshot_path, handle_reply=None):
-        logging.debug('Initiating build on slave %s', self.name)
-        self.building = True
+    def initiate_build(self, build):
+        logging.debug('Initiating build of "%s" on slave %s', build.config,
+                      self.name)
 
         def handle_reply(cmd, msgno, msg):
             if cmd == 'ERR':
                 if msg.get_content_type() == beep.BEEP_XML:
                     elem = xmlio.parse(msg.get_payload())
-                    if elem.tagname == 'error':
+                    if elem.name == 'error':
                         logging.warning('Slave refused build request: %s (%d)',
-                                        elem.gettext(), int(elem.code))
+                                        elem.gettext(), int(elem.attr['code']))
+                return
+
+            elem = xmlio.parse(msg.get_payload())
+            assert elem.name == 'proceed'
+            type = encoding = None
+            for child in elem.children('accept'):
+                type, encoding = child.attr['type'], child.attr.get('encoding')
+                if (type, encoding) in (('application/tar', 'gzip'),
+                                        ('application/tar', 'bzip2'),
+                                        ('application/tar', None),
+                                        ('application/zip', None)):
+                    break
+            if not type:
+                xml = xmlio.Element('error', code=550)[
+                    'None of the supported archive formats accepted'
+                ]
+                self.channel.send_err(beep.MIMEMessage(xml))
+                return
+            self.send_snapshot(build, type, encoding)
+
+        xml = xmlio.Element('build', recipe='recipe.xml')
+        self.channel.send_msg(beep.MIMEMessage(xml), handle_reply=handle_reply)
+
+    def send_snapshot(self, build, type, encoding):
+        def handle_reply(cmd, msgno, msg):
+            if cmd == 'ERR':
+                if msg.get_content_type() == beep.BEEP_XML:
+                    elem = xmlio.parse(msg.get_payload())
+                    if elem.name == 'error':
+                        logging.warning('Slave did not accept archive: %s (%d)',
+                                        elem.gettext(), int(elem.attr['code']))
+                return
             build.slave = self.name
             build.time = int(time.time())
             build.status = Build.IN_PROGRESS
@@ -165,11 +205,11 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
 
         # TODO: should not block while reading the file; rather stream it using
         #       asyncore push_with_producer()
+        snapshot_path = self.master.get_snapshot(build, type, encoding)
         snapshot_name = os.path.basename(snapshot_path)
         message = beep.MIMEMessage(file(snapshot_path).read(),
-                                   content_type='application/tar',
                                    content_disposition=snapshot_name,
-                                   content_encoding='gzip')
+                                   content_type=type, content_encoding=encoding)
         self.channel.send_msg(message, handle_reply=handle_reply)
 
 

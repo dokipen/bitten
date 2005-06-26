@@ -29,6 +29,7 @@ from bitten.util import archive, beep, xmlio
 
 
 class Slave(beep.Initiator):
+    """Build slave."""
 
     def greeting_received(self, profiles):
         if OrchestrationProfileHandler.URI not in profiles:
@@ -44,15 +45,17 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
     """
     URI = 'http://bitten.cmlenz.net/beep/orchestration'
 
-    def handle_connect(self, init_elem=None):
+    def handle_connect(self):
         """Register with the build master."""
+        self.recipe_path = None
+
         def handle_reply(cmd, msgno, msg):
             if cmd == 'ERR':
                 if msg.get_content_type() == beep.BEEP_XML:
                     elem = xmlio.parse(msg.get_payload())
-                    if elem.tagname == 'error':
-                        raise beep.TerminateSession, \
-                              '%s (%d)' % (elem.gettext(), int(elem.code))
+                    if elem.name == 'error':
+                        raise beep.TerminateSession, '%s (%d)' \
+                            % (elem.gettext(), int(elem.attr['code']))
                 raise beep.TerminateSession, 'Registration failed!'
             logging.info('Registration successful')
 
@@ -66,7 +69,23 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
 
     def handle_msg(self, msgno, msg):
         content_type = msg.get_content_type()
-        if content_type in ('application/tar', 'application/zip'):
+        if content_type == beep.BEEP_XML:
+            elem = xmlio.parse(msg.get_payload())
+            if elem.name == 'build':
+                # Received a build request
+                self.recipe_path = elem.attr['recipe']
+
+                xml = xmlio.Element('proceed')[
+                    xmlio.Element('accept', type='application/tar',
+                                  encoding='bzip2'),
+                    xmlio.Element('accept', type='application/tar',
+                                  encoding='gzip'),
+                    xmlio.Element('accept', type='application/zip')
+                ]
+                self.channel.send_rpy(msgno, beep.MIMEMessage(xml))
+
+        elif content_type in ('application/tar', 'application/zip'):
+            # Received snapshot archive for build
             workdir = tempfile.mkdtemp(prefix='bitten')
 
             archive_name = msg.get('Content-Disposition')
@@ -77,7 +96,7 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
                         archive_name = 'snapshot.tar.gz'
                     elif encoding == 'bzip2':
                         archive_name = 'snapshot.tar.bz2'
-                    else:
+                    elif not encoding:
                         archive_name = 'snapshot.tar'
                 else:
                     archive_name = 'snapshot.zip'
@@ -100,11 +119,12 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
             xml = xmlio.Element('ok')
             self.channel.send_rpy(msgno, beep.MIMEMessage(xml))
 
-            # TODO: Start the build process
+            self.execute_build(path, self.recipe_path)
 
-        else:
-            xml = xmlio.Element('error', code=500)['Sorry, what?']
-            self.channel.send_err(msgno, beep.MIMEMessage(xml))
+    def execute_build(self, basedir, recipe):
+        logging.info('Would now build in directory %s using recipe %s',
+                     basedir, recipe)
+        # TODO: Start the build process
 
 
 def main():

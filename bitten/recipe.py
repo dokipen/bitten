@@ -19,9 +19,9 @@
 # Author: Christopher Lenz <cmlenz@gmx.de>
 
 import os.path
-from xml.dom import minidom
 
 from bitten import BuildError
+from bitten.util import xmlio
 
 __all__ = ['Recipe']
 
@@ -33,35 +33,31 @@ class Step(object):
     their keyword arguments.
     """
 
-    def __init__(self, node):
-        self._node = node
-        self.id = node.getAttribute('id')
-        self.description = node.getAttribute('description')
+    def __init__(self, elem):
+        self._elem = elem
+        self.id = elem.id
+        self.description = elem.description
 
     def __iter__(self):
-        for child in [c for c in self._node.childNodes if c.nodeType == 1]:
-            if child.namespaceURI:
+        for child in self._elem:
+            if child.namespace:
                 # Commands
-                yield self._translate(child)
-            elif child.tagName == 'reports':
+                yield self._translate(child), child.attrs
+            elif child.name == 'reports':
                 # Reports
-                for child in [c for c in child.childNodes if c.nodeType == 1]:
-                    yield self._translate(child)
+                for grandchild in child:
+                    yield self._translate(grandchild), grandchild.attrs
             else:
-                raise BuildError, "Unknown element <%s>" % child.tagName
+                raise BuildError, "Unknown element <%s>" % child.name
 
-    def _translate(self, node):
-        if not node.namespaceURI.startswith('bitten:'):
-            # Ignore elements in a foreign namespace
+    def _translate(self, elem):
+        if not elem.namespace.startswith('bitten:'):
+            # Ignore elements in foreign namespaces
             return None
 
-        module = __import__(node.namespaceURI[7:], globals(), locals(),
-                            node.localName)
-        func = getattr(module, node.localName)
-        attrs = {}
-        for name, value in node.attributes.items():
-            attrs[name.encode()] = value.encode()
-        return func, attrs
+        module = __import__(elem.namespace[7:], globals(), locals(), elem.name)
+        func = getattr(module, elem.name)
+        return func
 
 
 class Recipe(object):
@@ -74,10 +70,11 @@ class Recipe(object):
         self.filename = filename
         self.basedir = basedir
         self.path = os.path.join(basedir, filename)
-        self.root = minidom.parse(self.path).documentElement
-        self.description = self.root.getAttribute('description')
+        self.root = xmlio.parse(file(self.path, 'r'))
+        assert self.root.name == 'build'
+        self.description = self.root.attr['description']
 
     def __iter__(self):
         """Provide an iterator over the individual steps of the recipe."""
-        for child in self.root.getElementsByTagName('step'):
+        for child in self.root.children('step'):
             yield Step(child)
