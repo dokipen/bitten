@@ -447,9 +447,10 @@ class Channel(object):
         else:
             if msgno in self.reply_handlers:
                 try:
-                    self.reply_handlers[msgno](cmd, msgno, message)
+                    self.reply_handlers[msgno](cmd, msgno, ansno, message)
                 finally:
-                    del self.reply_handlers[msgno]
+                    if cmd != 'ANS':
+                        del self.reply_handlers[msgno]
             elif cmd == 'RPY':
                 self.profile.handle_rpy(msgno, message)
             elif cmd == 'ERR':
@@ -648,7 +649,7 @@ class ManagementProfileHandler(ProfileHandler):
     def send_close(self, channelno=0, code=200, handle_ok=None,
                    handle_error=None):
         """Send a request to close a channel to the peer."""
-        def handle_reply(cmd, msgno, message):
+        def handle_reply(cmd, msgno, ansno, message):
             if cmd == 'RPY':
                 logging.debug('Channel %d closed', channelno)
                 self.session.channels[channelno].close()
@@ -687,7 +688,7 @@ class ManagementProfileHandler(ProfileHandler):
                             when the peer refuses to start the channel
         """
         channelno = self.session.channelno.next()
-        def handle_reply(cmd, msgno, message):
+        def handle_reply(cmd, msgno, ansno, message):
             if cmd == 'RPY':
                 elem = xmlio.parse(message.get_payload())
                 for cls in [p for p in profiles if p.URI == elem.attr['uri']]:
