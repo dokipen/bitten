@@ -85,7 +85,8 @@ class Element(object):
         keyword arguments following it are handled as attributes of the element.
         """
         self.name = args[0]
-        self.attrs = attrs
+        self.attrs = dict([(name, value) for name, value in attrs.items()
+                           if value is not None])
         self.children = []
 
     def __getitem__(self, children):
