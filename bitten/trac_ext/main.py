@@ -22,12 +22,13 @@ import os.path
 
 from trac.core import *
 from trac.env import IEnvironmentSetupParticipant
+from trac.perm import IPermissionRequestor
 from bitten.model import Build, BuildConfig, schema_version
 from bitten.trac_ext import web_ui
 
 class BuildSystem(Component):
 
-    implements(IEnvironmentSetupParticipant)
+    implements(IEnvironmentSetupParticipant, IPermissionRequestor)
 
     # IEnvironmentSetupParticipant methods
 
@@ -73,3 +74,9 @@ class BuildSystem(Component):
                            "name='bitten_version'", (schema_version))
             self.log.info('Upgraded Bitten tables from version %d to %d',
                           current_version, schema_version)
+
+    # IPermissionRequestor methods
+
+    def get_permission_actions(self):
+        actions = ['BUILD_VIEW', 'BUILD_CREATE', 'BUILD_MODIFY', 'BUILD_DELETE']
+        return actions + [('BUILD_ADMIN', actions)]

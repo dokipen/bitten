@@ -19,7 +19,7 @@
 # Author: Christopher Lenz <cmlenz@gmx.de>
 
 import re
-import time
+from time import localtime, strftime
 
 from trac.core import *
 from trac.util import escape, pretty_timedelta
@@ -27,6 +27,7 @@ from trac.web.chrome import INavigationContributor
 from trac.web.main import IRequestHandler
 from trac.wiki import wiki_to_html
 from bitten.model import Build, BuildConfig
+
 
 class BuildModule(Component):
 
@@ -44,13 +45,13 @@ class BuildModule(Component):
     if:config.description ?><div class="description"><?cs
      var:config.description ?></div><?cs
     /if ?><?cs
-   /each ?>
-   <div class="buttons">
+   /each ?><?cs
+   if:build.can_create ?><div class="buttons">
     <form method="get" action=""><div>
      <input type="hidden" name="action" value="new" />
      <input type="submit" value="Add new configuration" />
-    </div></form>
-   </div><?cs
+    </div></form><?cs
+   /if ?></div><?cs
 
   elif:build.mode == 'edit_config' ?>
    <form method="post" action="">
@@ -112,13 +113,13 @@ class BuildModule(Component):
      /each ?>
     </ul><?cs
    else ?><p>None</p><?cs
-   /if ?></div>
-   <div class="buttons">
+   /if ?></div><?cs
+   if:build.can_modify ?><div class="buttons">
     <form method="get" action=""><div>
      <input type="hidden" name="action" value="edit" />
      <input type="submit" value="Edit configuration" />
-    </div></form>
-   </div><?cs
+    </div></form><?cs
+   /if ?></div><?cs
   /if ?>
 
  </div>
@@ -131,6 +132,8 @@ class BuildModule(Component):
         return 'build'
 
     def get_navigation_items(self, req):
+        if not req.perm.has_permission('BUILD_VIEW'):
+            return
         yield 'mainnav', 'build', \
               '<a href="%s" accesskey="5">Build Status</a>' \
               % self.env.href.build()
@@ -147,6 +150,8 @@ class BuildModule(Component):
             return True
 
     def process_request(self, req):
+        req.perm.assert_permission('BUILD_VIEW')
+
         action = req.args.get('action')
         config = req.args.get('config')
         id = req.args.get('id')
@@ -174,6 +179,8 @@ class BuildModule(Component):
 
     def _do_create(self, req):
         """Create a new build configuration."""
+        req.perm.assert_permission('BUILD_CREATE')
+
         if 'cancel' in req.args.keys():
             req.redirect(self.env.href.build())
 
@@ -189,6 +196,8 @@ class BuildModule(Component):
 
     def _do_save(self, req, config_name):
         """Save changes to a build configuration."""
+        req.perm.assert_permission('BUILD_MODIFY')
+
         if 'cancel' in req.args.keys():
             req.redirect(self.env.href.build(config_name))
 
@@ -215,6 +224,7 @@ class BuildModule(Component):
                 'href': self.env.href.build(config.name)
             }
         req.hdf['build.mode'] = 'overview'
+        req.hdf['build.can_create'] = req.perm.has_permission('BUILD_CREATE')
 
     def _render_config(self, req, config_name):
         config = BuildConfig(self.env, config_name)
@@ -250,19 +260,24 @@ class BuildModule(Component):
                                'status': status_label[build.status]}
             if build.time:
                 started = build.time
-                req.hdf[prefix + '.started'] = time.strftime('%x %X', time.localtime(started))
+                req.hdf[prefix + '.started'] = strftime('%x %X',
+                                                        localtime(started))
                 req.hdf[prefix + '.started_delta'] = pretty_timedelta(started)
             if build.duration:
                 stopped = build.time + build.duration
-                req.hdf[prefix + '.duration'] = pretty_timedelta(stopped, build.time)
-                req.hdf[prefix + '.stopped'] = time.strftime('%x %X', time.localtime(stopped))
+                req.hdf[prefix + '.duration'] = pretty_timedelta(stopped,
+                                                                 build.time)
+                req.hdf[prefix + '.stopped'] = strftime('%x %X',
+                                                        localtime(stopped))
                 req.hdf[prefix + '.stopped_delta'] = pretty_timedelta(stopped)
 
         req.hdf['build.mode'] = 'view_config'
+        req.hdf['build.can_modify'] = req.perm.has_permission('BUILD_MODIFY')
 
     def _render_config_form(self, req, config_name=None):
         config = BuildConfig(self.env, config_name)
         if config.exists:
+            req.perm.assert_permission('BUILD_MODIFY')
             req.hdf['title'] = 'Edit Build Configuration "%s"' \
                                % escape(config.label or config.name)
             req.hdf['build.config'] = {
@@ -271,6 +286,7 @@ class BuildModule(Component):
                 'exists': config.exists
             }
         else:
+            req.perm.assert_permission('BUILD_CREATE')
             req.hdf['title'] = 'Create Build Configuration'
         req.hdf['build.mode'] = 'edit_config'
 
