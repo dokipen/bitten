@@ -1,5 +1,5 @@
 <?xml version="1.0"?>
-<recipe description="My project"
+<build description="My project"
     xmlns:c="bitten:bitten.build.ctools"
     xmlns:python="bitten:bitten.build.pythontools">
 
@@ -29,4 +29,4 @@
         <python:distutils command="sdist"/>
     </step>
 
-</recipe>
+</build>
