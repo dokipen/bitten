@@ -35,18 +35,18 @@ class Step(object):
 
     def __init__(self, elem):
         self._elem = elem
-        self.id = elem.id
-        self.description = elem.description
+        self.id = elem.attr['id']
+        self.description = elem.attr.get('description')
 
     def __iter__(self):
         for child in self._elem:
             if child.namespace:
                 # Commands
-                yield self._translate(child), child.attrs
+                yield self._translate(child), child.attr
             elif child.name == 'reports':
                 # Reports
                 for grandchild in child:
-                    yield self._translate(grandchild), grandchild.attrs
+                    yield self._translate(grandchild), grandchild.attr
             else:
                 raise BuildError, "Unknown element <%s>" % child.name
 
@@ -71,8 +71,7 @@ class Recipe(object):
         self.basedir = basedir
         self.path = os.path.join(basedir, filename)
         self.root = xmlio.parse(file(self.path, 'r'))
-        assert self.root.name == 'build'
-        self.description = self.root.attr['description']
+        self.description = self.root.attr.get('description')
 
     def __iter__(self):
         """Provide an iterator over the individual steps of the recipe."""
