@@ -122,7 +122,7 @@ class Build(object):
     _table = Table('bitten_build', key=('config', 'rev', 'slave'))[
         Column('config'), Column('rev'), Column('slave'),
         Column('time', type='int'), Column('duration', type='int'),
-        Column('status', size='1')
+        Column('status', size='1'), Column('rev_time', type='int')
     ]
 
     PENDING = 'P'
@@ -132,11 +132,12 @@ class Build(object):
 
     def __init__(self, env, config=None, rev=None, slave=None, db=None):
         self.env = env
-        self.config = self.rev = self.slave = self.time = self.duration = None
+        self.config = self.rev = self.slave = None
+        self.time = self.duration = self.rev_time = None
         if config and rev and slave:
             self._fetch(config, rev, slave, db)
         else:
-            self.time = self.duration = 0
+            self.time = self.duration = self.rev_time = 0
             self.status = self.PENDING
 
     def _fetch(self, config, rev, slave, db=None):
@@ -144,7 +145,7 @@ class Build(object):
             db = self.env.get_db_cnx()
 
         cursor = db.cursor()
-        cursor.execute("SELECT time,duration,status FROM bitten_build "
+        cursor.execute("SELECT time,duration,status,rev_time FROM bitten_build "
                        "WHERE config=%s AND rev=%s AND slave=%s",
                        (config, rev, slave))
         row = cursor.fetchone()
@@ -156,6 +157,7 @@ class Build(object):
         self.time = row[0] and int(row[0])
         self.duration = row[1] and int(row[1])
         self.status = row[2]
+        self.rev_time = int(row[3])
 
     completed = property(fget=lambda self: self.status != Build.IN_PROGRESS)
     successful = property(fget=lambda self: self.status == Build.SUCCESS)
@@ -183,16 +185,16 @@ class Build(object):
         else:
             handle_ta = False
 
-        assert self.config and self.rev
+        assert self.config and self.rev and self.rev_time
         assert self.status in (self.PENDING, self.IN_PROGRESS, self.SUCCESS,
                                self.FAILURE)
         if not self.slave:
             assert self.status == self.PENDING
 
         cursor = db.cursor()
-        cursor.execute("INSERT INTO bitten_build VALUES (%s,%s,%s,%s,%s,%s)",
+        cursor.execute("INSERT INTO bitten_build VALUES (%s,%s,%s,%s,%s,%s,%s)",
                        (self.config, self.rev, self.slave or '', self.time or 0,
-                        self.duration or 0, self.status))
+                        self.duration or 0, self.status, self.rev_time))
         if handle_ta:
             db.commit()
 
@@ -237,10 +239,10 @@ class Build(object):
             where = ""
 
         cursor = db.cursor()
-        cursor.execute("SELECT config,rev,slave,time,duration,status "
-                       "FROM bitten_build %s ORDER BY config,rev,slave" % where,
-                       [wc[1] for wc in where_clauses])
-        for config, rev, slave, time, duration, status in cursor:
+        cursor.execute("SELECT config,rev,slave,time,duration,status,rev_time "
+                       "FROM bitten_build %s ORDER BY config,rev_time DESC,"
+                       "slave" % where, [wc[1] for wc in where_clauses])
+        for config, rev, slave, time, duration, status, rev_time in cursor:
             build = Build(env)
             build.config = config
             build.rev = rev
@@ -248,5 +250,6 @@ class Build(object):
             build.time = time and int(time) or 0
             build.duration = duration and int(duration) or 0
             build.status = status
+            build.rev_time = int(rev_time)
             yield build
     select = classmethod(select)

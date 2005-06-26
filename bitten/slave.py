@@ -24,7 +24,8 @@ import sys
 import tempfile
 import time
 
-from bitten import __version__ as VERSION
+from bitten import BuildError
+from bitten.recipe import Recipe
 from bitten.util import archive, beep, xmlio
 
 
@@ -49,7 +50,7 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
         """Register with the build master."""
         self.recipe_path = None
 
-        def handle_reply(cmd, msgno, msg):
+        def handle_reply(cmd, msgno, ansno, msg):
             if cmd == 'ERR':
                 if msg.get_content_type() == beep.BEEP_XML:
                     elem = xmlio.parse(msg.get_payload())
@@ -116,18 +117,37 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
                 for filename in files:
                     os.chmod(os.path.join(root, filename), 0400)
 
-            xml = xmlio.Element('ok')
-            self.channel.send_rpy(msgno, beep.MIMEMessage(xml))
+            self.execute_build(msgno, path, self.recipe_path)
 
-            self.execute_build(path, self.recipe_path)
+    def execute_build(self, msgno, basedir, recipe_path):
+        logging.info('Building in directory %s using recipe %s', basedir,
+                     recipe_path)
 
-    def execute_build(self, basedir, recipe):
-        logging.info('Would now build in directory %s using recipe %s',
-                     basedir, recipe)
-        # TODO: Start the build process
+        recipe = Recipe(recipe_path, basedir)
+
+        xml = xmlio.Element('started')
+        self.channel.send_ans(msgno, beep.MIMEMessage(xml))
+
+        for step in recipe:
+            logging.info('Executing build step "%s"', step.id)
+            try:
+                for function, args in step:
+                    logging.debug('Executing command "%s"', function)
+                    function(recipe.basedir, **args)
+
+                xml = xmlio.Element('step', id=step.id, result='success',
+                                    description=step.description)
+                self.channel.send_ans(msgno, beep.MIMEMessage(xml))
+            except BuildError, e:
+                xml = xmlio.Element('step', id=step.id, result='failure',
+                                    description=step.description)[e]
+                self.channel.send_ans(msgno, beep.MIMEMessage(xml))
+
+        self.channel.send_nul(msgno)
 
 
 def main():
+    from bitten import __version__ as VERSION
     from optparse import OptionParser
 
     parser = OptionParser(usage='usage: %prog [options] host [port]',

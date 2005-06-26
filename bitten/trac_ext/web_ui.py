@@ -112,7 +112,7 @@ class BuildModule(Component):
       </li><?cs
      /each ?>
     </ul><?cs
-   else ?><p>None</p><?cs
+   else ?><p>(None)</p><?cs
    /if ?></div><?cs
    if:build.can_modify ?><div class="buttons">
     <form method="get" action=""><div>

@@ -23,7 +23,6 @@ import os.path
 import time
 
 from trac.env import Environment
-from bitten import __version__ as VERSION
 from bitten.model import Build, BuildConfig
 from bitten.util import archive, beep, xmlio
 
@@ -60,17 +59,22 @@ class Master(beep.Listener):
 
             for config in BuildConfig.select(self.env):
                 node = repos.get_node(config.path)
+                for path, rev, chg in node.get_history():
+                    # Check whether the latest revision of that configuration has
+                    # already been built
+                    builds = Build.select(self.env, config.name, rev)
+                    if not list(builds):
+                        logging.info('Enqueuing build of configuration "%s" as '
+                                     'of revision [%s]', config.name, rev)
+                        build = Build(self.env)
+                        build.config = config.name
 
-                # Check whether the latest revision of that configuration has
-                # already been built
-                builds = Build.select(self.env, config.name, node.rev)
-                if not list(builds):
-                    logging.info('Enqueuing build of configuration "%s" as of revision [%s]',
-                                 config.name, node.rev)
-                    build = Build(self.env)
-                    build.config = config.name
-                    build.rev = node.rev
-                    build.insert()
+                        chgset = repos.get_changeset(rev)
+                        build.rev = rev
+                        build.rev_time = chgset.date
+
+                        build.insert()
+                        break
         finally:
             repos.close()
 
@@ -87,7 +91,7 @@ class Master(beep.Listener):
                 active_builds = Build.select(self.env, slave=slave.name,
                                              status=Build.IN_PROGRESS)
                 if not list(active_builds):
-                    slave.initiate_build(build)
+                    slave.send_initiation(build)
                     break
 
     def get_snapshot(self, build, type, encoding):
@@ -106,16 +110,22 @@ class Master(beep.Listener):
             self.snapshots[(build.config, build.rev, type, encoding)] = snapshot
         return self.snapshots[(build.config, build.rev, type, encoding)]
 
+
 class OrchestrationProfileHandler(beep.ProfileHandler):
     """Handler for communication on the Bitten build orchestration profile from
     the perspective of the build master.
     """
     URI = 'http://bitten.cmlenz.net/beep/orchestration'
 
+    IDLE = 0
+    STARTING = 1
+    STARTED = 2
+
     def handle_connect(self):
         self.master = self.session.listener
         assert self.master
         self.name = None
+        self.state = self.IDLE
 
     def handle_disconnect(self):
         del self.master.slaves[self.name]
@@ -153,11 +163,11 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
             logging.info('Registered slave "%s" (%s running %s %s [%s])',
                          self.name, platform, os, os_version, os_family)
 
-    def initiate_build(self, build):
+    def send_initiation(self, build):
         logging.debug('Initiating build of "%s" on slave %s', build.config,
                       self.name)
 
-        def handle_reply(cmd, msgno, msg):
+        def handle_reply(cmd, msgno, ansno, msg):
             if cmd == 'ERR':
                 if msg.get_content_type() == beep.BEEP_XML:
                     elem = xmlio.parse(msg.get_payload())
@@ -176,6 +186,7 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
                                         ('application/tar', None),
                                         ('application/zip', None)):
                     break
+                type = None
             if not type:
                 xml = xmlio.Element('error', code=550)[
                     'None of the supported archive formats accepted'
@@ -188,7 +199,7 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
         self.channel.send_msg(beep.MIMEMessage(xml), handle_reply=handle_reply)
 
     def send_snapshot(self, build, type, encoding):
-        def handle_reply(cmd, msgno, msg):
+        def handle_reply(cmd, msgno, ansno, msg):
             if cmd == 'ERR':
                 if msg.get_content_type() == beep.BEEP_XML:
                     elem = xmlio.parse(msg.get_payload())
@@ -196,12 +207,26 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
                         logging.warning('Slave did not accept archive: %s (%d)',
                                         elem.gettext(), int(elem.attr['code']))
                 return
-            build.slave = self.name
-            build.time = int(time.time())
-            build.status = Build.IN_PROGRESS
-            build.update()
-            logging.info('Slave %s started build of "%s" at [%s]', self.name,
-                         build.config, build.rev)
+            if cmd == 'ANS':
+                if ansno == 0:
+                    build.slave = self.name
+                    build.time = int(time.time())
+                    build.status = Build.IN_PROGRESS
+                    build.update()
+                    logging.info('Slave %s started build of "%s" as of [%s]',
+                                 self.name, build.config, build.rev)
+                else:
+                    elem = xmlio.parse(msg.get_payload())
+                    assert elem.name == 'step'
+                    logging.info('Slave completed step "%s"', elem.attr['id'])
+                    if elem.attr['result'] == 'failure':
+                        logging.warning('Step failed: %s', elem.gettext())
+            elif cmd == 'NUL':
+                logging.info('Slave %s completed build of "%s" as of [%s]',
+                             self.name, build.config, build.rev)
+                build.duration = int(time.time()) - build.time
+                build.status = Build.SUCCESS # FIXME: or failure?
+                build.update()
 
         # TODO: should not block while reading the file; rather stream it using
         #       asyncore push_with_producer()
@@ -214,6 +239,7 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
 
 
 def main():
+    from bitten import __version__ as VERSION
     from optparse import OptionParser
 
     parser = OptionParser(usage='usage: %prog [options] env-path',
