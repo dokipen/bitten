@@ -26,6 +26,20 @@ from bitten.util import xmlio
 __all__ = ['Recipe']
 
 
+class InvalidRecipeError(Exception):
+    """Exception raised when a recipe cannot be processed."""
+
+
+class Context(object):
+    """The context in which a recipe command or report is run."""
+
+    def __init__(self, basedir):
+        self.basedir = basedir
+
+    def resolve(self, *path):
+        return os.path.join(self.basedir, *path)
+
+
 class Step(object):
     """Represents a single step of a build recipe.
 
@@ -40,40 +54,48 @@ class Step(object):
 
     def __iter__(self):
         for child in self._elem:
-            if child.namespace:
-                # Commands
-                yield self._translate(child), child.attr
-            elif child.name == 'reports':
-                # Reports
+            if child.namespace: # Commands
+                yield self._function(child), self._args(child)
+            elif child.name == 'reports': # Reports
                 for grandchild in child:
-                    yield self._translate(grandchild), grandchild.attr
+                    yield self._function(grandchild), self._args(grandchild)
             else:
-                raise BuildError, "Unknown element <%s>" % child.name
+                raise InvalidRecipeError, "Unknown element <%s>" % child.name
 
-    def _translate(self, elem):
+    def _args(self, elem):
+        return dict([(name.replace('-', '_'), value) for name, value
+                     in elem.attr.items()])
+
+    def _function(self, elem):
         if not elem.namespace.startswith('bitten:'):
             # Ignore elements in foreign namespaces
             return None
-
-        module = __import__(elem.namespace[7:], globals(), locals(), elem.name)
-        func = getattr(module, elem.name)
-        return func
+        func_name = elem.name.replace('-', '_')
+        try:
+            module = __import__(elem.namespace[7:], globals(), locals(),
+                                func_name)
+            func = getattr(module, elem.name)
+            return func
+        except (ImportError, AttributeError), e:
+            raise InvalidRecipeError, 'Cannot load "%s" (%s)' % (elem.name, e)
 
 
 class Recipe(object):
-    """Represents a build recipe.
+    """A build recipe.
     
     Iterate over this object to get the individual build steps in the order they
     have been defined in the recipe file."""
 
     def __init__(self, filename='recipe.xml', basedir=os.getcwd()):
-        self.filename = filename
-        self.basedir = basedir
-        self.path = os.path.join(basedir, filename)
-        self.root = xmlio.parse(file(self.path, 'r'))
-        self.description = self.root.attr.get('description')
+        self.ctxt = Context(basedir)
+        fd = file(self.ctxt.resolve(filename), 'r')
+        try:
+            self._root = xmlio.parse(fd)
+        finally:
+            fd.close()
+        self.description = self._root.attr.get('description')
 
     def __iter__(self):
         """Provide an iterator over the individual steps of the recipe."""
-        for child in self.root.children('step'):
+        for child in self._root.children('step'):
             yield Step(child)

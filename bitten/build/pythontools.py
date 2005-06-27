@@ -23,49 +23,58 @@ import re
 from bitten import BuildError
 from bitten.util.cmdline import Commandline
 
-def distutils(basedir, command='build'):
+def distutils(ctxt, command='build'):
     """Execute a `distutils` command."""
-    cmdline = Commandline('python', ['setup.py', command], cwd=basedir)
+    cmdline = Commandline('python', ['setup.py', command], cwd=ctxt.basedir)
     for out, err in cmdline.execute(timeout=100.0):
         if out:
             print '[distutils] %s' % out
         if err:
             print '[distutils] %s' % err
     if cmdline.returncode != 0:
-        raise BuildError, "Executing distutils failed (%s)" % retval
+        raise BuildError, "Executing distutils failed (%s)" % cmdline.returncode
 
-def pylint(basedir, file=None):
+def pylint(ctxt, file=None):
     """Extract data from a `pylint` run written to a file."""
     assert file, 'Missing required attribute "file"'
     _msg_re = re.compile(r'^(?P<file>.+):(?P<line>\d+): '
                          r'\[(?P<type>[A-Z])(?:, (?P<tag>[\w\.]+))?\] '
                          r'(?P<msg>.*)$')
-    for line in open(file, 'r'):
-        match = _msg_re.search(line)
-        if match:
-            filename = match.group('file')
-            if filename.startswith(basedir):
-                filename = filename[len(basedir) + 1:]
-            lineno = int(match.group('line'))
-            # TODO: emit to build master
 
-def trace(basedir, summary=None, coverdir=None, include=None, exclude=None):
+    fd = open(ctxt.resolve(file), 'r')
+    try:
+        for line in fd:
+            match = _msg_re.search(line)
+            if match:
+                filename = match.group('file')
+                if filename.startswith(ctxt.basedir):
+                    filename = filename[len(ctxt.basedir) + 1:]
+                lineno = int(match.group('line'))
+                # TODO: emit to build master
+    finally:
+        fd.close()
+
+def trace(ctxt, summary=None, coverdir=None, include=None, exclude=None):
     """Extract data from a `trace.py` run."""
     assert summary, 'Missing required attribute "summary"'
     assert coverdir, 'Missing required attribute "coverdir"'
 
-def unittest(basedir, file=None):
+def unittest(ctxt, file=None):
     """Extract data from a unittest results file in XML format."""
     assert file, 'Missing required attribute "file"'
 
-    from xml.dom import minidom
-    root = minidom.parse(open(file, 'r')).documentElement
-    assert root.tagName == 'unittest-results'
-    for test in root.getElementsByTagName('test'):
-        filename = test.getAttribute('file')
-        if filename.startswith(basedir):
-            filename = filename[len(basedir) + 1:]
-        duration = float(test.getAttribute('duration'))
-        name = test.getAttribute('name')
-        status = test.getAttribute('status')
-        # TODO: emit to build master
+    fd = open(ctxt.resolve(file), 'r')
+    try:
+        from xml.dom import minidom
+        root = minidom.parse(fd).documentElement
+        assert root.tagName == 'unittest-results'
+        for test in root.getElementsByTagName('test'):
+            filename = test.getAttribute('file')
+            if filename.startswith(ctxt.basedir):
+                filename = filename[len(ctxt.basedir) + 1:]
+            duration = float(test.getAttribute('duration'))
+            name = test.getAttribute('name')
+            status = test.getAttribute('status')
+            # TODO: emit to build master
+    finally:
+        fd.close()

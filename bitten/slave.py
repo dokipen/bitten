@@ -133,7 +133,7 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
             try:
                 for function, args in step:
                     logging.debug('Executing command "%s"', function)
-                    function(recipe.basedir, **args)
+                    function(recipe.ctxt, **args)
                 xml = xmlio.Element('step', id=step.id, result='success',
                                     description=step.description)
                 self.channel.send_ans(msgno, beep.MIMEMessage(xml))

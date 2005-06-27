@@ -20,9 +20,17 @@
 
 from bitten.util.cmdline import Commandline
 
-def make(basedir, target='all'):
+def make(ctxt, target='all', file=None, jobs=None, keep_going=False):
     """Execute a Makefile target."""
-    cmdline = Commandline('make', ['-C', basedir, target])
+    args = ['-C', ctxt.basedir]
+    if file:
+        args += ['-f', ctxt.resolve(file)]
+    if jobs:
+        args += ['-j', int(jobs)]
+    if keep_going:
+        args.append('-k')
+    args.append(target)
+    cmdline = Commandline('make', args)
     for out, err in cmdline.execute(timeout=100.0):
         if out:
             for line in out.splitlines():
@@ -31,4 +39,4 @@ def make(basedir, target='all'):
             for line in err.splitlines():
                 print '[make] %s' % err
     if cmdline.returncode != 0:
-        raise BuildError, "Executing make failed (%s)" % retval
+        raise BuildError, "Executing make failed (%s)" % cmdline.returncode

@@ -18,7 +18,12 @@
 #
 # Author: Christopher Lenz <cmlenz@gmx.de>
 
+import os
 import re
+try:
+    from cStringIO import StringIO
+except:
+    from StringIO import StringIO
 import sys
 import time
 from distutils.core import Command
@@ -26,22 +31,32 @@ from unittest import _TextTestResult, TextTestRunner
 
 from bitten.util.xmlio import Element, SubElement
 
+
 class XMLTestResult(_TextTestResult):
 
     def __init__(self, stream, descriptions, verbosity):
         _TextTestResult.__init__(self, stream, descriptions, verbosity)
         self.tests = []
+        self.orig_stdout = self.orig_stderr = None
+        self.buf_stdout = self.buf_stderr = None
 
     def startTest(self, test):
         _TextTestResult.startTest(self, test)
         filename = sys.modules[test.__module__].__file__
         if filename.endswith('.pyc') or filename.endswith('.pyo'):
             filename = filename[:-1]
-        self.tests.append([test, filename, time.time()])
+        self.tests.append([test, filename, time.time(), None, None])
+
+        # Record output by the test to stdout and stderr
+        self.old_stdout, self.buf_stdout = sys.stdout, StringIO()
+        self.old_stderr, self.buf_stderr = sys.stderr, StringIO()
+        sys.stdout, sys.stderr = self.buf_stdout, self.buf_stderr
 
     def stopTest(self, test):
         _TextTestResult.stopTest(self, test)
-        self.tests[-1][-1] = time.time() - self.tests[-1][-1]
+        self.tests[-1][2] = time.time() - self.tests[-1][2]
+        self.tests[-1][3] = self.buf_stdout.getvalue()
+        self.tests[-1][4] = self.buf_stderr.getvalue()
 
 
 class XMLTestRunner(TextTestRunner):
@@ -59,10 +74,10 @@ class XMLTestRunner(TextTestRunner):
             return result
 
         root = Element('unittest-results')
-        for testcase, filename, timetaken in result.tests:
+        for testcase, filename, timetaken, stdout, stderr in result.tests:
             status = 'success'
             tb = None
-            
+
             if testcase in [e[0] for e in result.errors]:
                 status = 'error'
                 tb = [e[1] for e in result.errors if e[0] is testcase][0]
@@ -74,9 +89,13 @@ class XMLTestRunner(TextTestRunner):
                                    status=status, duration=timetaken)
             description = testcase.shortDescription()
             if description:
-                desc_elem = SubElement(test_elem, 'description')[description]
+                SubElement(test_elem, 'description')[description]
+            if stdout:
+                SubElement(test_elem, 'stdout')[stdout]
+            if stderr:
+                SubElement(test_elem, 'stdout')[stderr]
             if tb:
-                tb_elem = SubElement(test_elem, 'traceback')[tb]
+                SubElement(test_elem, 'traceback')[tb]
 
         root.write(self.xml_stream, newlines=True)
         return result
@@ -102,6 +121,8 @@ class unittest(Command):
     def finalize_options(self):
         assert self.test_suite, 'Missing required attribute "test-suite"'
         if self.xml_results is not None:
+            if not os.path.exists(os.path.dirname(self.xml_results)):
+                os.makedirs(os.path.dirname(self.xml_results))
             self.xml_results = open(self.xml_results, 'w')
 
     def run(self):

@@ -252,8 +252,7 @@ class BuildModule(Component):
                 }
             if not build.slave:
                 continue
-            status_label = {Build.PENDING: 'pending',
-                            Build.IN_PROGRESS: 'in progress',
+            status_label = {Build.IN_PROGRESS: 'in progress',
                             Build.SUCCESS: 'success', Build.FAILURE: 'failed'}
             prefix = 'build.config.builds.%d.slaves.%d' % (idx, slave_idx)
             req.hdf[prefix] = {'name': build.slave,

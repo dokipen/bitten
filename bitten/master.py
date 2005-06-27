@@ -117,15 +117,10 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
     """
     URI = 'http://bitten.cmlenz.net/beep/orchestration'
 
-    IDLE = 0
-    STARTING = 1
-    STARTED = 2
-
     def handle_connect(self):
         self.master = self.session.listener
         assert self.master
         self.name = None
-        self.state = self.IDLE
 
     def handle_disconnect(self):
         del self.master.slaves[self.name]
@@ -209,6 +204,7 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
                 return
             if cmd == 'ANS':
                 if ansno == 0:
+                    self.steps = []
                     build.slave = self.name
                     build.time = int(time.time())
                     build.status = Build.IN_PROGRESS
@@ -221,11 +217,15 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
                     logging.info('Slave completed step "%s"', elem.attr['id'])
                     if elem.attr['result'] == 'failure':
                         logging.warning('Step failed: %s', elem.gettext())
+                    self.steps.append((elem.attr['id'], elem.attr['result']))
             elif cmd == 'NUL':
                 logging.info('Slave %s completed build of "%s" as of [%s]',
                              self.name, build.config, build.rev)
                 build.duration = int(time.time()) - build.time
-                build.status = Build.SUCCESS # FIXME: or failure?
+                if [step for step in self.steps if step[1] == 'failure']:
+                    build.status = Build.FAILURE
+                else:
+                    build.status = Build.SUCCESS
                 build.update()
 
         # TODO: should not block while reading the file; rather stream it using
