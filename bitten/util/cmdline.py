@@ -18,8 +18,10 @@
 #
 # Author: Christopher Lenz <cmlenz@gmx.de>
 
+import logging
 import os
 import os.path
+import time
 
 
 class TimeoutError(Exception):
@@ -40,7 +42,7 @@ class Commandline(object):
                    command
         """
         self.executable = executable
-        self.arguments = args or []
+        self.arguments = [str(arg) for arg in args]
         self.cwd = cwd
         if self.cwd:
             assert os.path.isdir(self.cwd)
@@ -55,6 +57,8 @@ class Commandline(object):
             import fcntl, popen2, select
             if self.cwd:
                 os.chdir(self.cwd)
+
+            logging.debug('Executing %s', self)
             pipe = popen2.Popen3([self.executable] + self.arguments,
                                  capturestderr=True)
             pipe.tochild.close()
@@ -70,7 +74,7 @@ class Commandline(object):
             map(make_non_blocking, [out_file.fileno(), err_file.fileno()])
             out_data, err_data = [], []
             out_eof = err_eof = False
-            while True:
+            while not out_eof or not err_eof:
                 to_check = [out_file] * (not out_eof) + [err_file] * (not err_eof)
                 ready = select.select(to_check, [], [], timeout)
                 if not ready[0]:
@@ -92,9 +96,7 @@ class Commandline(object):
                 err_lines = self._extract_lines(err_data)
                 for out_line, err_line in self._combine(out_lines, err_lines):
                     yield out_line, err_line
-
-                if out_eof and err_eof:
-                    break
+                time.sleep(.1)
             self.returncode = pipe.wait()
 
         def _combine(self, *iterables):
@@ -112,27 +114,23 @@ class Commandline(object):
                 yield tuple(to_yield)
 
         def _extract_lines(self, data):
-            def endswith_linesep(string):
-                for linesep in ('\n', '\r\n', '\r'):
-                    if lines[0].endswith(linesep):
-                        return True
             extracted = []
-            while data:
-                chunk = data[0]
-                lines = chunk.splitlines(True)
-                if len(lines) > 1:
-                    extracted += lines[:-1]
-                    if endswith_linesep(lines[-1]):
-                        extracted.append(lines[-1])
-                        data.pop(0)
-                    else:
-                        data[0] = lines[-1]
-                elif endswith_linesep(chunk):
-                    extracted.append(chunk)
-                    data.pop(0)
-                elif len(data) > 2:
-                    data[1] = data[0] + data[1]
-                    data.pop(0)
+            def _endswith_linesep(string):
+                for linesep in ('\n', '\r\n', '\r'):
+                    if string.endswith(linesep):
+                        return True
+            buf = ''.join(data)
+            lines = buf.splitlines(True)
+            if len(lines) > 1:
+                extracted += lines[:-1]
+                if _endswith_linesep(lines[-1]):
+                    extracted.append(lines[-1])
+                    buf = ''
                 else:
-                    break
+                    buf = lines[-1]
+            elif _endswith_linesep(buf):
+                extracted.append(buf)
+                buf = ''
+            data[:] = [buf]
+
             return [line.rstrip() for line in extracted]
