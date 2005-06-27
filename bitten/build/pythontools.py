@@ -19,29 +19,19 @@
 # Author: Christopher Lenz <cmlenz@gmx.de>
 
 import re
-from popen2 import Popen3
 
 from bitten import BuildError
+from bitten.util.cmdline import Commandline
 
 def distutils(basedir, command='build'):
     """Execute a `distutils` command."""
-    cmdline = 'python setup.py %s' % command
-    pipe = Popen3(cmdline, capturestderr=True) # FIXME: Windows compatibility
-    while True:
-        retval = pipe.poll()
-        while True:
-            line = pipe.fromchild.readline()
-            if not line:
-                break
-            print '[distutils] %s' % line.rstrip()
-        while True:
-            line = pipe.childerr.readline()
-            if not line:
-                break
-            print '[distutils] %s' % line.rstrip()
-        if retval != -1:
-            break
-    if retval != 0:
+    cmdline = Commandline('python', ['setup.py', command], cwd=basedir)
+    for out, err in cmdline.execute(timeout=100.0):
+        if out:
+            print '[distutils] %s' % out
+        if err:
+            print '[distutils] %s' % err
+    if cmdline.returncode != 0:
         raise BuildError, "Executing distutils failed (%s)" % retval
 
 def pylint(basedir, file=None):
@@ -60,7 +50,7 @@ def pylint(basedir, file=None):
             # TODO: emit to build master
 
 def trace(basedir, summary=None, coverdir=None, include=None, exclude=None):
-    """Extract data from a `trac.py` run."""
+    """Extract data from a `trace.py` run."""
     assert summary, 'Missing required attribute "summary"'
     assert coverdir, 'Missing required attribute "coverdir"'
 

@@ -108,7 +108,7 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
             # Unpack the archive
             prefix = archive.unpack(archive_path, workdir)
             path = os.path.join(workdir, prefix)
-            logging.info('Unpacked snapshot to %s' % path)
+            logging.debug('Unpacked snapshot to %s' % path)
 
             # Fix permissions
             for root, dirs, files in os.walk(workdir, topdown=False):
@@ -134,7 +134,6 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
                 for function, args in step:
                     logging.debug('Executing command "%s"', function)
                     function(recipe.basedir, **args)
-
                 xml = xmlio.Element('step', id=step.id, result='success',
                                     description=step.description)
                 self.channel.send_ans(msgno, beep.MIMEMessage(xml))
