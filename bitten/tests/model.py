@@ -74,6 +74,7 @@ class BuildTestCase(unittest.TestCase):
         build = Build(self.env)
         build.config = 'test'
         build.rev = '42'
+        build.rev_time = 12039
         build.insert()
 
         db = self.env.get_db_cnx()
@@ -82,15 +83,22 @@ class BuildTestCase(unittest.TestCase):
                        "FROM bitten_build")
         self.assertEqual(('test', '42', '', 0, 0, 'P'), cursor.fetchone())
 
-    def test_insert_build_no_config_or_rev(self):
+    def test_insert_build_no_config_or_rev_or_rev_time(self):
         build = Build(self.env)
         self.assertRaises(AssertionError, build.insert)
 
         build = Build(self.env)
         build.config = 'test'
+        build.rev_time = 12039
         self.assertRaises(AssertionError, build.insert)
 
         build = Build(self.env)
+        build.rev = '42'
+        build.rev_time = 12039
+        self.assertRaises(AssertionError, build.insert)
+
+        build = Build(self.env)
+        build.config = 'test'
         build.rev = '42'
         self.assertRaises(AssertionError, build.insert)
 
@@ -98,6 +106,7 @@ class BuildTestCase(unittest.TestCase):
         build = Build(self.env)
         build.config = 'test'
         build.rev = '42'
+        build.rev_time = 12039
         build.status = Build.SUCCESS
         self.assertRaises(AssertionError, build.insert)
         build.status = Build.FAILURE
@@ -111,6 +120,7 @@ class BuildTestCase(unittest.TestCase):
         build = Build(self.env)
         build.config = 'test'
         build.rev = '42'
+        build.rev_time = 12039
         build.status = 'DUNNO'
         self.assertRaises(AssertionError, build.insert)
 
