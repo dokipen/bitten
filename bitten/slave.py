@@ -20,7 +20,7 @@
 
 import logging
 import os
-import sys
+import platform
 import tempfile
 import time
 
@@ -64,13 +64,16 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
                 raise beep.TerminateSession, 'Registration failed!'
             logging.info('Registration successful')
 
-        sysname, nodename, release, version, machine = os.uname()
+        
+        system, node, release, version, machine, processor = platform.uname()
+        system, release, version = platform.system_alias(system, release,
+                                                         version)
         if self.session.name is not None:
-            nodename = self.session.name
-        logging.info('Registering with build master as %s', nodename)
-        xml = xmlio.Element('register', name=nodename)[
-            xmlio.Element('platform')[machine],
-            xmlio.Element('os', family=os.name, version=release)[sysname]
+            node = self.session.name
+        logging.info('Registering with build master as %s', node)
+        xml = xmlio.Element('register', name=node)[
+            xmlio.Element('platform', processor=processor)[machine],
+            xmlio.Element('os', family=os.name, version=release)[system]
         ]
         self.channel.send_msg(beep.MIMEMessage(xml), handle_reply)
 
@@ -149,6 +152,7 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
                                         description=step.description)[e]
                     self.channel.send_ans(msgno, beep.MIMEMessage(xml))
 
+            logging.info('Build completed')
             self.channel.send_nul(msgno)
 
         except InvalidRecipeError, e:

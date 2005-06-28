@@ -121,6 +121,10 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
         self.name = None
 
     def handle_disconnect(self):
+        if self.name is None:
+            # Slave didn't successfully register before disconnecting
+            return
+
         del self.master.slaves[self.name]
 
         for build in Build.select(self.master.env, slave=self.name,
@@ -143,10 +147,11 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
             for child in elem.children():
                 if child.name == 'platform':
                     platform = child.gettext()
+                    processor = child.attr.get('processor')
                 elif child.name == 'os':
                     os = child.gettext()
-                    os_family = child.attr['family']
-                    os_version = child.attr['version']
+                    os_family = child.attr.get('family')
+                    os_version = child.attr.get('version')
 
             self.name = elem.attr['name']
             self.master.slaves[self.name] = self
