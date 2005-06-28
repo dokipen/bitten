@@ -21,7 +21,7 @@
 
 import sys
 
-from bitten import BuildError
+from bitten.build import BuildError
 from bitten.recipe import Recipe
 
 def build():

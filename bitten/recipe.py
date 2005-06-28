@@ -20,7 +20,6 @@
 
 import os.path
 
-from bitten import BuildError
 from bitten.util import xmlio
 
 __all__ = ['Recipe']

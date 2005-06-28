@@ -17,3 +17,6 @@
 # Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 #
 # Author: Christopher Lenz <cmlenz@gmx.de>
+
+class BuildError(Exception):
+    pass

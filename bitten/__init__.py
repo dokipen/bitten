@@ -19,6 +19,3 @@
 # Author: Christopher Lenz <cmlenz@gmx.de>
 
 __version__ = '0.2'
-
-class BuildError(Exception):
-    pass

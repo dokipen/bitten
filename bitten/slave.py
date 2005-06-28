@@ -24,7 +24,7 @@ import sys
 import tempfile
 import time
 
-from bitten import BuildError
+from bitten.build import BuildError
 from bitten.recipe import Recipe
 from bitten.util import archive, beep, xmlio
 

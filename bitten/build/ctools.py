@@ -18,6 +18,7 @@
 #
 # Author: Christopher Lenz <cmlenz@gmx.de>
 
+from bitten.build import BuildError
 from bitten.util.cmdline import Commandline
 
 def make(ctxt, target='all', file=None, jobs=None, keep_going=False):

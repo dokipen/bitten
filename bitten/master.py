@@ -85,8 +85,6 @@ class Master(beep.Listener):
             return
         logging.debug('Checking for pending builds...')
         for build in Build.select(self.env, status=Build.PENDING):
-            logging.debug('Building configuration "%s" as of revision [%s]',
-                          build.config, build.rev)
             for slave in self.slaves.values():
                 active_builds = Build.select(self.env, slave=slave.name,
                                              status=Build.IN_PROGRESS)

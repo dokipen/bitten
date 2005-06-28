@@ -20,7 +20,7 @@
 
 import re
 
-from bitten import BuildError
+from bitten.build import BuildError
 from bitten.util.cmdline import Commandline
 
 def distutils(ctxt, command='build'):
