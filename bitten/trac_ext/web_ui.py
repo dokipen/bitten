@@ -22,6 +22,7 @@ import re
 from time import localtime, strftime
 
 from trac.core import *
+from trac.Timeline import ITimelineEventProvider
 from trac.util import escape, pretty_timedelta
 from trac.web.chrome import INavigationContributor
 from trac.web.main import IRequestHandler
@@ -31,7 +32,7 @@ from bitten.model import Build, BuildConfig
 
 class BuildModule(Component):
 
-    implements(INavigationContributor, IRequestHandler)
+    implements(INavigationContributor, IRequestHandler, ITimelineEventProvider)
 
     build_cs = """
 <?cs include:"header.cs" ?>
@@ -126,6 +127,10 @@ class BuildModule(Component):
 <?cs include:"footer.cs" ?>
 """
 
+    _status_label = {Build.IN_PROGRESS: 'in progress',
+                     Build.SUCCESS: 'success',
+                     Build.FAILURE: 'failed'}
+
     # INavigationContributor methods
 
     def get_active_navigation_item(self, req):
@@ -176,6 +181,30 @@ class BuildModule(Component):
                 self._render_build(req, config, id)
 
         return req.hdf.parse(self.build_cs), None
+
+    # ITimelineEventProvider methods
+
+    def get_timeline_filters(self, req):
+        if req.perm.has_permission('BUILD_VIEW'):
+            yield ('build', 'Builds')
+
+    def get_timeline_events(self, req, start, stop, filters):
+        if 'build' in filters:
+            db = self.env.get_db_cnx()
+            cursor = db.cursor()
+            cursor.execute("SELECT name,label,rev,slave,time,status "
+                           "FROM bitten_build "
+                           "  INNER JOIN bitten_config ON (name=config) "
+                           "WHERE time>=%s AND time<=%s ORDER BY time",
+                           (start, stop))
+            for name, label, rev, slave, time, status in cursor:
+                title = '<em>%s</em> [%s] built by %s' \
+                        % (escape(label), escape(rev), escape(slave))
+                href = self.env.href.build(name)
+                message = self._status_label[status]
+                yield 'build', href, title, time, None, message
+
+    # Internal methods
 
     def _do_create(self, req):
         """Create a new build configuration."""
@@ -252,11 +281,9 @@ class BuildModule(Component):
                 }
             if not build.slave:
                 continue
-            status_label = {Build.IN_PROGRESS: 'in progress',
-                            Build.SUCCESS: 'success', Build.FAILURE: 'failed'}
             prefix = 'build.config.builds.%d.slaves.%d' % (idx, slave_idx)
             req.hdf[prefix] = {'name': build.slave,
-                               'status': status_label[build.status]}
+                               'status': self._status_label[build.status]}
             if build.time:
                 started = build.time
                 req.hdf[prefix + '.started'] = strftime('%x %X',
