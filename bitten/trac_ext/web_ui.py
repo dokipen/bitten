@@ -197,12 +197,14 @@ class BuildModule(Component):
                            "  INNER JOIN bitten_config ON (name=config) "
                            "WHERE time>=%s AND time<=%s ORDER BY time",
                            (start, stop))
+            event_kinds = {Build.SUCCESS: 'successbuild',
+                           Build.FAILURE: 'failedbuild'}
             for name, label, rev, slave, time, status in cursor:
                 title = '<em>%s</em> [%s] built by %s' \
                         % (escape(label), escape(rev), escape(slave))
                 href = self.env.href.build(name)
                 message = self._status_label[status]
-                yield 'build', href, title, time, None, message
+                yield event_kinds[status], href, title, time, None, message
 
     # Internal methods
 
