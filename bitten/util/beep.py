@@ -180,6 +180,14 @@ class Session(asynchat.async_chat):
             logging.info('Session terminated')
         asynchat.async_chat.close(self)
 
+    def handle_close(self):
+        logging.warning('Peer %s:%s closed connection' % self.addr)
+        channels = self.channels.keys()
+        channels.reverse()
+        for channelno in channels:
+            self.channels[channelno].close()
+        asynchat.async_chat.handle_close(self)
+
     def handle_error(self):
         """Called by asyncore when an exception is raised."""
         cls, value = sys.exc_info()[:2]
@@ -435,7 +443,7 @@ class Channel(object):
             # Recombine queued messages
             payload = ''.join(self.inqueue[msgno]) + payload
             del self.inqueue[msgno]
-        if cmd == 'RPY' and msgno in self.msgnos:
+        if cmd in ('ERR', 'RPY', 'NUL') and msgno in self.msgnos:
             # Final reply using this message number, so dealloc
             self.msgnos.remove(msgno)
         message = None

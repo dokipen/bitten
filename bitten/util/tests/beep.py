@@ -41,11 +41,22 @@ class MockProfileHandler(object):
 
     def handle_msg(self, msgno, message):
         text = message.as_string().strip()
-        self.handled_messages.append(('MSG', msgno, text))
+        self.handled_messages.append(('MSG', msgno, text, None))
 
     def handle_rpy(self, msgno, message):
         text = message.as_string().strip()
-        self.handled_messages.append(('RPY', msgno, text))
+        self.handled_messages.append(('RPY', msgno, text, None))
+
+    def handle_err(self, msgno, message):
+        text = message.as_string().strip()
+        self.handled_messages.append(('ERR', msgno, text, None))
+
+    def handle_ans(self, msgno, ansno, message):
+        text = message.as_string().strip()
+        self.handled_messages.append(('ANS', msgno, text, ansno))
+
+    def handle_nul(self, msgno):
+        self.handled_messages.append(('NUL', msgno, '', None))
 
 
 class ChannelTestCase(unittest.TestCase):
@@ -60,7 +71,7 @@ class ChannelTestCase(unittest.TestCase):
         """
         channel = beep.Channel(self.session, 0, MockProfileHandler)
         channel.handle_data_frame('MSG', 0, False, 0, None, 'foo bar')
-        self.assertEqual(('MSG', 0, 'foo bar'),
+        self.assertEqual(('MSG', 0, 'foo bar', None),
                          channel.profile.handled_messages[0])
 
     def test_handle_segmented_msg_frames(self):
@@ -71,7 +82,7 @@ class ChannelTestCase(unittest.TestCase):
         channel = beep.Channel(self.session, 0, MockProfileHandler)
         channel.handle_data_frame('MSG', 0, True, 0, None, 'foo ')
         channel.handle_data_frame('MSG', 0, False, 4, None, 'bar')
-        self.assertEqual(('MSG', 0, 'foo bar'),
+        self.assertEqual(('MSG', 0, 'foo bar', None),
                          channel.profile.handled_messages[0])
 
     def test_handle_out_of_sync_frame(self):
@@ -137,8 +148,8 @@ class ChannelTestCase(unittest.TestCase):
 
     def test_message_and_reply(self):
         """
-        Verify that a message number is deallocated after a final reply has been
-        received.
+        Verify that a message number is deallocated after a final "RPY" reply
+        has been received.
         """
         channel = beep.Channel(self.session, 0, MockProfileHandler)
         msgno = channel.send_msg(beep.MIMEMessage('foo bar', None))
@@ -146,8 +157,42 @@ class ChannelTestCase(unittest.TestCase):
                          self.session.sent_messages[0])
         assert msgno in channel.msgnos
         channel.handle_data_frame('RPY', msgno, False, 0, None, '42')
-        self.assertEqual(('RPY', msgno, '42'),
+        self.assertEqual(('RPY', msgno, '42', None),
                          channel.profile.handled_messages[0])
+        assert msgno not in channel.msgnos
+
+    def test_message_and_error(self):
+        """
+        Verify that a message number is deallocated after a final "ERR" reply
+        has been received.
+        """
+        channel = beep.Channel(self.session, 0, MockProfileHandler)
+        msgno = channel.send_msg(beep.MIMEMessage('foo bar', None))
+        self.assertEqual(('MSG', 0, msgno, False, 0L, None, 'foo bar'),
+                         self.session.sent_messages[0])
+        assert msgno in channel.msgnos
+        channel.handle_data_frame('ERR', msgno, False, 0, None, '42')
+        self.assertEqual(('ERR', msgno, '42', None),
+                         channel.profile.handled_messages[0])
+        assert msgno not in channel.msgnos
+
+    def test_message_and_ans_nul(self):
+        """
+        Verify that a message number is deallocated after a final "NUL" reply
+        has been received.
+        """
+        channel = beep.Channel(self.session, 0, MockProfileHandler)
+        msgno = channel.send_msg(beep.MIMEMessage('foo bar', None))
+        self.assertEqual(('MSG', 0, msgno, False, 0L, None, 'foo bar'),
+                         self.session.sent_messages[0])
+        assert msgno in channel.msgnos
+        channel.handle_data_frame('ANS', msgno, False, 0, 0, '42')
+        self.assertEqual(('ANS', msgno, '42', 0),
+                         channel.profile.handled_messages[0])
+        assert msgno in channel.msgnos
+        channel.handle_data_frame('NUL', msgno, False, 2, None, '42')
+        self.assertEqual(('NUL', msgno, '', None),
+                         channel.profile.handled_messages[1])
         assert msgno not in channel.msgnos
 
     def test_send_error(self):
