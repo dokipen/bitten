@@ -90,7 +90,7 @@ class Master(beep.Listener):
                                              status=Build.IN_PROGRESS)
                 if not list(active_builds):
                     slave.send_initiation(build)
-                    break
+                    return
 
     def get_snapshot(self, build, type, encoding):
         formats = {
@@ -182,7 +182,7 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
                 type = None
             if not type:
                 xml = xmlio.Element('error', code=550)[
-                    'None of the supported archive formats accepted'
+                    'None of the accepted archive formats supported'
                 ]
                 self.channel.send_err(beep.MIMEMessage(xml))
                 return
@@ -192,16 +192,18 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
         self.channel.send_msg(beep.MIMEMessage(xml), handle_reply=handle_reply)
 
     def send_snapshot(self, build, type, encoding):
+
         def handle_reply(cmd, msgno, ansno, msg):
             if cmd == 'ERR':
-                if msg.get_content_type() == beep.BEEP_XML:
-                    elem = xmlio.parse(msg.get_payload())
-                    if elem.name == 'error':
-                        logging.warning('Slave did not accept archive: %s (%d)',
-                                        elem.gettext(), int(elem.attr['code']))
-                return
+                assert msg.get_content_type() == beep.BEEP_XML
+                elem = xmlio.parse(msg.get_payload())
+                if elem.name == 'error':
+                    logging.warning('Slave did not accept archive: %s (%d)',
+                                    elem.gettext(), int(elem.attr['code']))
             if cmd == 'ANS':
-                if ansno == 0:
+                elem = xmlio.parse(msg.get_payload())
+                logging.debug('Received build answer <%s>' % elem.name)
+                if elem.name == 'started':
                     self.steps = []
                     build.slave = self.name
                     build.time = int(time.time())
@@ -209,21 +211,34 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
                     build.update()
                     logging.info('Slave %s started build of "%s" as of [%s]',
                                  self.name, build.config, build.rev)
-                else:
-                    elem = xmlio.parse(msg.get_payload())
-                    assert elem.name == 'step'
-                    logging.info('Slave completed step "%s"', elem.attr['id'])
+                elif elem.name == 'step':
+                    logging.info('Slave completed step "%s"',
+                                 elem.attr['id'])
                     if elem.attr['result'] == 'failure':
                         logging.warning('Step failed: %s', elem.gettext())
-                    self.steps.append((elem.attr['id'], elem.attr['result']))
-            elif cmd == 'NUL':
-                logging.info('Slave %s completed build of "%s" as of [%s]',
-                             self.name, build.config, build.rev)
-                build.duration = int(time.time()) - build.time
-                if [step for step in self.steps if step[1] == 'failure']:
+                    self.steps.append((elem.attr['id'],
+                                       elem.attr['result']))
+                elif elem.name == 'abort':
+                    logging.info('Slave "%s" aborted build', self.name)
+                    build.slave = None
+                    build.time = 0
+                    build.status = Build.PENDING
+                elif elem.name == 'error':
                     build.status = Build.FAILURE
-                else:
-                    build.status = Build.SUCCESS
+            elif cmd == 'NUL':
+                if build.status != Build.PENDING: # Completed
+                    logging.info('Slave %s completed build of "%s" as of [%s]',
+                                 self.name, build.config, build.rev)
+                    build.duration = int(time.time()) - build.time
+                    if build.status is Build.IN_PROGRESS:
+                        # Find out whether the build failed or succeeded
+                        if [st for st in self.steps if st[1] == 'failure']:
+                            build.status = Build.FAILURE
+                        else:
+                            build.status = Build.SUCCESS
+                else: # Aborted
+                    build.slave = None
+                    build.time = 0
                 build.update()
 
         # TODO: should not block while reading the file; rather stream it using

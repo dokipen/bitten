@@ -25,12 +25,16 @@ import tempfile
 import time
 
 from bitten.build import BuildError
-from bitten.recipe import Recipe
+from bitten.recipe import Recipe, InvalidRecipeError
 from bitten.util import archive, beep, xmlio
 
 
 class Slave(beep.Initiator):
     """Build slave."""
+
+    def __init__(self, ip, port, name=None):
+        beep.Initiator.__init__(self, ip, port)
+        self.name = name
 
     def greeting_received(self, profiles):
         if OrchestrationProfileHandler.URI not in profiles:
@@ -61,6 +65,8 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
             logging.info('Registration successful')
 
         sysname, nodename, release, version, machine = os.uname()
+        if self.session.name is not None:
+            nodename = self.session.name
         logging.info('Registering with build master as %s', nodename)
         xml = xmlio.Element('register', name=nodename)[
             xmlio.Element('platform')[machine],
@@ -123,26 +129,39 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
         logging.info('Building in directory %s using recipe %s', basedir,
                      recipe_path)
 
-        recipe = Recipe(recipe_path, basedir)
+        try:
+            recipe = Recipe(recipe_path, basedir)
 
-        xml = xmlio.Element('started')
-        self.channel.send_ans(msgno, beep.MIMEMessage(xml))
+            xml = xmlio.Element('started')
+            self.channel.send_ans(msgno, beep.MIMEMessage(xml))
 
-        for step in recipe:
-            logging.info('Executing build step "%s"', step.id)
-            try:
-                for function, args in step:
-                    logging.debug('Executing command "%s"', function)
-                    function(recipe.ctxt, **args)
-                xml = xmlio.Element('step', id=step.id, result='success',
-                                    description=step.description)
-                self.channel.send_ans(msgno, beep.MIMEMessage(xml))
-            except BuildError, e:
-                xml = xmlio.Element('step', id=step.id, result='failure',
-                                    description=step.description)[e]
-                self.channel.send_ans(msgno, beep.MIMEMessage(xml))
+            for step in recipe:
+                logging.info('Executing build step "%s"', step.id)
+                try:
+                    for function, args in step:
+                        logging.debug('Executing command "%s"', function)
+                        function(recipe.ctxt, **args)
+                    xml = xmlio.Element('step', id=step.id, result='success',
+                                        description=step.description)
+                    self.channel.send_ans(msgno, beep.MIMEMessage(xml))
+                except (BuildError, InvalidRecipeError), e:
+                    xml = xmlio.Element('step', id=step.id, result='failure',
+                                        description=step.description)[e]
+                    self.channel.send_ans(msgno, beep.MIMEMessage(xml))
 
-        self.channel.send_nul(msgno)
+            self.channel.send_nul(msgno)
+
+        except InvalidRecipeError, e:
+            xml = xmlio.Element('error')[e]
+            self.channel.send_ans(msgno, beep.MIMEMessage(xml))
+            self.channel.send_nul(msgno)
+
+        except (KeyboardInterrupt, SystemExit), e:
+            xml = xmlio.Element('abort')['Build cancelled']
+            self.channel.send_ans(msgno, beep.MIMEMessage(xml))
+            self.channel.send_nul(msgno)
+
+            raise beep.TerminateSession, 'Cancelled'
 
 
 def main():
@@ -151,6 +170,8 @@ def main():
 
     parser = OptionParser(usage='usage: %prog [options] host [port]',
                           version='%%prog %s' % VERSION)
+    parser.add_option('-n', '--name', action='store', dest='name',
+                      help='name of this slave (defaults to host name)')
     parser.add_option('--debug', action='store_const', dest='loglevel',
                       const=logging.DEBUG, help='enable debugging output')
     parser.add_option('-v', '--verbose', action='store_const', dest='loglevel',
@@ -174,7 +195,7 @@ def main():
 
     logging.getLogger().setLevel(options.loglevel)
 
-    slave = Slave(host, port)
+    slave = Slave(host, port, options.name)
     try:
         slave.run()
     except KeyboardInterrupt:
