@@ -195,8 +195,9 @@ class BuildModule(Component):
             cursor.execute("SELECT name,label,rev,slave,time,status "
                            "FROM bitten_build "
                            "  INNER JOIN bitten_config ON (name=config) "
-                           "WHERE time>=%s AND time<=%s ORDER BY time",
-                           (start, stop))
+                           "WHERE time>=%s AND time<=%s "
+                           "AND status IN (%s, %s) ORDER BY time",
+                           (start, stop, Build.SUCCESS, Build.FAILURE))
             event_kinds = {Build.SUCCESS: 'successbuild',
                            Build.FAILURE: 'failedbuild'}
             for name, label, rev, slave, time, status in cursor:
