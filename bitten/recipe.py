@@ -36,7 +36,7 @@ class Context(object):
         self.basedir = basedir
 
     def resolve(self, *path):
-        return os.path.join(self.basedir, *path)
+        return os.path.normpath(os.path.join(self.basedir, *path))
 
 
 class Step(object):

@@ -20,12 +20,16 @@
 # Author: Christopher Lenz <cmlenz@gmx.de>
 
 from distutils.core import setup
+from distutils import util
 
 from bitten import __version__ as VERSION
 from bitten.util.testrunner import unittest
 
+scripts = ['scripts/bitten', 'scripts/bittend']
+if util.get_platform()[:3] == 'win':
+    scripts = [script + '.bat' for script in scripts]
+
 setup(name='bitten', version=VERSION,
       packages=['bitten', 'bitten.build', 'bitten.trac_ext', 'bitten.util'],
-      scripts=['scripts/bitten', 'scripts/bittend'],
-      author="Christopher Lenz", author_email="cmlenz@gmx.de",
+      scripts=scripts, author="Christopher Lenz", author_email="cmlenz@gmx.de",
       url="http://bitten.cmlenz.net/", cmdclass={'unittest': unittest})

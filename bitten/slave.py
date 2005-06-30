@@ -21,6 +21,7 @@
 import logging
 import os
 import platform
+import sys
 import tempfile
 import time
 
@@ -64,7 +65,6 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
                 raise beep.TerminateSession, 'Registration failed!'
             logging.info('Registration successful')
 
-        
         system, node, release, version, machine, processor = platform.uname()
         system, release, version = platform.system_alias(system, release,
                                                          version)

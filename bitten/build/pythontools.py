@@ -32,7 +32,7 @@ def distutils(ctxt, command='build'):
         if err:
             print '[distutils] %s' % err
     if cmdline.returncode != 0:
-        raise BuildError, "Executing distutils failed (%s)" % cmdline.returncode
+        raise BuildError, 'Executing distutils failed (%s)' % cmdline.returncode
 
 def pylint(ctxt, file=None):
     """Extract data from a `pylint` run written to a file."""
@@ -41,18 +41,21 @@ def pylint(ctxt, file=None):
                          r'\[(?P<type>[A-Z])(?:, (?P<tag>[\w\.]+))?\] '
                          r'(?P<msg>.*)$')
 
-    fd = open(ctxt.resolve(file), 'r')
     try:
-        for line in fd:
-            match = _msg_re.search(line)
-            if match:
-                filename = match.group('file')
-                if filename.startswith(ctxt.basedir):
-                    filename = filename[len(ctxt.basedir) + 1:]
-                lineno = int(match.group('line'))
-                # TODO: emit to build master
-    finally:
-        fd.close()
+        fd = open(ctxt.resolve(file), 'r')
+        try:
+            for line in fd:
+                match = _msg_re.search(line)
+                if match:
+                    filename = match.group('file')
+                    if filename.startswith(ctxt.basedir):
+                        filename = filename[len(ctxt.basedir) + 1:]
+                    lineno = int(match.group('line'))
+                    # TODO: emit to build master
+        finally:
+            fd.close()
+    except IOError, e:
+        raise BuildError, 'Error opening pylint results file (%s)' % e
 
 def trace(ctxt, summary=None, coverdir=None, include=None, exclude=None):
     """Extract data from a `trace.py` run."""
@@ -63,18 +66,21 @@ def unittest(ctxt, file=None):
     """Extract data from a unittest results file in XML format."""
     assert file, 'Missing required attribute "file"'
 
-    fd = open(ctxt.resolve(file), 'r')
     try:
-        from xml.dom import minidom
-        root = minidom.parse(fd).documentElement
-        assert root.tagName == 'unittest-results'
-        for test in root.getElementsByTagName('test'):
-            filename = test.getAttribute('file')
-            if filename.startswith(ctxt.basedir):
-                filename = filename[len(ctxt.basedir) + 1:]
-            duration = float(test.getAttribute('duration'))
-            name = test.getAttribute('name')
-            status = test.getAttribute('status')
-            # TODO: emit to build master
-    finally:
-        fd.close()
+        fd = open(ctxt.resolve(file), 'r')
+        try:
+            from xml.dom import minidom
+            root = minidom.parse(fd).documentElement
+            assert root.tagName == 'unittest-results'
+            for test in root.getElementsByTagName('test'):
+                filename = test.getAttribute('file')
+                if filename.startswith(ctxt.basedir):
+                    filename = filename[len(ctxt.basedir) + 1:]
+                duration = float(test.getAttribute('duration'))
+                name = test.getAttribute('name')
+                status = test.getAttribute('status')
+                # TODO: emit to build master
+        finally:
+            fd.close()
+    except IOError, e:
+        raise BuildError, 'Error opening unittest results file (%s)' % e

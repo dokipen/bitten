@@ -31,7 +31,6 @@ class TimeoutError(Exception):
 class Commandline(object):
     """Simple helper for executing subprocesses."""
     # TODO: Use 'subprocess' module if available (Python >= 2.4)
-    # TODO: Windows implementation based on temporary files
 
     def __init__(self, executable, args, cwd=None):
         """Initialize the Commandline object.
@@ -49,16 +48,37 @@ class Commandline(object):
         self.returncode = None
 
     if os.name == 'nt': # windows
+
         def execute(self, timeout=None):
-            raise NotImplementedError
+            args = [self.executable] + self.arguments
+            for idx, arg in enumerate(args):
+                if arg.find(' ') >= 0:
+                    args[idx] = '"%s"' % arg
+            logging.debug('Executing %s', args)
+
+            import tempfile
+            out_name = tempfile.mktemp()
+            err_name = tempfile.mktemp()
+            cmd = "( %s ) > %s 2> %s" % (' '.join(args), out_name, err_name)
+            self.returncode = os.system(cmd) >> 8
+
+            out_file = file(out_name, 'r')
+            err_file = file(err_name, 'r')
+            out_lines = out_file.readlines()
+            err_lines = err_file.readlines()
+            out_file.close()
+            err_file.close()
+            for out_line, err_line in self._combine(out_lines, err_lines):
+                yield out_line, err_line
 
     else: # posix
+
         def execute(self, timeout=None):
             import fcntl, popen2, select
             if self.cwd:
                 os.chdir(self.cwd)
 
-            logging.debug('Executing %s', self)
+            logging.debug('Executing %s', [self.executable] + self.arguments)
             pipe = popen2.Popen3([self.executable] + self.arguments,
                                  capturestderr=True)
             pipe.tochild.close()
@@ -99,38 +119,38 @@ class Commandline(object):
                 time.sleep(.1)
             self.returncode = pipe.wait()
 
-        def _combine(self, *iterables):
-            iterables = [iter(iterable) for iterable in iterables]
-            size = len(iterables)
-            while [iterable for iterable in iterables if iterable is not None]:
-                to_yield = [None] * size
-                for idx, iterable in enumerate(iterables):
-                    if iterable is None:
-                        continue
-                    try:
-                        to_yield[idx] = iterable.next()
-                    except StopIteration:
-                        iterables[idx] = None
-                yield tuple(to_yield)
+    def _combine(self, *iterables):
+        iterables = [iter(iterable) for iterable in iterables]
+        size = len(iterables)
+        while [iterable for iterable in iterables if iterable is not None]:
+            to_yield = [None] * size
+            for idx, iterable in enumerate(iterables):
+                if iterable is None:
+                    continue
+                try:
+                    to_yield[idx] = iterable.next()
+                except StopIteration:
+                    iterables[idx] = None
+            yield tuple(to_yield)
 
-        def _extract_lines(self, data):
-            extracted = []
-            def _endswith_linesep(string):
-                for linesep in ('\n', '\r\n', '\r'):
-                    if string.endswith(linesep):
-                        return True
-            buf = ''.join(data)
-            lines = buf.splitlines(True)
-            if len(lines) > 1:
-                extracted += lines[:-1]
-                if _endswith_linesep(lines[-1]):
-                    extracted.append(lines[-1])
-                    buf = ''
-                else:
-                    buf = lines[-1]
-            elif _endswith_linesep(buf):
-                extracted.append(buf)
+    def _extract_lines(self, data):
+        extracted = []
+        def _endswith_linesep(string):
+            for linesep in ('\n', '\r\n', '\r'):
+                if string.endswith(linesep):
+                    return True
+        buf = ''.join(data)
+        lines = buf.splitlines(True)
+        if len(lines) > 1:
+            extracted += lines[:-1]
+            if _endswith_linesep(lines[-1]):
+                extracted.append(lines[-1])
                 buf = ''
-            data[:] = [buf]
+            else:
+                buf = lines[-1]
+        elif _endswith_linesep(buf):
+            extracted.append(buf)
+            buf = ''
+        data[:] = [buf]
 
-            return [line.rstrip() for line in extracted]
+        return [line.rstrip() for line in extracted]
