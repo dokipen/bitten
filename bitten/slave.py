@@ -131,7 +131,6 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
     def execute_build(self, msgno, basedir, recipe_path):
         logging.info('Building in directory %s using recipe %s', basedir,
                      recipe_path)
-
         try:
             recipe = Recipe(recipe_path, basedir)
 

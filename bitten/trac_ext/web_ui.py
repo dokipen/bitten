@@ -27,7 +27,7 @@ from trac.util import escape, pretty_timedelta
 from trac.web.chrome import INavigationContributor
 from trac.web.main import IRequestHandler
 from trac.wiki import wiki_to_html
-from bitten.model import Build, BuildConfig
+from bitten.model import Build, BuildConfig, SlaveInfo
 
 
 class BuildModule(Component):
@@ -93,34 +93,23 @@ class BuildModule(Component):
      var:build.config.browser_href ?>"><?cs
      var:build.config.path ?></a></li><?cs /if ?></ul><?cs
    if:build.config.description ?><div class="description"><?cs
-     var:build.config.description ?></div><?cs /if ?>
-   <div id="builds"><h3>Builds</h3><?cs
-    if:len(build.config.builds) ?><ul><?cs
-     each:b = build.config.builds ?><li><a href="<?cs
-      var:b.href ?>">[<?cs var:b.rev ?>]</a> built by <?cs
-      var:len(b.slaves) ?> slave(s)<?cs
-      if:len(b.slaves) ?>:<ul><?cs
-       each:slave = b.slaves ?><li><strong><?cs var:slave.name ?></strong>: <?cs
-        var:slave.status ?> (started <?cs
-        var:slave.started_delta ?> ago<?cs
-        if:slave.stopped ?>, stopped <?cs
-         var:slave.stopped_delta ?> ago, took <?cs
-         var:slave.duration ?><?cs
-        /if ?>)</li><?cs
-       /each ?>
-      </ul><?cs
-      /if ?>
-      </li><?cs
-     /each ?>
-    </ul><?cs
-   else ?><p>(None)</p><?cs
-   /if ?></div><?cs
+     var:build.config.description ?></div><?cs /if ?><?cs
    if:build.can_modify ?><div class="buttons">
     <form method="get" action=""><div>
      <input type="hidden" name="action" value="edit" />
      <input type="submit" value="Edit configuration" />
     </div></form><?cs
    /if ?></div><?cs
+
+  elif:build.mode == 'view_build' ?>
+   <p class="trigger">Triggered by: Changeset <a href="<?cs
+     var:build.chgset_href ?>">[<?cs var:build.rev ?>]</a> of <a href="<?cs
+     var:build.config.href ?>"><?cs var:build.config.name ?></a></p>
+   <p class="slave">Built by: <strong><?cs
+     var:build.slave.name ?></strong> (<?cs var:build.slave.os ?> <?cs
+     var:build.slave.os.version ?> on <?cs var:build.slave.machine ?>)</p>
+   <p class="time">Completed: <?cs var:build.started ?> (<?cs
+     var:build.started_delta ?> ago)<br />Took: <?cs var:build.duration ?></p><?cs
   /if ?>
 
  </div>
@@ -128,7 +117,7 @@ class BuildModule(Component):
 """
 
     _status_label = {Build.IN_PROGRESS: 'in progress',
-                     Build.SUCCESS: 'success',
+                     Build.SUCCESS: 'completed',
                      Build.FAILURE: 'failed'}
 
     # INavigationContributor methods
@@ -146,7 +135,7 @@ class BuildModule(Component):
     # IRequestHandler methods
 
     def match_request(self, req):
-        match = re.match(r'/build(?:/([\w.-]+))?(?:/([\w+.-]))?', req.path_info)
+        match = re.match(r'/build(?:/([\w.-]+))?(?:/([\w.-]+))?', req.path_info)
         if match:
             if match.group(1):
                 req.args['config'] = match.group(1)
@@ -192,20 +181,20 @@ class BuildModule(Component):
         if 'build' in filters:
             db = self.env.get_db_cnx()
             cursor = db.cursor()
-            cursor.execute("SELECT name,label,rev,slave,time,status "
+            cursor.execute("SELECT id,config,label,rev,slave,stopped,status "
                            "FROM bitten_build "
                            "  INNER JOIN bitten_config ON (name=config) "
-                           "WHERE time>=%s AND time<=%s "
-                           "AND status IN (%s, %s) ORDER BY time",
+                           "WHERE stopped>=%s AND stopped<=%s "
+                           "AND status IN (%s, %s) ORDER BY stopped",
                            (start, stop, Build.SUCCESS, Build.FAILURE))
             event_kinds = {Build.SUCCESS: 'successbuild',
                            Build.FAILURE: 'failedbuild'}
-            for name, label, rev, slave, time, status in cursor:
-                title = '<em>%s</em> [%s] built by %s' \
-                        % (escape(label), escape(rev), escape(slave))
-                href = self.env.href.build(name)
-                message = self._status_label[status]
-                yield event_kinds[status], href, title, time, None, message
+            for id, config, label, rev, slave, stopped, status in cursor:
+                title = 'Build <em title="[%s] of %s">%s</em> by %s %s' \
+                        % (escape(rev), escape(label), escape(id),
+                           escape(slave), self._status_label[status])
+                href = self.env.href.build(config, id)
+                yield event_kinds[status], href, title, stopped, None, ''
 
     # Internal methods
 
@@ -271,35 +260,6 @@ class BuildModule(Component):
             'browser_href': self.env.href.browser(config.path)
         }
 
-        builds = Build.select(self.env, config=config.name)
-        curr_rev = None
-        slave_idx = 0
-        for idx, build in enumerate(builds):
-            if build.rev != curr_rev:
-                slave_idx = 0
-                curr_rev = build.rev
-                req.hdf['build.config.builds.%d' % idx] = {
-                    'rev': build.rev,
-                    'href': self.env.href.changeset(build.rev)
-                }
-            if not build.slave:
-                continue
-            prefix = 'build.config.builds.%d.slaves.%d' % (idx, slave_idx)
-            req.hdf[prefix] = {'name': build.slave,
-                               'status': self._status_label[build.status]}
-            if build.time:
-                started = build.time
-                req.hdf[prefix + '.started'] = strftime('%x %X',
-                                                        localtime(started))
-                req.hdf[prefix + '.started_delta'] = pretty_timedelta(started)
-            if build.duration:
-                stopped = build.time + build.duration
-                req.hdf[prefix + '.duration'] = pretty_timedelta(stopped,
-                                                                 build.time)
-                req.hdf[prefix + '.stopped'] = strftime('%x %X',
-                                                        localtime(stopped))
-                req.hdf[prefix + '.stopped_delta'] = pretty_timedelta(stopped)
-
         req.hdf['build.mode'] = 'view_config'
         req.hdf['build.can_modify'] = req.perm.has_permission('BUILD_MODIFY')
 
@@ -320,4 +280,40 @@ class BuildModule(Component):
         req.hdf['build.mode'] = 'edit_config'
 
     def _render_build(self, req, config_name, build_id):
-        raise NotImplementedError, 'Not implemented yet'
+        build = Build(self.env, build_id)
+        assert build.exists
+        status2title = {Build.SUCCESS: 'Success', Build.FAILURE: 'Failure'}
+        req.hdf['title'] = 'Build %s - %s' % (build_id,
+                                              status2title[build.status])
+        req.hdf['build'] = self._build_to_hdf(build)
+        req.hdf['build.mode'] = 'view_build'
+
+        config = BuildConfig(self.env, build.config)
+        req.hdf['build.config'] = {
+            'name': config.label,
+            'href': self.env.href.build(config.name)
+        }
+
+        slave_info = SlaveInfo(self.env, build.id)
+        req.hdf['build.slave'] = {
+            'name': build.slave,
+            'ip_address': slave_info.properties.get(SlaveInfo.IP_ADDRESS),
+            'os': slave_info.properties.get(SlaveInfo.OS_NAME),
+            'os.family': slave_info.properties.get(SlaveInfo.OS_FAMILY),
+            'os.version': slave_info.properties.get(SlaveInfo.OS_VERSION),
+            'machine': slave_info.properties.get(SlaveInfo.MACHINE),
+            'processor': slave_info.properties.get(SlaveInfo.PROCESSOR)
+        }
+
+    def _build_to_hdf(self, build):
+        hdf = {'name': build.slave, 'status': self._status_label[build.status],
+               'rev': build.rev,
+               'chgset_href': self.env.href.changeset(build.rev)}
+        if build.started:
+            hdf['started'] = strftime('%x %X', localtime(build.started))
+            hdf['started_delta'] = pretty_timedelta(build.started)
+        if build.stopped:
+            hdf['stopped'] = strftime('%x %X', localtime(build.stopped))
+            hdf['stopped_delta'] = pretty_timedelta(build.stopped)
+            hdf['duration'] = pretty_timedelta(build.stopped, build.started)
+        return hdf

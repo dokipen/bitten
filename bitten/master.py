@@ -23,7 +23,7 @@ import os.path
 import time
 
 from trac.env import Environment
-from bitten.model import Build, BuildConfig
+from bitten.model import Build, BuildConfig, SlaveInfo
 from bitten.util import archive, beep, xmlio
 
 
@@ -60,19 +60,16 @@ class Master(beep.Listener):
             for config in BuildConfig.select(self.env):
                 node = repos.get_node(config.path)
                 for path, rev, chg in node.get_history():
-                    # Check whether the latest revision of that configuration has
-                    # already been built
+                    # Check whether the latest revision of that configuration
+                    # has already been built
                     builds = Build.select(self.env, config.name, rev)
                     if not list(builds):
                         logging.info('Enqueuing build of configuration "%s" as '
                                      'of revision [%s]', config.name, rev)
                         build = Build(self.env)
                         build.config = config.name
-
-                        chgset = repos.get_changeset(rev)
                         build.rev = rev
-                        build.rev_time = chgset.date
-
+                        build.rev_time = repos.get_changeset(rev).date
                         build.insert()
                         break
         finally:
@@ -118,22 +115,26 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
     def handle_connect(self):
         self.master = self.session.listener
         assert self.master
+        self.env = self.master.env
+        assert self.env
         self.name = None
+        self.props = {}
 
     def handle_disconnect(self):
         if self.name is None:
-            # Slave didn't successfully register before disconnecting
+            # Slave didn't successfully register before disconnecting, so
+            # there's nothing to clean up
             return
 
         del self.master.slaves[self.name]
 
-        for build in Build.select(self.master.env, slave=self.name,
+        for build in Build.select(self.env, slave=self.name,
                                   status=Build.IN_PROGRESS):
             logging.info('Build [%s] of "%s" by %s cancelled', build.rev,
                          build.config, self.name)
             build.slave = None
             build.status = Build.PENDING
-            build.time = None
+            build.started = 0
             build.update()
             break
         logging.info('Unregistered slave "%s"', self.name)
@@ -143,23 +144,22 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
         elem = xmlio.parse(msg.get_payload())
 
         if elem.name == 'register':
-            platform, os, os_family, os_version = None, None, None, None
+            self.name = elem.attr['name']
             for child in elem.children():
                 if child.name == 'platform':
-                    platform = child.gettext()
-                    processor = child.attr.get('processor')
+                    self.props[SlaveInfo.MACHINE] = child.gettext()
+                    self.props[SlaveInfo.PROCESSOR] = child.attr.get('processor')
                 elif child.name == 'os':
-                    os = child.gettext()
-                    os_family = child.attr.get('family')
-                    os_version = child.attr.get('version')
+                    self.props[SlaveInfo.OS_NAME] = child.gettext()
+                    self.props[SlaveInfo.OS_FAMILY] = child.attr.get('family')
+                    self.props[SlaveInfo.OS_VERSION] = child.attr.get('version')
 
             self.name = elem.attr['name']
             self.master.slaves[self.name] = self
 
             xml = xmlio.Element('ok')
             self.channel.send_rpy(msgno, beep.MIMEMessage(xml))
-            logging.info('Registered slave "%s" (%s running %s %s [%s])',
-                         self.name, platform, os, os_version, os_family)
+            logging.info('Registered slave "%s"', self.name)
 
     def send_initiation(self, build):
         logging.debug('Initiating build of "%s" on slave %s', build.config,
@@ -211,7 +211,7 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
                 if elem.name == 'started':
                     self.steps = []
                     build.slave = self.name
-                    build.time = int(time.time())
+                    build.started = int(time.time())
                     build.status = Build.IN_PROGRESS
                     build.update()
                     logging.info('Slave %s started build of "%s" as of [%s]',
@@ -226,7 +226,7 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
                 elif elem.name == 'abort':
                     logging.info('Slave "%s" aborted build', self.name)
                     build.slave = None
-                    build.time = 0
+                    build.started = 0
                     build.status = Build.PENDING
                 elif elem.name == 'error':
                     build.status = Build.FAILURE
@@ -234,7 +234,7 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
                 if build.status != Build.PENDING: # Completed
                     logging.info('Slave %s completed build of "%s" as of [%s]',
                                  self.name, build.config, build.rev)
-                    build.duration = int(time.time()) - build.time
+                    build.stopped = int(time.time())
                     if build.status is Build.IN_PROGRESS:
                         # Find out whether the build failed or succeeded
                         if [st for st in self.steps if st[1] == 'failure']:
@@ -243,8 +243,15 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
                             build.status = Build.SUCCESS
                 else: # Aborted
                     build.slave = None
-                    build.time = 0
+                    build.started = 0
                 build.update()
+
+                # Insert slave info
+                slave_info = SlaveInfo(self.env)
+                slave_info.build = build.id
+                for name, value in self.props.items():
+                    slave_info[name] = value
+                slave_info.insert()
 
         # TODO: should not block while reading the file; rather stream it using
         #       asyncore push_with_producer()

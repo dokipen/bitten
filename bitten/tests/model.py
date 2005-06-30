@@ -21,7 +21,7 @@
 import unittest
 
 from trac.test import EnvironmentStub
-from bitten.model import Build, BuildConfig
+from bitten.model import Build, BuildConfig, SlaveInfo
 
 
 class BuildConfigTestCase(unittest.TestCase):
@@ -66,9 +66,10 @@ class BuildTestCase(unittest.TestCase):
 
     def test_new_build(self):
         build = Build(self.env)
+        self.assertEqual(None, build.id)
         self.assertEqual(Build.PENDING, build.status)
-        self.assertEqual(0, build.time)
-        self.assertEqual(0, build.duration)
+        self.assertEqual(0, build.stopped)
+        self.assertEqual(0, build.started)
 
     def test_insert_build(self):
         build = Build(self.env)
@@ -79,8 +80,8 @@ class BuildTestCase(unittest.TestCase):
 
         db = self.env.get_db_cnx()
         cursor = db.cursor()
-        cursor.execute("SELECT config,rev,slave,time,duration,status "
-                       "FROM bitten_build")
+        cursor.execute("SELECT config,rev,slave,started,stopped,status "
+                       "FROM bitten_build WHERE id=%s" % build.id)
         self.assertEqual(('test', '42', '', 0, 0, 'P'), cursor.fetchone())
 
     def test_insert_build_no_config_or_rev_or_rev_time(self):
@@ -125,10 +126,48 @@ class BuildTestCase(unittest.TestCase):
         self.assertRaises(AssertionError, build.insert)
 
 
+class SlaveInfoTestCase(unittest.TestCase):
+
+    def setUp(self):
+        self.env = EnvironmentStub()
+        db = self.env.get_db_cnx()
+        cursor = db.cursor()
+        cursor.execute(db.to_sql(SlaveInfo._table))
+        db.commit()
+
+    def test_insert_slave_info(self):
+        slave_info = SlaveInfo(self.env)
+        slave_info.build = 42
+        slave_info[SlaveInfo.IP_ADDRESS] = '127.0.0.1'
+        slave_info[SlaveInfo.MAINTAINER] = 'joe@example.org'
+        slave_info.insert()
+
+        db = self.env.get_db_cnx()
+        cursor = db.cursor()
+        cursor.execute("SELECT propname,propvalue FROM bitten_slave")
+        expected = {SlaveInfo.IP_ADDRESS: '127.0.0.1',
+                    SlaveInfo.MAINTAINER: 'joe@example.org'}
+        for propname, propvalue in cursor:
+            self.assertEqual(expected[propname], propvalue)
+
+    def test_fetch_slave_info(self):
+        db = self.env.get_db_cnx()
+        cursor = db.cursor()
+        cursor.executemany("INSERT INTO bitten_slave VALUES (42,%s,%s)",
+                           [(SlaveInfo.IP_ADDRESS, '127.0.0.1'),
+                            (SlaveInfo.MAINTAINER, 'joe@example.org')])
+
+        slave_info = SlaveInfo(self.env, 42)
+        self.assertEquals(42, slave_info.build)
+        self.assertEquals('127.0.0.1', slave_info[SlaveInfo.IP_ADDRESS])
+        self.assertEquals('joe@example.org', slave_info[SlaveInfo.MAINTAINER])
+
+
 def suite():
     suite = unittest.TestSuite()
     suite.addTest(unittest.makeSuite(BuildConfigTestCase, 'test'))
     suite.addTest(unittest.makeSuite(BuildTestCase, 'test'))
+    suite.addTest(unittest.makeSuite(SlaveInfoTestCase, 'test'))
     return suite
 
 if __name__ == '__main__':
