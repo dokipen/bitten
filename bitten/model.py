@@ -292,7 +292,7 @@ class SlaveInfo(object):
         for propname, propvalue in cursor:
             self.properties[propname] = propvalue
         if not self.properties:
-            raise Exception, "Slave info for '%s' not found" % name
+            raise Exception, "Slave info for %s not found" % build
         self.build = build
 
     def __getitem__(self, name):
