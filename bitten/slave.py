@@ -160,7 +160,7 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
             self.channel.send_nul(msgno)
 
         except (KeyboardInterrupt, SystemExit), e:
-            xml = xmlio.Element('abort')['Build cancelled']
+            xml = xmlio.Element('aborted')['Build cancelled']
             self.channel.send_ans(msgno, beep.MIMEMessage(xml))
             self.channel.send_nul(msgno)
 

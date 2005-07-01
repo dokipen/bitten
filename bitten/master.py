@@ -153,6 +153,7 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
                     self.props[SlaveInfo.OS_NAME] = child.gettext()
                     self.props[SlaveInfo.OS_FAMILY] = child.attr.get('family')
                     self.props[SlaveInfo.OS_VERSION] = child.attr.get('version')
+            self.props[SlaveInfo.IP_ADDRESS] = self.session.addr[0]
 
             self.name = elem.attr['name']
             self.master.slaves[self.name] = self
@@ -223,7 +224,7 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
                         logging.warning('Step failed: %s', elem.gettext())
                     self.steps.append((elem.attr['id'],
                                        elem.attr['result']))
-                elif elem.name == 'abort':
+                elif elem.name == 'aborted':
                     logging.info('Slave "%s" aborted build', self.name)
                     build.slave = None
                     build.started = 0
