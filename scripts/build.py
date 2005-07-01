@@ -34,8 +34,7 @@ def build():
     for step in recipe:
         if not step_id or step.id == step_id:
             print '-->', step.description or step.id
-            for function, kw in step:
-                function(recipe.ctxt, **kw)
+            step.execute(recipe.ctxt)
             print
             steps_run.append(step.id)
 

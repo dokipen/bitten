@@ -17,7 +17,7 @@
         </reports>
     </step>
 
-    <step id="lint" title="Run Pylint"
+    <step id="lint" title="Run Pylint" onerror="ignore"
           description="Run Pylint to check for bad style and potential errors">
         <c:make target="pylint"/>
         <reports>

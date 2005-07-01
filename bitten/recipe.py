@@ -18,8 +18,10 @@
 #
 # Author: Christopher Lenz <cmlenz@gmx.de>
 
+import logging
 import os.path
 
+from bitten.build import BuildError
 from bitten.util import xmlio
 
 __all__ = ['Recipe']
@@ -50,6 +52,7 @@ class Step(object):
         self._elem = elem
         self.id = elem.attr['id']
         self.description = elem.attr.get('description')
+        self.onerror = elem.attr.get('onerror', 'fail')
 
     def __iter__(self):
         for child in self._elem:
@@ -60,6 +63,16 @@ class Step(object):
                     yield self._function(grandchild), self._args(grandchild)
             else:
                 raise InvalidRecipeError, "Unknown element <%s>" % child.name
+
+    def execute(self, ctxt):
+        try:
+            for function, args in self:
+                function(ctxt, **args)
+        except BuildError, e:
+            if self.onerror == 'fail':
+                raise BuildError, e
+            logging.warning('Ignoring error in step %s (%s)', self.id, e)
+            return None
 
     def _args(self, elem):
         return dict([(name.replace('-', '_'), value) for name, value
