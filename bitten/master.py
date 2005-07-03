@@ -23,7 +23,7 @@ import os.path
 import time
 
 from trac.env import Environment
-from bitten.model import Build, BuildConfig, SlaveInfo
+from bitten.model import Build, BuildConfig, TargetPlatform
 from bitten.util import archive, beep, xmlio
 
 
@@ -147,13 +147,13 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
             self.name = elem.attr['name']
             for child in elem.children():
                 if child.name == 'platform':
-                    self.props[SlaveInfo.MACHINE] = child.gettext()
-                    self.props[SlaveInfo.PROCESSOR] = child.attr.get('processor')
+                    self.props[Build.MACHINE] = child.gettext()
+                    self.props[Build.PROCESSOR] = child.attr.get('processor')
                 elif child.name == 'os':
-                    self.props[SlaveInfo.OS_NAME] = child.gettext()
-                    self.props[SlaveInfo.OS_FAMILY] = child.attr.get('family')
-                    self.props[SlaveInfo.OS_VERSION] = child.attr.get('version')
-            self.props[SlaveInfo.IP_ADDRESS] = self.session.addr[0]
+                    self.props[Build.OS_NAME] = child.gettext()
+                    self.props[Build.OS_FAMILY] = child.attr.get('family')
+                    self.props[Build.OS_VERSION] = child.attr.get('version')
+            self.props[Build.IP_ADDRESS] = self.session.addr[0]
 
             self.name = elem.attr['name']
             self.master.slaves[self.name] = self
@@ -212,6 +212,7 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
                 if elem.name == 'started':
                     self.steps = []
                     build.slave = self.name
+                    build.slave_info = self.props
                     build.started = int(time.time())
                     build.status = Build.IN_PROGRESS
                     build.update()
@@ -246,13 +247,6 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
                     build.slave = None
                     build.started = 0
                 build.update()
-
-                # Insert slave info
-                slave_info = SlaveInfo(self.env)
-                slave_info.build = build.id
-                for name, value in self.props.items():
-                    slave_info[name] = value
-                slave_info.insert()
 
         # TODO: should not block while reading the file; rather stream it using
         #       asyncore push_with_producer()

@@ -20,16 +20,11 @@
 
 import unittest
 
-from bitten.tests import model, recipe
-from bitten.util import tests as util
-from bitten.trac_ext import tests as trac_ext
+from bitten.trac_ext.tests import web_ui
 
 def suite():
     suite = unittest.TestSuite()
-    suite.addTest(model.suite())
-    suite.addTest(recipe.suite())
-    suite.addTest(trac_ext.suite())
-    suite.addTest(util.suite())
+    suite.addTest(web_ui.suite())
     return suite
 
 if __name__ == '__main__':

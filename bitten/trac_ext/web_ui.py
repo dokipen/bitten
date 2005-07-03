@@ -24,10 +24,10 @@ from time import localtime, strftime
 from trac.core import *
 from trac.Timeline import ITimelineEventProvider
 from trac.util import escape, pretty_timedelta
-from trac.web.chrome import INavigationContributor
+from trac.web.chrome import INavigationContributor, add_link
 from trac.web.main import IRequestHandler
 from trac.wiki import wiki_to_html
-from bitten.model import Build, BuildConfig, SlaveInfo
+from bitten.model import Build, BuildConfig, TargetPlatform
 
 
 class BuildModule(Component):
@@ -50,34 +50,38 @@ class BuildModule(Component):
    if:build.can_create ?><div class="buttons">
     <form method="get" action=""><div>
      <input type="hidden" name="action" value="new" />
-     <input type="submit" value="Add new configuration" />
-    </div></form><?cs
+     <input type="submit" value="Add configuration" />
+    </div></form></div><?cs
    /if ?></div><?cs
 
   elif:build.mode == 'edit_config' ?>
-   <form method="post" action="">
-    <div class="field"><label>Name:<br />
-     <input type="text" name="name" value="<?cs var:build.config.name ?>" />
-    </label></div>
-    <div class="field"><label>Label (for display):<br />
-     <input type="text" name="label" size="32" value="<?cs
-       var:build.config.label ?>" />
-    </label></div>
-    <div class="field"><label><input type="checkbox" name="active"<?cs
-      if:build.config.active ?> checked="checked" <?cs /if ?>/> Active
-    </label></div>
-    <div class="field"><label>Repository path:<br />
-     <input type="text" name="path" size="48" value="<?cs
-       var:build.config.path ?>" />
-    </label></div>
-    <div class="field"><fieldset class="iefix">
-     <label for="description">Description (you may use <a tabindex="42" href="<?cs
-       var:trac.href.wiki ?>/WikiFormatting">WikiFormatting</a> here):</label>
-     <p><textarea id="description" name="description" class="wikitext" rows="10" cols="78"><?cs
-       var:build.config.description ?></textarea></p>
-     <script type="text/javascript" src="<?cs
-       var:htdocs_location ?>js/wikitoolbar.js"></script>
-    </fieldset></div>
+   <form class="config" method="post" action="">
+    <table><tr>
+     <td class="name"><label>Name:<br />
+      <input type="text" name="name" value="<?cs var:build.config.name ?>" />
+     </label></td>
+     <td class="label"><label>Label (for display):<br />
+      <input type="text" name="label" size="32" value="<?cs
+        var:build.config.label ?>" />
+     </label></td>
+    </tr><tr>
+     <td class="active"><label><input type="checkbox" name="active"<?cs
+       if:build.config.active ?> checked="checked" <?cs /if ?>/> Active
+     </label></td>
+     <td class="path"><label>Repository path:<br />
+      <input type="text" name="path" size="48" value="<?cs
+        var:build.config.path ?>" />
+     </label></td>
+    </tr><tr>
+     <td colspan="2"><fieldset class="iefix">
+      <label for="description">Description (you may use <a tabindex="42" href="<?cs
+        var:trac.href.wiki ?>/WikiFormatting">WikiFormatting</a> here):</label>
+      <p><textarea id="description" name="description" class="wikitext" rows="5" cols="78"><?cs
+        var:build.config.description ?></textarea></p>
+      <script type="text/javascript" src="<?cs
+        var:htdocs_location ?>js/wikitoolbar.js"></script>
+     </fieldset></td>
+    </tr></table>
     <div class="buttons">
      <input type="hidden" name="action" value="<?cs
        if:build.config.exists ?>edit<?cs else ?>new<?cs /if ?>" />
@@ -86,6 +90,21 @@ class BuildModule(Component):
        if:build.config.exists ?>Save changes<?cs else ?>Create<?cs /if ?>" />
     </div>
    </form><?cs
+   if:build.config.exists ?><div class="platforms">
+    <h2>Target Platforms</h2><?cs
+     if:len(build.platforms) ?><ul><?cs
+      each:platform = build.platforms ?><li><a href="<?cs
+       var:platform.href ?>"><?cs var:platform.name ?></a></li><?cs
+      /each ?></ul><?cs
+     /if ?>
+    <div class="buttons">
+     <form method="get" action=""><div>
+      <input type="hidden" name="action" value="new" />
+      <input type="submit" value="Add target platform" />
+     </div></form>
+    </div>
+   </div><?cs
+   /if ?><?cs
 
   elif:build.mode == 'view_config' ?><ul>
    <li>Active: <?cs if:build.config.active ?>yes<?cs else ?>no<?cs /if ?></li>
@@ -94,20 +113,56 @@ class BuildModule(Component):
      var:build.config.path ?></a></li><?cs /if ?></ul><?cs
    if:build.config.description ?><div class="description"><?cs
      var:build.config.description ?></div><?cs /if ?><?cs
-   if:build.can_modify ?><div class="buttons">
+   if:build.config.can_modify ?><div class="buttons">
     <form method="get" action=""><div>
      <input type="hidden" name="action" value="edit" />
      <input type="submit" value="Edit configuration" />
     </div></form><?cs
    /if ?></div><?cs
 
+  elif:build.mode == 'edit_platform' ?>
+   <form class="platform" method="post" action="">
+    <div class="field"><label>Name:<br />
+     <input type="text" name="name" value="<?cs var:build.platform.name ?>" />
+    </label></div>
+    <h2>Rules</h2>
+    <table><thead><tr>
+     <th>Property name</th><th>Match pattern</th>
+    </tr></thead><tbody><?cs
+     each:rule = build.platform.rules ?><tr>
+      <td><input type="text" name="property_<?cs var:name(rule) ?>" value="<?cs
+       var:rule.property ?>" /></td>
+      <td><input type="text" name="pattern_<?cs var:name(rule) ?>" value="<?cs
+       var:rule.pattern ?>" /></td>
+      <td><input type="submit" name="rm_rule_<?cs
+        var:name(rule) ?>" value="-" /><input type="submit" name="add_rule_<?cs
+        var:name(rule) ?>" value="+" />
+      </td>
+     </tr><?cs /each ?>
+    </tbody></table>
+    <div class="buttons">
+     <form method="get" action=""><div>
+     <input type="hidden" name="action" value="<?cs
+       if:build.platform.exists ?>edit<?cs else ?>new<?cs /if ?>" />
+      <input type="hidden" name="platform" value="<?cs
+       var:build.platform.id ?>" />
+      <input type="submit" name="cancel" value="Cancel" />
+      <input type="submit" value="<?cs
+       if:build.platform.exists ?>Save changes<?cs else ?>Add platform<?cs
+       /if ?>" />
+     </div></form>
+    </div>
+   </form><?cs
+
   elif:build.mode == 'view_build' ?>
    <p class="trigger">Triggered by: Changeset <a href="<?cs
      var:build.chgset_href ?>">[<?cs var:build.rev ?>]</a> of <a href="<?cs
      var:build.config.href ?>"><?cs var:build.config.name ?></a></p>
-   <p class="slave">Built by: <strong><?cs
-     var:build.slave.name ?></strong> (<?cs var:build.slave.os ?> <?cs
-     var:build.slave.os.version ?> on <?cs var:build.slave.machine ?>)</p>
+   <p class="slave">Built by: <strong title="<?cs
+     var:build.slave.ip_address ?>"><?cs var:build.slave.name ?></strong> (<?cs
+     var:build.slave.os ?> <?cs var:build.slave.os.version ?><?cs
+     if:build.slave.machien ?> on <?cs var:build.slave.machine ?><?cs
+     /if ?>)</p>
    <p class="time">Completed: <?cs var:build.started ?> (<?cs
      var:build.started_delta ?> ago)<br />Took: <?cs var:build.duration ?></p><?cs
   /if ?>
@@ -135,7 +190,7 @@ class BuildModule(Component):
     # IRequestHandler methods
 
     def match_request(self, req):
-        match = re.match(r'/build(?:/([\w.-]+))?(?:/([\w.-]+))?', req.path_info)
+        match = re.match(r'/build(?:/([\w.-]+))?(?:/([\d]+))?', req.path_info)
         if match:
             if match.group(1):
                 req.args['config'] = match.group(1)
@@ -151,23 +206,41 @@ class BuildModule(Component):
         id = req.args.get('id')
 
         if req.method == 'POST':
-            if not config and action == 'new':
-                self._do_create(req)
-            elif config and action == 'edit':
-                self._do_save(req, config)
+            if config:
+                if action == 'new':
+                    self._do_create_platform(req, config)
+                else:
+                    platform_id = req.args.get('platform')
+                    if platform_id:
+                        if action == 'edit':
+                            self._do_save_platform(req, config, platform_id)
+                    else:
+                        self._do_save_config(req, config)
+            else:
+                if action == 'new':
+                    self._do_create_config(req)
         else:
-            if not config:
+            if id:
+                self._render_build(req, id)
+            elif config:
+                if action == 'edit':
+                    platform_id = req.args.get('platform')
+                    if platform_id:
+                        platform = TargetPlatform(self.env, int(platform_id))
+                        self._render_platform_form(req, platform)
+                    else:
+                        self._render_config_form(req, config)
+                elif action == 'new':
+                    platform = TargetPlatform(self.env)
+                    platform.config = config
+                    self._render_platform_form(req, platform)
+                else:
+                    self._render_config(req, config)
+            else:
                 if action == 'new':
                     self._render_config_form(req)
                 else:
                     self._render_overview(req)
-            elif not id:
-                if action == 'edit':
-                    self._render_config_form(req, config)
-                else:
-                    self._render_config(req, config)
-            else:
-                self._render_build(req, config, id)
 
         return req.hdf.parse(self.build_cs), None
 
@@ -198,7 +271,7 @@ class BuildModule(Component):
 
     # Internal methods
 
-    def _do_create(self, req):
+    def _do_create_config(self, req):
         """Create a new build configuration."""
         req.perm.assert_permission('BUILD_CREATE')
 
@@ -215,7 +288,7 @@ class BuildModule(Component):
 
         req.redirect(self.env.href.build(config.name))
 
-    def _do_save(self, req, config_name):
+    def _do_save_config(self, req, config_name):
         """Save changes to a build configuration."""
         req.perm.assert_permission('BUILD_MODIFY')
 
@@ -231,6 +304,81 @@ class BuildModule(Component):
         config.update()
 
         req.redirect(self.env.href.build(config.name))
+
+    def _do_create_platform(self, req, config_name):
+        """Create a new target platform."""
+        req.perm.assert_permission('BUILD_MODIFY')
+
+        if 'cancel' in req.args.keys():
+            req.redirect(self.env.href.build(config_name, action='edit'))
+
+        platform = TargetPlatform(self.env)
+        platform.config = config_name
+        platform.name = req.args.get('name')
+
+        properties = [int(key[9:]) for key in req.args.keys()
+                      if key.startswith('property_')]
+        properties.sort()
+        patterns = [int(key[8:]) for key in req.args.keys()
+                    if key.startswith('pattern_')]
+        patterns.sort()
+        platform.rules = [(req.args.get('property_%d' % property),
+                           req.args.get('pattern_%d' % pattern))
+                          for property, pattern in zip(properties, patterns)]
+
+        add_rules = [int(key[9:]) for key in req.args.keys()
+                     if key.startswith('add_rule_')]
+        if add_rules:
+            platform.rules.insert(add_rules[0] + 1, ('', ''))
+            self._render_platform_form(req, platform)
+            return
+        rm_rules = [int(key[8:]) for key in req.args.keys()
+                     if key.startswith('rm_rule_')]
+        if rm_rules:
+            del platform.rules[rm_rules[0]]
+            self._render_platform_form(req, platform)
+            return
+
+        platform.insert()
+
+        req.redirect(self.env.href.build(config_name, action='edit'))
+
+    def _do_save_platform(self, req, config_name, platform_id):
+        """Save changes to a target platform."""
+        req.perm.assert_permission('BUILD_MODIFY')
+
+        if 'cancel' in req.args.keys():
+            req.redirect(self.env.href.build(config_name, action='edit'))
+
+        platform = TargetPlatform(self.env, platform_id)
+        platform.name = req.args.get('name')
+
+        properties = [int(key[9:]) for key in req.args.keys()
+                      if key.startswith('property_')]
+        properties.sort()
+        patterns = [int(key[8:]) for key in req.args.keys()
+                    if key.startswith('pattern_')]
+        patterns.sort()
+        platform.rules = [(req.args.get('property_%d' % property),
+                           req.args.get('pattern_%d' % pattern))
+                          for property, pattern in zip(properties, patterns)]
+
+        add_rules = [int(key[9:]) for key in req.args.keys()
+                     if key.startswith('add_rule_')]
+        if add_rules:
+            platform.rules.insert(add_rules[0] + 1, ('', ''))
+            self._render_platform_form(req, platform)
+            return
+        rm_rules = [int(key[8:]) for key in req.args.keys()
+                     if key.startswith('rm_rule_')]
+        if rm_rules:
+            del platform.rules[rm_rules[0]]
+            self._render_platform_form(req, platform)
+            return
+
+        platform.update()
+
+        req.redirect(self.env.href.build(config_name, action='edit'))
 
     def _render_overview(self, req):
         req.hdf['title'] = 'Build Status'
@@ -251,37 +399,73 @@ class BuildModule(Component):
         config = BuildConfig(self.env, config_name)
         req.hdf['title'] = 'Build Configuration "%s"' \
                            % escape(config.label or config.name)
+        add_link(req, 'up', self.env.href.build(), 'Build Status')
         description = config.description
         if description:
             description = wiki_to_html(description, self.env, req)
         req.hdf['build.config'] = {
             'name': config.name, 'label': config.label, 'path': config.path,
             'active': config.active, 'description': description,
-            'browser_href': self.env.href.browser(config.path)
+            'browser_href': self.env.href.browser(config.path),
+            'can_modify': req.perm.has_permission('BUILD_MODIFY')
         }
-
         req.hdf['build.mode'] = 'view_config'
-        req.hdf['build.can_modify'] = req.perm.has_permission('BUILD_MODIFY')
+
+        repos = self.env.get_repository(req.authname)
+        root = repos.get_node(config.path)
+        num = 0
+        for idx, (path, rev, chg) in enumerate(root.get_history()):
+            prefix = 'build.config.builds.%d' % rev
+            for build in Build.select(self.env, config=config.name, rev=rev):
+                req.hdf[prefix + '.' + build.slave] = self._build_to_hdf(build)
+            if idx > 5:
+                break
 
     def _render_config_form(self, req, config_name=None):
         config = BuildConfig(self.env, config_name)
         if config.exists:
             req.perm.assert_permission('BUILD_MODIFY')
-            req.hdf['title'] = 'Edit Build Configuration "%s"' \
-                               % escape(config.label or config.name)
             req.hdf['build.config'] = {
                 'name': config.name, 'label': config.label, 'path': config.path,
                 'active': config.active, 'description': config.description,
                 'exists': config.exists
             }
+
+            if 'new' in req.args.keys() or 'platform' in req.args.keys():
+                self._render_platform_form(req, config_name,
+                                           req.args.get('platform'))
+                return
+
+            req.hdf['title'] = 'Edit Build Configuration "%s"' \
+                               % escape(config.label or config.name)
+            for idx, platform in enumerate(TargetPlatform.select(self.env,
+                                                                 config_name)):
+                req.hdf['build.platforms.%d' % idx] = {
+                    'id': platform.id, 'name': platform.name,
+                    'href': self.env.href.build(config_name, action='edit',
+                                                platform=platform.id)
+                }
         else:
             req.perm.assert_permission('BUILD_CREATE')
             req.hdf['title'] = 'Create Build Configuration'
         req.hdf['build.mode'] = 'edit_config'
 
-    def _render_build(self, req, config_name, build_id):
+    def _render_platform_form(self, req, platform):
+        req.perm.assert_permission('BUILD_MODIFY')
+        req.hdf['title'] = 'Edit Target Platform "%s"' \
+                           % escape(platform.name)
+        req.hdf['build.platform'] = {
+            'name': platform.name, 'id': platform.id, 'exists': platform.exists,
+            'rules': [{'property': propname, 'pattern': pattern}
+                      for propname, pattern in platform.rules]
+        }
+        req.hdf['build.mode'] = 'edit_platform'
+
+    def _render_build(self, req, build_id):
         build = Build(self.env, build_id)
         assert build.exists
+        add_link(req, 'up', self.env.href.build(build.config),
+                 'Build Configuration')
         status2title = {Build.SUCCESS: 'Success', Build.FAILURE: 'Failure'}
         req.hdf['title'] = 'Build %s - %s' % (build_id,
                                               status2title[build.status])
@@ -292,17 +476,6 @@ class BuildModule(Component):
         req.hdf['build.config'] = {
             'name': config.label,
             'href': self.env.href.build(config.name)
-        }
-
-        slave_info = SlaveInfo(self.env, build.id)
-        req.hdf['build.slave'] = {
-            'name': build.slave,
-            'ip_address': slave_info.properties.get(SlaveInfo.IP_ADDRESS),
-            'os': slave_info.properties.get(SlaveInfo.OS_NAME),
-            'os.family': slave_info.properties.get(SlaveInfo.OS_FAMILY),
-            'os.version': slave_info.properties.get(SlaveInfo.OS_VERSION),
-            'machine': slave_info.properties.get(SlaveInfo.MACHINE),
-            'processor': slave_info.properties.get(SlaveInfo.PROCESSOR)
         }
 
     def _build_to_hdf(self, build):
@@ -316,4 +489,13 @@ class BuildModule(Component):
             hdf['stopped'] = strftime('%x %X', localtime(build.stopped))
             hdf['stopped_delta'] = pretty_timedelta(build.stopped)
             hdf['duration'] = pretty_timedelta(build.stopped, build.started)
+        hdf['slave'] = {
+            'name': build.slave,
+            'ip_address': build.slave_info.get(Build.IP_ADDRESS),
+            'os': build.slave_info.get(Build.OS_NAME),
+            'os.family': build.slave_info.get(Build.OS_FAMILY),
+            'os.version': build.slave_info.get(Build.OS_VERSION),
+            'machine': build.slave_info.get(Build.MACHINE),
+            'processor': build.slave_info.get(Build.PROCESSOR)
+        }
         return hdf

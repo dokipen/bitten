@@ -20,15 +20,15 @@
 
 from trac.db_default import Table, Column, Index
 
-schema_version = 1
-
 
 class BuildConfig(object):
     """Representation of a build configuration."""
 
-    _table = Table('bitten_config', key='name')[
-        Column('name'), Column('path'), Column('label'),
-        Column('active', type='int'), Column('description')
+    _schema = [
+        Table('bitten_config', key='name')[
+            Column('name'), Column('path'), Column('label'),
+            Column('active', type='int'), Column('description')
+        ]
     ]
 
     def __init__(self, env, name=None, db=None):
@@ -116,23 +116,146 @@ class BuildConfig(object):
     select = classmethod(select)
 
 
+class TargetPlatform(object):
+    """Target platform for a build configuration."""
+
+    _schema = [
+        Table('bitten_platform', key='id')[
+            Column('id', auto_increment=True), Column('config'), Column('name')
+        ],
+        Table('bitten_rule', key=('id', 'propname'))[
+            Column('id'), Column('propname'), Column('pattern'),
+            Column('orderno', type='int')
+        ]
+    ]
+
+    def __init__(self, env, id=None, db=None):
+        self.env = env
+        self.rules = []
+        if id is not None:
+            self._fetch(id, db)
+        else:
+            self.id = self.config = self.name = None
+
+    def _fetch(self, id, db=None):
+        if not db:
+            db = self.env.get_db_cnx()
+
+        cursor = db.cursor()
+        cursor.execute("SELECT config,name FROM bitten_platform "
+                       "WHERE id=%s", (id,))
+        row = cursor.fetchone()
+        if not row:
+            raise Exception, 'Target platform %s does not exist' % id
+        self.id = id
+        self.config = row[0]
+        self.name = row[1]
+
+        cursor.execute("SELECT propname,pattern FROM bitten_rule "
+                       "WHERE id=%s ORDER BY orderno", (id,))
+        for propname, pattern in cursor:
+            self.rules.append((propname, pattern))
+
+    exists = property(fget=lambda self: self.id is not None)
+
+    def insert(self, db=None):
+        if not db:
+            db = self.env.get_db_cnx()
+            handle_ta = True
+        else:
+            handle_ta = False
+
+        assert not self.exists, 'Cannot insert existing target platform'
+        assert self.config, 'Target platform needs to be associated with a ' \
+                            'configuration'
+        assert self.name, 'Target platform requires a name'
+
+        cursor = db.cursor()
+        cursor.execute("INSERT INTO bitten_platform (config,name) "
+                       "VALUES (%s,%s)", (self.config, self.name))
+        self.id = db.get_last_id('bitten_platform')
+        cursor.executemany("INSERT INTO bitten_rule VALUES (%s,%s,%s,%s)",
+                           [(self.id, propname, pattern, idx) for
+                            idx, (propname, pattern) in enumerate(self.rules)])
+
+        if handle_ta:
+            db.commit()
+
+    def update(self, db=None):
+        assert self.exists, 'Cannot update a non-existing platform'
+        assert self.config, 'Target platform needs to be associated with a ' \
+                            'configuration'
+        assert self.name, 'Target platform requires a name'
+        if not db:
+            db = self.env.get_db_cnx()
+            handle_ta = True
+        else:
+            handle_ta = False
+
+        cursor = db.cursor()
+        cursor.execute("UPDATE bitten_platform SET name=%s WHERE id=%s",
+                       (self.name, self.id))
+        cursor.execute("DELETE FROM bitten_rule WHERE id=%s", (self.id))
+        cursor.executemany("INSERT INTO bitten_rule VALUES (%s,%s,%s,%s)",
+                           [(self.id, propname, pattern, idx) for
+                            idx, (propname, pattern) in enumerate(self.rules)])
+
+        if handle_ta:
+            db.commit()
+
+    def select(cls, env, config=None, db=None):
+        if not db:
+            db = env.get_db_cnx()
+
+        where_clauses = []
+        if config is not None:
+            where_clauses.append(("config=%s", config))
+        if where_clauses:
+            where = "WHERE " + " AND ".join([wc[0] for wc in where_clauses])
+        else:
+            where = ""
+
+        cursor = db.cursor()
+        cursor.execute("SELECT id FROM bitten_platform %s ORDER BY name"
+                       % where, [wc[1] for wc in where_clauses])
+        for (id,) in cursor:
+            yield TargetPlatform(env, id)
+    select = classmethod(select)
+
+
 class Build(object):
     """Representation of a build."""
 
-    _table = Table('bitten_build', key='id')[
-        Column('id', auto_increment=True), Column('config'), Column('rev'),
-        Column('rev_time', type='int'), Column('slave'),
-        Column('started', type='int'), Column('stopped', type='int'),
-        Column('status', size='1'),  Index(['config', 'rev', 'slave'])
+    _schema = [
+        Table('bitten_build', key='id')[
+            Column('id', auto_increment=True), Column('config'), Column('rev'),
+            Column('rev_time', type='int'), Column('slave'),
+            Column('started', type='int'), Column('stopped', type='int'),
+            Column('status', size='1'),  Index(['config', 'rev', 'slave'])
+        ],
+        Table('bitten_slave', key=('build', 'propname'))[
+            Column('build', type='int'), Column('propname'), Column('propvalue')
+        ]
     ]
 
+    # Build status codes
     PENDING = 'P'
     IN_PROGRESS = 'I'
     SUCCESS = 'S'
     FAILURE = 'F'
 
+    # Standard slave properties
+    IP_ADDRESS = 'ipnr'
+    MAINTAINER = 'owner'
+    OS_NAME = 'os'
+    OS_FAMILY = 'family'
+    OS_VERSION = 'version'
+    MACHINE = 'machine'
+    PROCESSOR = 'processor'
+
     def __init__(self, env, id=None, db=None):
         self.env = env
+        self.slave_info = {}
         if id is not None:
             self._fetch(id, db)
         else:
@@ -158,6 +281,11 @@ class Build(object):
         self.started = row[4] and int(row[4])
         self.stopped = row[5] and int(row[5])
         self.status = row[6]
+
+        cursor.execute("SELECT propname,propvalue FROM bitten_slave "
+                       "WHERE build=%s", (self.id,))
+        for propname, propvalue in cursor:
+            self.slave_info[propname] = propvalue
 
     exists = property(fget=lambda self: self.id is not None)
     completed = property(fget=lambda self: self.status != Build.IN_PROGRESS)
@@ -197,6 +325,10 @@ class Build(object):
                        (self.config, self.rev, self.rev_time, self.slave or '',
                         self.started or 0, self.stopped or 0, self.status))
         self.id = db.get_last_id('bitten_build')
+        cursor.executemany("INSERT INTO bitten_slave VALUES (%s,%s,%s)",
+                           [(self.id, name, value) for name, value
+                            in self.slave_info.items()])
+
         if handle_ta:
             db.commit()
 
@@ -260,59 +392,5 @@ class Build(object):
     select = classmethod(select)
 
 
-class SlaveInfo(object):
-    _table = Table('bitten_slave', key=('build', 'propname'))[
-        Column('build', type='int'), Column('propname'), Column('propvalue')
-    ]
-
-    # Standard properties
-    IP_ADDRESS = 'ipnr'
-    MAINTAINER = 'owner'
-    OS_NAME = 'os'
-    OS_FAMILY = 'family'
-    OS_VERSION = 'version'
-    MACHINE = 'machine'
-    PROCESSOR = 'processor'
-
-    def __init__(self, env, build=None, db=None):
-        self.env = env
-        self.properties = {}
-        if build:
-            self._fetch(build, db)
-        else:
-            self.build = None
-
-    def _fetch(self, build, db=None):
-        if not db:
-            db = self.env.get_db_cnx()
-
-        cursor = db.cursor()
-        cursor.execute("SELECT propname,propvalue FROM bitten_slave "
-                       "WHERE build=%s", (build,))
-        for propname, propvalue in cursor:
-            self.properties[propname] = propvalue
-        if not self.properties:
-            raise Exception, "Slave info for %s not found" % build
-        self.build = build
-
-    def __getitem__(self, name):
-        return self.properties[name]
-
-    def __setitem__(self, name, value):
-        self.properties[name] = value
-
-    def insert(self, db=None):
-        if not db:
-            db = self.env.get_db_cnx()
-            handle_ta = True
-        else:
-            handle_ta = False
-
-        assert self.build
-
-        cursor = db.cursor()
-        cursor.executemany("INSERT INTO bitten_slave VALUES (%s,%s,%s)",
-                           [(self.build, name, value) for name, value
-                            in self.properties.items()])
-        if handle_ta:
-            db.commit()
+schema = BuildConfig._schema + TargetPlatform._schema + Build._schema
+schema_version = 1

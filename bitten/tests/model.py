@@ -21,7 +21,7 @@
 import unittest
 
 from trac.test import EnvironmentStub
-from bitten.model import Build, BuildConfig, SlaveInfo
+from bitten.model import Build, BuildConfig, TargetPlatform
 
 
 class BuildConfigTestCase(unittest.TestCase):
@@ -30,7 +30,8 @@ class BuildConfigTestCase(unittest.TestCase):
         self.env = EnvironmentStub()
         db = self.env.get_db_cnx()
         cursor = db.cursor()
-        cursor.execute(db.to_sql(BuildConfig._table))
+        for table in BuildConfig._schema:
+            cursor.execute(db.to_sql(table))
         db.commit()
 
     def test_new_config(self):
@@ -55,27 +56,86 @@ class BuildConfigTestCase(unittest.TestCase):
         self.assertRaises(AssertionError, config.insert)
 
 
+class TargetPlatformTestCase(unittest.TestCase):
+
+    def setUp(self):
+        self.env = EnvironmentStub()
+        db = self.env.get_db_cnx()
+        cursor = db.cursor()
+        for table in TargetPlatform._schema:
+            cursor.execute(db.to_sql(table))
+        db.commit()
+
+    def test_new(self):
+        platform = TargetPlatform(self.env)
+        self.assertEqual(False, platform.exists)
+        self.assertEqual([], platform.rules)
+
+    def test_insert(self):
+        platform = TargetPlatform(self.env)
+        platform.config = 'test'
+        platform.name = 'Windows XP'
+        platform.rules.append((Build.OS_NAME, 'Windows'))
+        platform.rules.append((Build.OS_VERSION, 'XP'))
+        platform.insert()
+
+        assert platform.exists
+        db = self.env.get_db_cnx()
+        cursor = db.cursor()
+        cursor.execute("SELECT config,name FROM bitten_platform "
+                       "WHERE id=%s", (platform.id,))
+        self.assertEqual(('test', 'Windows XP'), cursor.fetchone())
+
+        cursor.execute("SELECT propname,pattern,orderno FROM bitten_rule "
+                       "WHERE id=%s", (platform.id,))
+        self.assertEqual((Build.OS_NAME, 'Windows', 0), cursor.fetchone())
+        self.assertEqual((Build.OS_VERSION, 'XP', 1), cursor.fetchone())
+
+    def test_fetch(self):
+        db = self.env.get_db_cnx()
+        cursor = db.cursor()
+        cursor.execute("INSERT INTO bitten_platform (config,name) "
+                       "VALUES (%s,%s)", ('test', 'Windows'))
+        id = db.get_last_id('bitten_platform')
+        platform = TargetPlatform(self.env, id)
+        assert platform.exists
+        self.assertEqual('test', platform.config)
+        self.assertEqual('Windows', platform.name)
+
+    def test_select(self):
+        db = self.env.get_db_cnx()
+        cursor = db.cursor()
+        cursor.executemany("INSERT INTO bitten_platform (config,name) "
+                           "VALUES (%s,%s)", [('test', 'Windows'),
+                           ('test', 'Mac OS X')])
+        platforms = list(TargetPlatform.select(self.env, config='test'))
+        self.assertEqual(2, len(platforms))
+
+
 class BuildTestCase(unittest.TestCase):
 
     def setUp(self):
         self.env = EnvironmentStub()
         db = self.env.get_db_cnx()
         cursor = db.cursor()
-        cursor.execute(db.to_sql(Build._table))
+        for table in Build._schema:
+            cursor.execute(db.to_sql(table))
         db.commit()
 
-    def test_new_build(self):
+    def test_new(self):
         build = Build(self.env)
         self.assertEqual(None, build.id)
         self.assertEqual(Build.PENDING, build.status)
         self.assertEqual(0, build.stopped)
         self.assertEqual(0, build.started)
 
-    def test_insert_build(self):
+    def test_insert(self):
         build = Build(self.env)
         build.config = 'test'
         build.rev = '42'
         build.rev_time = 12039
+        build.slave_info[Build.IP_ADDRESS] = '127.0.0.1'
+        build.slave_info[Build.MAINTAINER] = 'joe@example.org'
         build.insert()
 
         db = self.env.get_db_cnx()
@@ -84,7 +144,13 @@ class BuildTestCase(unittest.TestCase):
                        "FROM bitten_build WHERE id=%s" % build.id)
         self.assertEqual(('test', '42', '', 0, 0, 'P'), cursor.fetchone())
 
-    def test_insert_build_no_config_or_rev_or_rev_time(self):
+        cursor.execute("SELECT propname,propvalue FROM bitten_slave")
+        expected = {Build.IP_ADDRESS: '127.0.0.1',
+                    Build.MAINTAINER: 'joe@example.org'}
+        for propname, propvalue in cursor:
+            self.assertEqual(expected[propname], propvalue)
+
+    def test_insert_no_config_or_rev_or_rev_time(self):
         build = Build(self.env)
         self.assertRaises(AssertionError, build.insert)
 
@@ -103,7 +169,7 @@ class BuildTestCase(unittest.TestCase):
         build.rev = '42'
         self.assertRaises(AssertionError, build.insert)
 
-    def test_insert_build_no_slave(self):
+    def test_insert_no_slave(self):
         build = Build(self.env)
         build.config = 'test'
         build.rev = '42'
@@ -125,49 +191,29 @@ class BuildTestCase(unittest.TestCase):
         build.status = 'DUNNO'
         self.assertRaises(AssertionError, build.insert)
 
-
-class SlaveInfoTestCase(unittest.TestCase):
-
-    def setUp(self):
-        self.env = EnvironmentStub()
+    def test_fetch(self):
         db = self.env.get_db_cnx()
         cursor = db.cursor()
-        cursor.execute(db.to_sql(SlaveInfo._table))
-        db.commit()
+        cursor.execute("INSERT INTO bitten_build (config,rev,rev_time,slave,"
+                       "started,stopped,status) VALUES (%s,%s,%s,%s,%s,%s,%s)",
+                       ('test', '42', 12039, 'tehbox', 15006, 16007,
+                        Build.SUCCESS))
+        build_id = db.get_last_id('bitten_build')
+        cursor.executemany("INSERT INTO bitten_slave VALUES (%s,%s,%s)",
+                           [(build_id, Build.IP_ADDRESS, '127.0.0.1'),
+                            (build_id, Build.MAINTAINER, 'joe@example.org')])
 
-    def test_insert_slave_info(self):
-        slave_info = SlaveInfo(self.env)
-        slave_info.build = 42
-        slave_info[SlaveInfo.IP_ADDRESS] = '127.0.0.1'
-        slave_info[SlaveInfo.MAINTAINER] = 'joe@example.org'
-        slave_info.insert()
-
-        db = self.env.get_db_cnx()
-        cursor = db.cursor()
-        cursor.execute("SELECT propname,propvalue FROM bitten_slave")
-        expected = {SlaveInfo.IP_ADDRESS: '127.0.0.1',
-                    SlaveInfo.MAINTAINER: 'joe@example.org'}
-        for propname, propvalue in cursor:
-            self.assertEqual(expected[propname], propvalue)
-
-    def test_fetch_slave_info(self):
-        db = self.env.get_db_cnx()
-        cursor = db.cursor()
-        cursor.executemany("INSERT INTO bitten_slave VALUES (42,%s,%s)",
-                           [(SlaveInfo.IP_ADDRESS, '127.0.0.1'),
-                            (SlaveInfo.MAINTAINER, 'joe@example.org')])
-
-        slave_info = SlaveInfo(self.env, 42)
-        self.assertEquals(42, slave_info.build)
-        self.assertEquals('127.0.0.1', slave_info[SlaveInfo.IP_ADDRESS])
-        self.assertEquals('joe@example.org', slave_info[SlaveInfo.MAINTAINER])
+        build = Build(self.env, build_id)
+        self.assertEquals(build_id, build.id)
+        self.assertEquals('127.0.0.1', build.slave_info[Build.IP_ADDRESS])
+        self.assertEquals('joe@example.org', build.slave_info[Build.MAINTAINER])
 
 
 def suite():
     suite = unittest.TestSuite()
     suite.addTest(unittest.makeSuite(BuildConfigTestCase, 'test'))
+    suite.addTest(unittest.makeSuite(TargetPlatformTestCase, 'test'))
     suite.addTest(unittest.makeSuite(BuildTestCase, 'test'))
-    suite.addTest(unittest.makeSuite(SlaveInfoTestCase, 'test'))
     return suite
 
 if __name__ == '__main__':
