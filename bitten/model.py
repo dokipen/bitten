@@ -158,6 +158,19 @@ class TargetPlatform(object):
 
     exists = property(fget=lambda self: self.id is not None)
 
+    def delete(self, db=None):
+        if not db:
+            db = self.env.get_db_cnx()
+            handle_ta = True
+        else:
+            handle_ta = False
+
+        cursor = db.cursor()
+        cursor.execute("DELETE FROM bitten_rule WHERE id=%s", (self.id,))
+        cursor.execute("DELETE FROM bitten_platform WHERE id=%s", (self.id,))
+        if handle_ta:
+            db.commit()
+
     def insert(self, db=None):
         if not db:
             db = self.env.get_db_cnx()

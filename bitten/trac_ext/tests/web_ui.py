@@ -33,6 +33,7 @@ class BuildModuleTestCase(unittest.TestCase):
         PermissionSystem(self.env).grant_permission('joe', 'BUILD_VIEW')
         req = Mock(Request, path_info='/build', args={}, hdf=HDFWrapper(),
                    perm=PermissionCache(self.env, 'joe'))
+        req.hdf['htdocs_location'] = '/htdocs'
 
         module = BuildModule(self.env)
         assert module.match_request(req)
@@ -45,6 +46,7 @@ class BuildModuleTestCase(unittest.TestCase):
         PermissionSystem(self.env).grant_permission('joe', 'BUILD_ADMIN')
         req = Mock(Request, path_info='/build', args={}, hdf=HDFWrapper(),
                    perm=PermissionCache(self.env, 'joe'))
+        req.hdf['htdocs_location'] = '/htdocs'
 
         module = BuildModule(self.env)
         assert module.match_request(req)
@@ -60,6 +62,7 @@ class BuildModuleTestCase(unittest.TestCase):
         PermissionSystem(self.env).grant_permission('joe', 'BUILD_VIEW')
         req = Mock(Request, path_info='/build/test', args={}, hdf=HDFWrapper(),
                    perm=PermissionCache(self.env, 'joe'))
+        req.hdf['htdocs_location'] = '/htdocs'
 
         module = BuildModule(self.env)
         assert module.match_request(req)
@@ -76,6 +79,7 @@ class BuildModuleTestCase(unittest.TestCase):
         PermissionSystem(self.env).grant_permission('joe', 'BUILD_ADMIN')
         req = Mock(Request, path_info='/build/test', args={}, hdf=HDFWrapper(),
                    perm=PermissionCache(self.env, 'joe'))
+        req.hdf['htdocs_location'] = '/htdocs'
 
         module = BuildModule(self.env)
         assert module.match_request(req)
@@ -87,6 +91,7 @@ class BuildModuleTestCase(unittest.TestCase):
         PermissionSystem(self.env).grant_permission('joe', 'BUILD_ADMIN')
         req = Mock(Request, path_info='/build', args={'action': 'new'},
                    hdf=HDFWrapper(), perm=PermissionCache(self.env, 'joe'))
+        req.hdf['htdocs_location'] = '/htdocs'
 
         module = BuildModule(self.env)
         assert module.match_request(req)
@@ -106,6 +111,7 @@ class BuildModuleTestCase(unittest.TestCase):
                    args={'action': 'new', 'name': 'test', 'active': 'on',
                          'label': 'Test', 'path': 'test/trunk',
                          'description': 'Bla bla'})
+        req.hdf['htdocs_location'] = '/htdocs'
 
         module = BuildModule(self.env)
         assert module.match_request(req)
@@ -129,6 +135,7 @@ class BuildModuleTestCase(unittest.TestCase):
                    redirect=redirect, hdf=HDFWrapper(),
                    perm=PermissionCache(self.env, 'joe'),
                    args={'action': 'new', 'cancel': '1', 'name': 'test'})
+        req.hdf['htdocs_location'] = '/htdocs'
 
         module = BuildModule(self.env)
         assert module.match_request(req)
@@ -145,6 +152,7 @@ class BuildModuleTestCase(unittest.TestCase):
         PermissionSystem(self.env).grant_permission('joe', 'BUILD_ADMIN')
         req = Mock(Request, path_info='/build/test', args={'action': 'edit'},
                    hdf=HDFWrapper(), perm=PermissionCache(self.env, 'joe'))
+        req.hdf['htdocs_location'] = '/htdocs'
 
         module = BuildModule(self.env)
         assert module.match_request(req)
@@ -168,6 +176,7 @@ class BuildModuleTestCase(unittest.TestCase):
                    args={'action': 'edit', 'name': 'foo', 'active': 'on',
                          'label': 'Test', 'path': 'test/trunk',
                          'description': 'Bla bla'})
+        req.hdf['htdocs_location'] = '/htdocs'
 
         module = BuildModule(self.env)
         assert module.match_request(req)
@@ -197,6 +206,7 @@ class BuildModuleTestCase(unittest.TestCase):
                    redirect=redirect, hdf=HDFWrapper(),
                    perm=PermissionCache(self.env, 'joe'),
                    args={'action': 'edit', 'cancel': '1'})
+        req.hdf['htdocs_location'] = '/htdocs'
 
         module = BuildModule(self.env)
         assert module.match_request(req)
@@ -209,8 +219,10 @@ class BuildModuleTestCase(unittest.TestCase):
         config.insert()
 
         PermissionSystem(self.env).grant_permission('joe', 'BUILD_ADMIN')
-        req = Mock(Request, path_info='/build/test', args={'action': 'new'},
+        req = Mock(Request, path_info='/build/test',
+                   args={'action': 'edit', 'new': '1'},
                    hdf=HDFWrapper(), perm=PermissionCache(self.env, 'joe'))
+        req.hdf['htdocs_location'] = '/htdocs'
 
         module = BuildModule(self.env)
         assert module.match_request(req)
@@ -231,6 +243,7 @@ class BuildModuleTestCase(unittest.TestCase):
         req = Mock(Request, method='POST', path_info='/build/test',
                    redirect=redirect, args={'action': 'new', 'name': 'Test'},
                    hdf=HDFWrapper(), perm=PermissionCache(self.env, 'joe'))
+        req.hdf['htdocs_location'] = '/htdocs'
 
         module = BuildModule(self.env)
         assert module.match_request(req)
@@ -250,6 +263,7 @@ class BuildModuleTestCase(unittest.TestCase):
         req = Mock(Request, method='POST', path_info='/build/test',
                    redirect=redirect, args={'action': 'new', 'cancel': '1'},
                    hdf=HDFWrapper(), perm=PermissionCache(self.env, 'joe'))
+        req.hdf['htdocs_location'] = '/htdocs'
 
         module = BuildModule(self.env)
         assert module.match_request(req)
@@ -270,6 +284,7 @@ class BuildModuleTestCase(unittest.TestCase):
         req = Mock(Request, path_info='/build/test',
                    args={'action': 'edit', 'platform': platform.id},
                    hdf=HDFWrapper(), perm=PermissionCache(self.env, 'joe'))
+        req.hdf['htdocs_location'] = '/htdocs'
 
         module = BuildModule(self.env)
         assert module.match_request(req)
@@ -297,6 +312,7 @@ class BuildModuleTestCase(unittest.TestCase):
                          'name': 'Test'},
                    redirect=redirect, hdf=HDFWrapper(),
                    perm=PermissionCache(self.env, 'joe'))
+        req.hdf['htdocs_location'] = '/htdocs'
 
         module = BuildModule(self.env)
         assert module.match_request(req)
@@ -323,6 +339,7 @@ class BuildModuleTestCase(unittest.TestCase):
                          'cancel': '1'},
                    redirect=redirect, hdf=HDFWrapper(),
                    perm=PermissionCache(self.env, 'joe'))
+        req.hdf['htdocs_location'] = '/htdocs'
 
         module = BuildModule(self.env)
         assert module.match_request(req)

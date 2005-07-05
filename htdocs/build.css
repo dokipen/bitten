@@ -1,0 +1,10 @@
+/* Timeline styles */
+#content.timeline dt.successbuild, #content.timeline dt.successbuild a,
+#content.timeline dt.failedbuild, #content.timeline dt.failedbuild a {
+ background-image: url(build.png) !important
+}
+
+#content.build form.config td.active { vertical-align: bottom; }
+#content.build form.platforms ul { list-style: none; padding-left: 1em; }
+
+#content.build #builds { margin-top: 2em; }

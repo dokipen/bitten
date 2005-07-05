@@ -24,7 +24,8 @@ from time import localtime, strftime
 from trac.core import *
 from trac.Timeline import ITimelineEventProvider
 from trac.util import escape, pretty_timedelta
-from trac.web.chrome import INavigationContributor, add_link
+from trac.web.chrome import INavigationContributor, ITemplateProvider, \
+                            add_link, add_stylesheet
 from trac.web.main import IRequestHandler
 from trac.wiki import wiki_to_html
 from bitten.model import Build, BuildConfig, TargetPlatform
@@ -32,144 +33,8 @@ from bitten.model import Build, BuildConfig, TargetPlatform
 
 class BuildModule(Component):
 
-    implements(INavigationContributor, IRequestHandler, ITimelineEventProvider)
-
-    build_cs = """
-<?cs include:"header.cs" ?>
- <div id="ctxtnav" class="nav"></div>
- <div id="content" class="build">
-  <h1><?cs var:title ?></h1><?cs
-
-  if:build.mode == 'overview' ?><?cs
-   each:config = build.configs ?>
-    <h2><a href="<?cs var:config.href ?>"><?cs var:config.label ?></a></h2><?cs
-    if:config.description ?><div class="description"><?cs
-     var:config.description ?></div><?cs
-    /if ?><?cs
-   /each ?><?cs
-   if:build.can_create ?><div class="buttons">
-    <form method="get" action=""><div>
-     <input type="hidden" name="action" value="new" />
-     <input type="submit" value="Add configuration" />
-    </div></form></div><?cs
-   /if ?></div><?cs
-
-  elif:build.mode == 'edit_config' ?>
-   <form class="config" method="post" action="">
-    <table><tr>
-     <td class="name"><label>Name:<br />
-      <input type="text" name="name" value="<?cs var:build.config.name ?>" />
-     </label></td>
-     <td class="label"><label>Label (for display):<br />
-      <input type="text" name="label" size="32" value="<?cs
-        var:build.config.label ?>" />
-     </label></td>
-    </tr><tr>
-     <td class="active"><label><input type="checkbox" name="active"<?cs
-       if:build.config.active ?> checked="checked" <?cs /if ?>/> Active
-     </label></td>
-     <td class="path"><label>Repository path:<br />
-      <input type="text" name="path" size="48" value="<?cs
-        var:build.config.path ?>" />
-     </label></td>
-    </tr><tr>
-     <td colspan="2"><fieldset class="iefix">
-      <label for="description">Description (you may use <a tabindex="42" href="<?cs
-        var:trac.href.wiki ?>/WikiFormatting">WikiFormatting</a> here):</label>
-      <p><textarea id="description" name="description" class="wikitext" rows="5" cols="78"><?cs
-        var:build.config.description ?></textarea></p>
-      <script type="text/javascript" src="<?cs
-        var:htdocs_location ?>js/wikitoolbar.js"></script>
-     </fieldset></td>
-    </tr></table>
-    <div class="buttons">
-     <input type="hidden" name="action" value="<?cs
-       if:build.config.exists ?>edit<?cs else ?>new<?cs /if ?>" />
-     <input type="submit" name="cancel" value="Cancel" />
-     <input type="submit" value="<?cs
-       if:build.config.exists ?>Save changes<?cs else ?>Create<?cs /if ?>" />
-    </div>
-   </form><?cs
-   if:build.config.exists ?><div class="platforms">
-    <h2>Target Platforms</h2><?cs
-     if:len(build.platforms) ?><ul><?cs
-      each:platform = build.platforms ?><li><a href="<?cs
-       var:platform.href ?>"><?cs var:platform.name ?></a></li><?cs
-      /each ?></ul><?cs
-     /if ?>
-    <div class="buttons">
-     <form method="get" action=""><div>
-      <input type="hidden" name="action" value="new" />
-      <input type="submit" value="Add target platform" />
-     </div></form>
-    </div>
-   </div><?cs
-   /if ?><?cs
-
-  elif:build.mode == 'view_config' ?><ul>
-   <li>Active: <?cs if:build.config.active ?>yes<?cs else ?>no<?cs /if ?></li>
-   <li>Path: <?cs if:build.config.path ?><a href="<?cs
-     var:build.config.browser_href ?>"><?cs
-     var:build.config.path ?></a></li><?cs /if ?></ul><?cs
-   if:build.config.description ?><div class="description"><?cs
-     var:build.config.description ?></div><?cs /if ?><?cs
-   if:build.config.can_modify ?><div class="buttons">
-    <form method="get" action=""><div>
-     <input type="hidden" name="action" value="edit" />
-     <input type="submit" value="Edit configuration" />
-    </div></form><?cs
-   /if ?></div><?cs
-
-  elif:build.mode == 'edit_platform' ?>
-   <form class="platform" method="post" action="">
-    <div class="field"><label>Name:<br />
-     <input type="text" name="name" value="<?cs var:build.platform.name ?>" />
-    </label></div>
-    <h2>Rules</h2>
-    <table><thead><tr>
-     <th>Property name</th><th>Match pattern</th>
-    </tr></thead><tbody><?cs
-     each:rule = build.platform.rules ?><tr>
-      <td><input type="text" name="property_<?cs var:name(rule) ?>" value="<?cs
-       var:rule.property ?>" /></td>
-      <td><input type="text" name="pattern_<?cs var:name(rule) ?>" value="<?cs
-       var:rule.pattern ?>" /></td>
-      <td><input type="submit" name="rm_rule_<?cs
-        var:name(rule) ?>" value="-" /><input type="submit" name="add_rule_<?cs
-        var:name(rule) ?>" value="+" />
-      </td>
-     </tr><?cs /each ?>
-    </tbody></table>
-    <div class="buttons">
-     <form method="get" action=""><div>
-     <input type="hidden" name="action" value="<?cs
-       if:build.platform.exists ?>edit<?cs else ?>new<?cs /if ?>" />
-      <input type="hidden" name="platform" value="<?cs
-       var:build.platform.id ?>" />
-      <input type="submit" name="cancel" value="Cancel" />
-      <input type="submit" value="<?cs
-       if:build.platform.exists ?>Save changes<?cs else ?>Add platform<?cs
-       /if ?>" />
-     </div></form>
-    </div>
-   </form><?cs
-
-  elif:build.mode == 'view_build' ?>
-   <p class="trigger">Triggered by: Changeset <a href="<?cs
-     var:build.chgset_href ?>">[<?cs var:build.rev ?>]</a> of <a href="<?cs
-     var:build.config.href ?>"><?cs var:build.config.name ?></a></p>
-   <p class="slave">Built by: <strong title="<?cs
-     var:build.slave.ip_address ?>"><?cs var:build.slave.name ?></strong> (<?cs
-     var:build.slave.os ?> <?cs var:build.slave.os.version ?><?cs
-     if:build.slave.machien ?> on <?cs var:build.slave.machine ?><?cs
-     /if ?>)</p>
-   <p class="time">Completed: <?cs var:build.started ?> (<?cs
-     var:build.started_delta ?> ago)<br />Took: <?cs var:build.duration ?></p><?cs
-  /if ?>
-
- </div>
-<?cs include:"footer.cs" ?>
-"""
+    implements(INavigationContributor, IRequestHandler, ITimelineEventProvider,
+               ITemplateProvider)
 
     _status_label = {Build.IN_PROGRESS: 'in progress',
                      Build.SUCCESS: 'completed',
@@ -210,10 +75,18 @@ class BuildModule(Component):
                 if action == 'new':
                     self._do_create_platform(req, config)
                 else:
+                    self.log.debug('Request args: %s', req.args.keys())
                     platform_id = req.args.get('platform')
                     if platform_id:
                         if action == 'edit':
                             self._do_save_platform(req, config, platform_id)
+                    elif 'delete' in req.args.keys():
+                        self._do_delete_platforms(req)
+                        self._render_config_form(req, config)
+                    elif 'new' in req.args.keys():
+                        platform = TargetPlatform(self.env)
+                        platform.config = config
+                        self._render_platform_form(req, platform)
                     else:
                         self._do_save_config(req, config)
             else:
@@ -228,12 +101,11 @@ class BuildModule(Component):
                     if platform_id:
                         platform = TargetPlatform(self.env, int(platform_id))
                         self._render_platform_form(req, platform)
+                    elif 'new' in req.args.keys():
+                        platform = TargetPlatform(self.env)
+                        self._render_platform_form(req, platform)
                     else:
                         self._render_config_form(req, config)
-                elif action == 'new':
-                    platform = TargetPlatform(self.env)
-                    platform.config = config
-                    self._render_platform_form(req, platform)
                 else:
                     self._render_config(req, config)
             else:
@@ -242,7 +114,16 @@ class BuildModule(Component):
                 else:
                     self._render_overview(req)
 
-        return req.hdf.parse(self.build_cs), None
+        add_stylesheet(req, 'build.css')
+        return 'build.cs', None
+
+    # ITemplatesProvider methods
+
+    def get_htdocs_dir(self):
+        return self.config.get('bitten', 'htdocs_dir')
+
+    def get_templates_dir(self):
+        return self.config.get('bitten', 'templates_dir')
 
     # ITimelineEventProvider methods
 
@@ -252,6 +133,7 @@ class BuildModule(Component):
 
     def get_timeline_events(self, req, start, stop, filters):
         if 'build' in filters:
+            add_stylesheet(req, 'build.css')
             db = self.env.get_db_cnx()
             cursor = db.cursor()
             cursor.execute("SELECT id,config,label,rev,slave,stopped,status "
@@ -343,6 +225,19 @@ class BuildModule(Component):
 
         req.redirect(self.env.href.build(config_name, action='edit'))
 
+    def _do_delete_platforms(self, req):
+        """Delete selected target platforms."""
+        req.perm.assert_permission('BUILD_MODIFY')
+        self.log.debug('_do_delete_platforms')
+
+        db = self.env.get_db_cnx()
+        for platform_id in [int(id) for id in req.args.get('delete_platform')]:
+            platform = TargetPlatform(self.env, platform_id, db=db)
+            self.log.info('Deleting target platform %s of configuration %s',
+                          platform.name, platform.config)
+            platform.delete(db=db)
+        db.commit()
+
     def _do_save_platform(self, req, config_name, platform_id):
         """Save changes to a target platform."""
         req.perm.assert_permission('BUILD_MODIFY')
@@ -411,6 +306,9 @@ class BuildModule(Component):
         }
         req.hdf['build.mode'] = 'view_config'
 
+        platforms = TargetPlatform.select(self.env, config=config_name)
+        req.hdf['build.platforms'] = [platform.name for platform in platforms]
+
         repos = self.env.get_repository(req.authname)
         root = repos.get_node(config.path)
         num = 0
@@ -431,11 +329,6 @@ class BuildModule(Component):
                 'exists': config.exists
             }
 
-            if 'new' in req.args.keys() or 'platform' in req.args.keys():
-                self._render_platform_form(req, config_name,
-                                           req.args.get('platform'))
-                return
-
             req.hdf['title'] = 'Edit Build Configuration "%s"' \
                                % escape(config.label or config.name)
             for idx, platform in enumerate(TargetPlatform.select(self.env,
@@ -452,12 +345,15 @@ class BuildModule(Component):
 
     def _render_platform_form(self, req, platform):
         req.perm.assert_permission('BUILD_MODIFY')
-        req.hdf['title'] = 'Edit Target Platform "%s"' \
-                           % escape(platform.name)
+        if platform.exists:
+            req.hdf['title'] = 'Edit Target Platform "%s"' \
+                               % escape(platform.name)
+        else:
+            req.hdf['title'] = 'Add Target Platform'
         req.hdf['build.platform'] = {
             'name': platform.name, 'id': platform.id, 'exists': platform.exists,
             'rules': [{'property': propname, 'pattern': pattern}
-                      for propname, pattern in platform.rules]
+                      for propname, pattern in platform.rules] + [('', '')]
         }
         req.hdf['build.mode'] = 'edit_platform'
 
