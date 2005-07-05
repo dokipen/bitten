@@ -134,15 +134,16 @@ class BuildTestCase(unittest.TestCase):
         build.config = 'test'
         build.rev = '42'
         build.rev_time = 12039
+        build.platform = 1
         build.slave_info[Build.IP_ADDRESS] = '127.0.0.1'
         build.slave_info[Build.MAINTAINER] = 'joe@example.org'
         build.insert()
 
         db = self.env.get_db_cnx()
         cursor = db.cursor()
-        cursor.execute("SELECT config,rev,slave,started,stopped,status "
-                       "FROM bitten_build WHERE id=%s" % build.id)
-        self.assertEqual(('test', '42', '', 0, 0, 'P'), cursor.fetchone())
+        cursor.execute("SELECT config,rev,platform,slave,started,stopped,status"
+                       " FROM bitten_build WHERE id=%s" % build.id)
+        self.assertEqual(('test', '42', 1, '', 0, 0, 'P'), cursor.fetchone())
 
         cursor.execute("SELECT propname,propvalue FROM bitten_slave")
         expected = {Build.IP_ADDRESS: '127.0.0.1',
@@ -150,23 +151,36 @@ class BuildTestCase(unittest.TestCase):
         for propname, propvalue in cursor:
             self.assertEqual(expected[propname], propvalue)
 
-    def test_insert_no_config_or_rev_or_rev_time(self):
+    def test_insert_no_config_or_rev_or_rev_time_or_platform(self):
         build = Build(self.env)
         self.assertRaises(AssertionError, build.insert)
 
-        build = Build(self.env)
-        build.config = 'test'
-        build.rev_time = 12039
-        self.assertRaises(AssertionError, build.insert)
-
+        # No config
         build = Build(self.env)
         build.rev = '42'
         build.rev_time = 12039
+        build.platform = 1
         self.assertRaises(AssertionError, build.insert)
 
+        # No rev
+        build = Build(self.env)
+        build.config = 'test'
+        build.rev_time = 12039
+        build.platform = 1
+        self.assertRaises(AssertionError, build.insert)
+
+        # No rev time
         build = Build(self.env)
         build.config = 'test'
         build.rev = '42'
+        build.platform = 1
+        self.assertRaises(AssertionError, build.insert)
+
+        # No platform
+        build = Build(self.env)
+        build.config = 'test'
+        build.rev = '42'
+        build.rev_time = 12039
         self.assertRaises(AssertionError, build.insert)
 
     def test_insert_no_slave(self):
@@ -174,6 +188,7 @@ class BuildTestCase(unittest.TestCase):
         build.config = 'test'
         build.rev = '42'
         build.rev_time = 12039
+        build.platform = 1
         build.status = Build.SUCCESS
         self.assertRaises(AssertionError, build.insert)
         build.status = Build.FAILURE
@@ -194,9 +209,10 @@ class BuildTestCase(unittest.TestCase):
     def test_fetch(self):
         db = self.env.get_db_cnx()
         cursor = db.cursor()
-        cursor.execute("INSERT INTO bitten_build (config,rev,rev_time,slave,"
-                       "started,stopped,status) VALUES (%s,%s,%s,%s,%s,%s,%s)",
-                       ('test', '42', 12039, 'tehbox', 15006, 16007,
+        cursor.execute("INSERT INTO bitten_build (config,rev,rev_time,platform,"
+                       "slave,started,stopped,status) "
+                       "VALUES (%s,%s,%s,%s,%s,%s,%s,%s)",
+                       ('test', '42', 12039, 1, 'tehbox', 15006, 16007,
                         Build.SUCCESS))
         build_id = db.get_last_id('bitten_build')
         cursor.executemany("INSERT INTO bitten_slave VALUES (%s,%s,%s)",

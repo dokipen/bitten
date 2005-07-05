@@ -87,9 +87,28 @@
     </div></form><?cs
    /if ?><?cs
    if:len(build.platforms) ?>
-    <table class="listing" id="builds"><thead><tr><th>Build</th><?cs
-    each:platform = build.platforms ?><th><?cs var:platform ?><?cs /each ?>
-   </tr></thead></table><?cs
+    <table class="listing" id="builds"><thead><tr><th>Changeset</th><?cs
+    each:platform = build.platforms ?><th><?cs var:platform.name ?><?cs
+    /each ?></tr></thead><?cs
+    if:len(build.builds) ?><tbody><?cs
+     each:rev = build.builds ?><tr>
+      <th class="rev" scope="row"><a href="<?cs
+        var:rev.href ?>" title="View Changeset">[<?cs
+        var:name(rev) ?>]</a></th><?cs
+      each:platform = build.platforms ?><?cs
+       if:len(rev[platform.id]) ?><td class="<?cs
+        var:rev[platform.id].cls ?>"><a href="<?cs
+        var:rev[platform.id].href ?>" title="View build results"><?cs
+        var:rev[platform.id].slave.name ?></a><br /><?cs
+        if:rev[platform.id].status == 'in progress' ?>started <?cs var:rev[platform.id].started_delta ?> ago<?cs
+        else ?>took <?cs
+         var:rev[platform.id].duration ?></td><?cs
+        /if ?><?cs
+       else ?><td>&mdash;</td><?cs
+       /if ?><?cs
+      /each ?></tr><?cs
+     /each ?></tbody><?cs
+    /if ?></table><?cs
    /if ?></div><?cs
 
   elif:build.mode == 'edit_platform' ?>

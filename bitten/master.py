@@ -20,6 +20,7 @@
 
 import logging
 import os.path
+import re
 import time
 
 from trac.env import Environment
@@ -52,25 +53,33 @@ class Master(beep.Listener):
     def _check_build_triggers(self, master, when):
         self.schedule(self.TRIGGER_INTERVAL, self._check_build_triggers)
 
-        logging.debug('Checking for build triggers...')
         repos = self.env.get_repository()
         try:
             repos.sync()
 
             for config in BuildConfig.select(self.env):
+                logging.debug('Checking for changes to "%s" at %s',
+                              config.label, config.path)
                 node = repos.get_node(config.path)
                 for path, rev, chg in node.get_history():
-                    # Check whether the latest revision of that configuration
-                    # has already been built
-                    builds = Build.select(self.env, config.name, rev)
-                    if not list(builds):
-                        logging.info('Enqueuing build of configuration "%s" as '
-                                     'of revision [%s]', config.name, rev)
-                        build = Build(self.env)
-                        build.config = config.name
-                        build.rev = rev
-                        build.rev_time = repos.get_changeset(rev).date
-                        build.insert()
+                    enqueued = False
+                    for platform in TargetPlatform.select(self.env, config.name):
+                        # Check whether the latest revision of the configuration
+                        # has already been built on this platform
+                        builds = Build.select(self.env, config.name, rev,
+                                              platform.id)
+                        if not list(builds):
+                            logging.info('Enqueuing build of configuration "%s"'
+                                         'at revision [%s] on %s', config.name,
+                                         rev, platform.name)
+                            build = Build(self.env)
+                            build.config = config.name
+                            build.rev = rev
+                            build.rev_time = repos.get_changeset(rev).date
+                            build.platform = platform.id
+                            build.insert()
+                            enqueued = True
+                    if enqueued:
                         break
         finally:
             repos.close()
@@ -83,11 +92,31 @@ class Master(beep.Listener):
         logging.debug('Checking for pending builds...')
         for build in Build.select(self.env, status=Build.PENDING):
             for slave in self.slaves.values():
-                active_builds = Build.select(self.env, slave=slave.name,
-                                             status=Build.IN_PROGRESS)
-                if not list(active_builds):
-                    slave.send_initiation(build)
-                    return
+                matches_platform = True
+                platform = TargetPlatform(self.env, build.platform)
+                logging.debug('Matching slave %s against rules: %s',
+                              slave.name, platform.rules)
+                for property, pattern in platform.rules:
+                    if not property or not pattern:
+                        continue
+                    try:
+                        if not re.match(pattern, slave.props.get(property)):
+                            logging.debug('Rule (%s, %s) did not match "%s"',
+                                          property, pattern, slave.props.get(property))
+                            matches_platform = False
+                            break
+                    except re.error, e:
+                        logging.error('Invalid platform matching pattern "%s"',
+                                      pattern, exc_info=True)
+                        matches_platform = False
+                        break
+
+                if matches_platform:
+                    active_builds = Build.select(self.env, slave=slave.name,
+                                                 status=Build.IN_PROGRESS)
+                    if not list(active_builds):
+                        slave.send_initiation(build)
+                        return
 
     def get_snapshot(self, build, type, encoding):
         formats = {
@@ -212,7 +241,7 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
                 if elem.name == 'started':
                     self.steps = []
                     build.slave = self.name
-                    build.slave_info = self.props
+                    build.slave_info.update(self.props)
                     build.started = int(time.time())
                     build.status = Build.IN_PROGRESS
                     build.update()

@@ -242,9 +242,10 @@ class Build(object):
     _schema = [
         Table('bitten_build', key='id')[
             Column('id', auto_increment=True), Column('config'), Column('rev'),
-            Column('rev_time', type='int'), Column('slave'),
-            Column('started', type='int'), Column('stopped', type='int'),
-            Column('status', size='1'),  Index(['config', 'rev', 'slave'])
+            Column('rev_time', type='int'), Column('platform', type='int'),
+            Column('slave'), Column('started', type='int'),
+            Column('stopped', type='int'), Column('status', size='1'),
+            Index(['config', 'rev', 'slave'])
         ],
         Table('bitten_slave', key=('build', 'propname'))[
             Column('build', type='int'), Column('propname'), Column('propvalue')
@@ -272,7 +273,7 @@ class Build(object):
         if id is not None:
             self._fetch(id, db)
         else:
-            self.id = self.config = self.rev = self.slave = None
+            self.id = self.config = self.rev = self.platform = self.slave = None
             self.started = self.stopped = self.rev_time = 0
             self.status = self.PENDING
 
@@ -281,8 +282,8 @@ class Build(object):
             db = self.env.get_db_cnx()
 
         cursor = db.cursor()
-        cursor.execute("SELECT config,rev,rev_time,slave,started,stopped,"
-                       "status FROM bitten_build WHERE id=%s", (id,))
+        cursor.execute("SELECT config,rev,rev_time,platform,slave,started,"
+                       "stopped,status FROM bitten_build WHERE id=%s", (id,))
         row = cursor.fetchone()
         if not row:
             raise Exception, "Build %s not found" % id
@@ -290,10 +291,11 @@ class Build(object):
         self.config = row[0]
         self.rev = row[1]
         self.rev_time = int(row[2])
-        self.slave = row[3]
-        self.started = row[4] and int(row[4])
-        self.stopped = row[5] and int(row[5])
-        self.status = row[6]
+        self.platform = int(row[3])
+        self.slave = row[4]
+        self.started = row[5] and int(row[5])
+        self.stopped = row[6] and int(row[6])
+        self.status = row[7]
 
         cursor.execute("SELECT propname,propvalue FROM bitten_slave "
                        "WHERE build=%s", (self.id,))
@@ -325,18 +327,19 @@ class Build(object):
         else:
             handle_ta = False
 
-        assert self.config and self.rev and self.rev_time
+        assert self.config and self.rev and self.rev_time and self.platform
         assert self.status in (self.PENDING, self.IN_PROGRESS, self.SUCCESS,
                                self.FAILURE)
         if not self.slave:
             assert self.status == self.PENDING
 
         cursor = db.cursor()
-        cursor.execute("INSERT INTO bitten_build (config,rev,rev_time,slave,"
-                       "started,stopped,status) "
-                       "VALUES (%s,%s,%s,%s,%s,%s,%s)",
-                       (self.config, self.rev, self.rev_time, self.slave or '',
-                        self.started or 0, self.stopped or 0, self.status))
+        cursor.execute("INSERT INTO bitten_build (config,rev,rev_time,platform,"
+                       "slave,started,stopped,status) "
+                       "VALUES (%s,%s,%s,%s,%s,%s,%s,%s)",
+                       (self.config, self.rev, self.rev_time, self.platform,
+                        self.slave or '', self.started or 0, self.stopped or 0,
+                        self.status))
         self.id = db.get_last_id('bitten_build')
         cursor.executemany("INSERT INTO bitten_slave VALUES (%s,%s,%s)",
                            [(self.id, name, value) for name, value
@@ -363,11 +366,15 @@ class Build(object):
                        "stopped=%s,status=%s WHERE id=%s",
                        (self.slave or '', self.started or 0,
                         self.stopped or 0, self.status, self.id))
+        cursor.execute("DELETE FROM bitten_slave WHERE build=%s", (self.id))
+        cursor.executemany("INSERT INTO bitten_slave VALUES (%s,%s,%s)",
+                           [(self.id, name, value) for name, value
+                            in self.slave_info.items()])
         if handle_ta:
             db.commit()
 
-    def select(cls, env, config=None, rev=None, slave=None, status=None,
-               db=None):
+    def select(cls, env, config=None, rev=None, platform=None, slave=None,
+               status=None, db=None):
         if not db:
             db = env.get_db_cnx()
 
@@ -376,6 +383,8 @@ class Build(object):
             where_clauses.append(("config=%s", config))
         if rev is not None:
             where_clauses.append(("rev=%s", rev))
+        if platform is not None:
+            where_clauses.append(("platform=%s", platform))
         if slave is not None:
             where_clauses.append(("slave=%s", slave))
         if status is not None:
@@ -386,16 +395,17 @@ class Build(object):
             where = ""
 
         cursor = db.cursor()
-        cursor.execute("SELECT id,config,rev,slave,started,stopped,status,"
-                       "rev_time FROM bitten_build %s "
+        cursor.execute("SELECT id,config,rev,platform,slave,started,stopped,"
+                       "status,rev_time FROM bitten_build %s "
                        "ORDER BY config,rev_time DESC,slave"
                        % where, [wc[1] for wc in where_clauses])
-        for id, config, rev, slave, started, stopped, status, rev_time \
-                in cursor:
+        for id, config, rev, platform, slave, started, stopped, status, \
+                rev_time in cursor:
             build = Build(env)
             build.id = id
             build.config = config
             build.rev = rev
+            build.platform = platform
             build.slave = slave
             build.started = started and int(started) or 0
             build.stopped = stopped and int(stopped) or 0

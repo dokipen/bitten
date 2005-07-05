@@ -136,18 +136,19 @@ class BuildModule(Component):
             add_stylesheet(req, 'build.css')
             db = self.env.get_db_cnx()
             cursor = db.cursor()
-            cursor.execute("SELECT id,config,label,rev,slave,stopped,status "
-                           "FROM bitten_build "
-                           "  INNER JOIN bitten_config ON (name=config) "
-                           "WHERE stopped>=%s AND stopped<=%s "
-                           "AND status IN (%s, %s) ORDER BY stopped",
+            cursor.execute("SELECT b.id,b.config,c.label,b.rev,p.name,b.slave,"
+                           "b.stopped,b.status FROM bitten_build AS b"
+                           "  INNER JOIN bitten_config AS c ON (c.name=b.config)"
+                           "  INNER JOIN bitten_platform AS p ON (p.id=b.platform) "
+                           "WHERE b.stopped>=%s AND b.stopped<=%s "
+                           "AND b.status IN (%s, %s) ORDER BY b.stopped",
                            (start, stop, Build.SUCCESS, Build.FAILURE))
             event_kinds = {Build.SUCCESS: 'successbuild',
                            Build.FAILURE: 'failedbuild'}
-            for id, config, label, rev, slave, stopped, status in cursor:
-                title = 'Build <em title="[%s] of %s">%s</em> by %s %s' \
-                        % (escape(rev), escape(label), escape(id),
-                           escape(slave), self._status_label[status])
+            for id, config, label, rev, platform, slave, stopped, status in cursor:
+                title = 'Build of <em>%s [%s]</em> by %s (%s) %s' \
+                        % (escape(label), escape(rev), escape(slave),
+                           escape(platform), self._status_label[status])
                 href = self.env.href.build(config, id)
                 yield event_kinds[status], href, title, stopped, None, ''
 
@@ -307,16 +308,21 @@ class BuildModule(Component):
         req.hdf['build.mode'] = 'view_config'
 
         platforms = TargetPlatform.select(self.env, config=config_name)
-        req.hdf['build.platforms'] = [platform.name for platform in platforms]
+        req.hdf['build.platforms'] = [
+            {'name': platform.name, 'id': platform.id} for platform in platforms
+        ]
 
         repos = self.env.get_repository(req.authname)
         root = repos.get_node(config.path)
         num = 0
         for idx, (path, rev, chg) in enumerate(root.get_history()):
-            prefix = 'build.config.builds.%d' % rev
+            prefix = 'build.builds.%d' % rev
+            req.hdf[prefix + '.href'] = self.env.href.changeset(rev)
             for build in Build.select(self.env, config=config.name, rev=rev):
-                req.hdf[prefix + '.' + build.slave] = self._build_to_hdf(build)
-            if idx > 5:
+                if build.status == Build.PENDING:
+                    continue
+                req.hdf['%s.%s' % (prefix, build.platform)] = self._build_to_hdf(build)
+            if idx > 4:
                 break
 
     def _render_config_form(self, req, config_name=None):
@@ -375,8 +381,10 @@ class BuildModule(Component):
         }
 
     def _build_to_hdf(self, build):
-        hdf = {'name': build.slave, 'status': self._status_label[build.status],
-               'rev': build.rev,
+        hdf = {'id': build.id, 'name': build.slave, 'rev': build.rev,
+               'status': self._status_label[build.status],
+               'cls': self._status_label[build.status].replace(' ', '-'),
+               'href': self.env.href.build(build.config, build.id),
                'chgset_href': self.env.href.changeset(build.rev)}
         if build.started:
             hdf['started'] = strftime('%x %X', localtime(build.started))

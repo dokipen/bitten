@@ -8,3 +8,10 @@
 #content.build form.platforms ul { list-style: none; padding-left: 1em; }
 
 #content.build #builds { margin-top: 2em; }
+#content.build #builds th.rev { width: 6em; }
+#content.build #builds td :link, #content.build #builds td :visited {
+ font-weight: bold;
+}
+#content.build #builds td.completed { background: #9d9; }
+#content.build #builds td.failed { background: #d99; }
+#content.build #builds td.in-progress { background: #ff9; }
