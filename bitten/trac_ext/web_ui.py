@@ -20,6 +20,7 @@
 
 import os.path
 import re
+import sys
 from time import localtime, strftime
 
 from trac.core import *
