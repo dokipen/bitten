@@ -18,6 +18,7 @@
 #
 # Author: Christopher Lenz <cmlenz@gmx.de>
 
+import os.path
 import re
 from time import localtime, strftime
 
@@ -30,6 +31,16 @@ from trac.web.main import IRequestHandler
 from trac.wiki import wiki_to_html
 from bitten.model import Build, BuildConfig, TargetPlatform
 
+def _find_dir(name):
+    import bitten
+    # First assume we're being executing directly form the source directory
+    path = os.path.join(os.path.split(os.path.dirname(bitten.__file__))[0],
+                        name)
+    if not os.path.isdir(path):
+        # Not being executed from the source directory, so assume the
+        # default installation prefix
+        path = os.path.join(sys.prefix, 'share', 'bitten', name)
+    return path
 
 class BuildModule(Component):
 
@@ -39,6 +50,9 @@ class BuildModule(Component):
     _status_label = {Build.IN_PROGRESS: 'in progress',
                      Build.SUCCESS: 'completed',
                      Build.FAILURE: 'failed'}
+
+    htdocs_dir = _find_dir('htdocs')
+    templates_dir = _find_dir('templates')
 
     # INavigationContributor methods
 
@@ -120,10 +134,10 @@ class BuildModule(Component):
     # ITemplatesProvider methods
 
     def get_htdocs_dir(self):
-        return self.config.get('bitten', 'htdocs_dir')
+        return self.config.get('bitten', 'htdocs_dir') or self.htdocs_dir
 
     def get_templates_dir(self):
-        return self.config.get('bitten', 'templates_dir')
+        return self.config.get('bitten', 'templates_dir') or self.templates_dir
 
     # ITimelineEventProvider methods
 
@@ -149,7 +163,10 @@ class BuildModule(Component):
                 title = 'Build of <em>%s [%s]</em> by %s (%s) %s' \
                         % (escape(label), escape(rev), escape(slave),
                            escape(platform), self._status_label[status])
-                href = self.env.href.build(config, id)
+                if req.args.get('format') == 'rss':
+                    href = self.env.abs_href.build(config, id)
+                else:
+                    href = self.env.href.build(config, id)
                 yield event_kinds[status], href, title, stopped, None, ''
 
     # Internal methods
