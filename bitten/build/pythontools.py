@@ -27,10 +27,8 @@ def distutils(ctxt, command='build'):
     """Execute a `distutils` command."""
     cmdline = Commandline('python', ['setup.py', command], cwd=ctxt.basedir)
     for out, err in cmdline.execute(timeout=100.0):
-        if out:
-            print '[distutils] %s' % out
-        if err:
-            print '[distutils] %s' % err
+        ctxt.log(ctxt.OUTPUT, out)
+        ctxt.log(ctxt.ERROR, err)
     if cmdline.returncode != 0:
         raise BuildError, 'Executing distutils failed (%s)' % cmdline.returncode
 

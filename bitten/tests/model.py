@@ -21,7 +21,7 @@
 import unittest
 
 from trac.test import EnvironmentStub
-from bitten.model import Build, BuildConfig, TargetPlatform
+from bitten.model import BuildConfig, TargetPlatform, Build, BuildStep
 
 
 class BuildConfigTestCase(unittest.TestCase):
@@ -225,11 +225,66 @@ class BuildTestCase(unittest.TestCase):
         self.assertEquals('joe@example.org', build.slave_info[Build.MAINTAINER])
 
 
+class BuildStepTestCase(unittest.TestCase):
+
+    def setUp(self):
+        self.env = EnvironmentStub()
+        db = self.env.get_db_cnx()
+        cursor = db.cursor()
+        for table in BuildStep._schema:
+            cursor.execute(db.to_sql(table))
+        db.commit()
+
+    def test_new(self):
+        step = BuildStep(self.env)
+        self.assertEqual(None, step.build)
+        self.assertEqual(None, step.name)
+
+    def test_insert(self):
+        step = BuildStep(self.env)
+        step.build = 1
+        step.name = 'test'
+        step.description = 'Foo bar'
+        step.status = BuildStep.SUCCESS
+        step.insert()
+
+        db = self.env.get_db_cnx()
+        cursor = db.cursor()
+        cursor.execute("SELECT build,name,description,status,log,started"
+                       ",stopped FROM bitten_step")
+        self.assertEqual((1, 'test', 'Foo bar', BuildStep.SUCCESS, '', 0, 0),
+                         cursor.fetchone())
+
+    def test_insert_no_build_or_name(self):
+        # No build
+        step = BuildStep(self.env)
+        step.name = 'test'
+        self.assertRaises(AssertionError, step.insert)
+
+        # No name
+        step = BuildStep(self.env)
+        step.build = 1
+        self.assertRaises(AssertionError, step.insert)
+
+    def test_fetch(self):
+        db = self.env.get_db_cnx()
+        cursor = db.cursor()
+        cursor.execute("INSERT INTO bitten_step VALUES (%s,%s,%s,%s,%s,%s,%s)",
+                       (1, 'test', 'Foo bar', BuildStep.SUCCESS, '', 0, 0))
+
+        step = BuildStep(self.env, 1, 'test')
+        self.assertEqual(1, step.build)
+        self.assertEqual('test', step.name)
+        self.assertEqual('Foo bar', step.description)
+        self.assertEqual(BuildStep.SUCCESS, step.status)
+
+
 def suite():
     suite = unittest.TestSuite()
     suite.addTest(unittest.makeSuite(BuildConfigTestCase, 'test'))
     suite.addTest(unittest.makeSuite(TargetPlatformTestCase, 'test'))
     suite.addTest(unittest.makeSuite(BuildTestCase, 'test'))
+    suite.addTest(unittest.makeSuite(BuildStepTestCase, 'test'))
     return suite
 
 if __name__ == '__main__':

@@ -40,7 +40,8 @@ import time
 
 from bitten.util import xmlio
 
-__all__ = ['Listener', 'Initiator', 'Profile']
+__all__ = ['Listener', 'Initiator', 'MIMEMessage', 'ProfileHandler',
+           'ProtocolError']
 
 BEEP_XML = 'application/beep+xml'
 

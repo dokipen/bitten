@@ -142,7 +142,10 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
                 try:
                     step.execute(recipe.ctxt)
                     xml = xmlio.Element('step', id=step.id, result='success',
-                                        description=step.description)
+                                        description=step.description)[
+                        '\n'.join([record[-1] for record in recipe.ctxt._log])
+                    ]
+                    recipe.ctxt._log = []
                     self.channel.send_ans(msgno, beep.MIMEMessage(xml))
                 except (BuildError, InvalidRecipeError), e:
                     xml = xmlio.Element('step', id=step.id, result='failure',

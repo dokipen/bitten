@@ -20,6 +20,7 @@
 
 import logging
 import os.path
+import time
 
 from bitten.build import BuildError
 from bitten.util import xmlio
@@ -34,8 +35,27 @@ class InvalidRecipeError(Exception):
 class Context(object):
     """The context in which a recipe command or report is run."""
 
+    ERROR = 0
+    OUTPUT = 1
+
+    current_step = None
+    current_function = None
+
     def __init__(self, basedir):
         self.basedir = basedir
+        self._log = []
+
+    def log(self, level, text):
+        if text is None:
+            return
+        assert level in (Context.ERROR, Context.OUTPUT), \
+               'Invalid log level %s' % level
+        if level == Context.ERROR:
+            logging.warning(text)
+        else:
+            logging.info(text)
+        self._log.append((self.current_step, self.current_function, level,
+                          time.time(), text))
 
     def resolve(self, *path):
         return os.path.normpath(os.path.join(self.basedir, *path))
@@ -65,14 +85,20 @@ class Step(object):
                 raise InvalidRecipeError, "Unknown element <%s>" % child.name
 
     def execute(self, ctxt):
+        ctxt.current_step = self
         try:
-            for function, args in self:
-                function(ctxt, **args)
-        except BuildError, e:
-            if self.onerror == 'fail':
-                raise BuildError, e
-            logging.warning('Ignoring error in step %s (%s)', self.id, e)
-            return None
+            try:
+                for function, args in self:
+                    ctxt.current_function = function.__name__
+                    function(ctxt, **args)
+                    ctxt.current_function = None
+            except BuildError, e:
+                if self.onerror == 'fail':
+                    raise BuildError, e
+                logging.warning('Ignoring error in step %s (%s)', self.id, e)
+                return None
+        finally:
+            ctxt.current_step = None
 
     def _args(self, elem):
         return dict([(name.replace('-', '_'), value) for name, value

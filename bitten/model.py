@@ -244,7 +244,7 @@ class Build(object):
             Column('id', auto_increment=True), Column('config'), Column('rev'),
             Column('rev_time', type='int'), Column('platform', type='int'),
             Column('slave'), Column('started', type='int'),
-            Column('stopped', type='int'), Column('status', size='1'),
+            Column('stopped', type='int'), Column('status', size=1),
             Index(['config', 'rev', 'slave'])
         ],
         Table('bitten_slave', key=('build', 'propname'))[
@@ -415,5 +415,101 @@ class Build(object):
     select = classmethod(select)
 
 
-schema = BuildConfig._schema + TargetPlatform._schema + Build._schema
+class BuildStep(object):
+    """Represents an individual step of an executed build."""
+
+    _schema = [
+        Table('bitten_step', key=('build', 'name'))[
+            Column('build', type='int'), Column('name'), Column('description'),
+            Column('status', size=1), Column('log'),
+            Column('started', type='int'), Column('stopped', type='int')
+        ]
+    ]
+
+    # Step status codes
+    SUCCESS = 'S'
+    FAILURE = 'F'
+
+    def __init__(self, env, build=None, name=None, db=None):
+        self.env = env
+        if build is not None and name is not None:
+            self._fetch(build, name, db)
+        else:
+            self.build = self.name = self.description = self.status = None
+            self.log = self.started = self.stopped = None
+
+    def _fetch(self, build, name, db=None):
+        if not db:
+            db = self.env.get_db_cnx()
+
+        cursor = db.cursor()
+        cursor.execute("SELECT description,status,log,started,stopped "
+                       "FROM bitten_step WHERE build=%s AND name=%s",
+                       (build, name))
+        row = cursor.fetchone()
+        if not row:
+            raise Exception, "Build step %s of %s not found" % (name, build)
+        self.build = build
+        self.name = name
+        self.description = row[0] or ''
+        self.status = row[1]
+        self.log = row[2] or ''
+        self.started = row[3] and int(row[3]) or 0
+        self.stopped = row[4] and int(row[4]) or 0
+
+    exists = property(fget=lambda self: self.build is not None)
+    successful = property(fget=lambda self: self.status == BuildStep.SUCCESS)
+
+    def insert(self, db=None):
+        if not db:
+            db = self.env.get_db_cnx()
+            handle_ta = True
+        else:
+            handle_ta = False
+
+        assert self.build and self.name
+        assert self.status in (self.SUCCESS, self.FAILURE)
+
+        cursor = db.cursor()
+        cursor.execute("INSERT INTO bitten_step (build,name,description,status,"
+                       "log,started,stopped) VALUES (%s,%s,%s,%s,%s,%s,%s)",
+                       (self.build, self.name, self.description or '',
+                        self.status, self.log or '', self.started or 0,
+                        self.stopped or 0))
+        if handle_ta:
+            db.commit()
+
+    def select(cls, env, build=None, name=None, db=None):
+        if not db:
+            db = env.get_db_cnx()
+
+        where_clauses = []
+        if build is not None:
+            where_clauses.append(("build=%s", build))
+        if name is not None:
+            where_clauses.append(("name=%s", name))
+        if where_clauses:
+            where = "WHERE " + " AND ".join([wc[0] for wc in where_clauses])
+        else:
+            where = ""
+
+        cursor = db.cursor()
+        cursor.execute("SELECT build,name,description,status,log,started,"
+                       "stopped FROM bitten_step %s ORDER BY stopped"
+                       % where, [wc[1] for wc in where_clauses])
+        for build, name, description, status, log, started, stopped in cursor:
+            step = BuildStep(env)
+            step.build = build
+            step.name = name
+            step.description = description
+            step.status = status
+            step.log = log
+            step.started = started and int(started) or 0
+            step.stopped = stopped and int(stopped) or 0
+            yield step
+    select = classmethod(select)
+
+
+schema = BuildConfig._schema + TargetPlatform._schema + Build._schema + \
+         BuildStep._schema
 schema_version = 1

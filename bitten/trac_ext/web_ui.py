@@ -29,7 +29,7 @@ from trac.web.chrome import INavigationContributor, ITemplateProvider, \
                             add_link, add_stylesheet
 from trac.web.main import IRequestHandler
 from trac.wiki import wiki_to_html
-from bitten.model import Build, BuildConfig, TargetPlatform
+from bitten.model import BuildConfig, TargetPlatform, Build, BuildStep
 
 def _find_dir(name):
     import bitten
@@ -376,7 +376,7 @@ class BuildModule(Component):
         req.hdf['build.platform'] = {
             'name': platform.name, 'id': platform.id, 'exists': platform.exists,
             'rules': [{'property': propname, 'pattern': pattern}
-                      for propname, pattern in platform.rules] + [('', '')]
+                      for propname, pattern in platform.rules] or [('', '')]
         }
         req.hdf['build.mode'] = 'edit_platform'
 
@@ -419,4 +419,12 @@ class BuildModule(Component):
             'machine': build.slave_info.get(Build.MACHINE),
             'processor': build.slave_info.get(Build.PROCESSOR)
         }
+        steps = []
+        for step in BuildStep.select(self.env, build=build.id):
+            steps.append({
+                'name': step.name, 'description': step.description,
+                'log': step.log
+            })
+        hdf['steps'] = steps
+
         return hdf

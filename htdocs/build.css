@@ -15,3 +15,5 @@
 #content.build #builds td.completed { background: #9d9; }
 #content.build #builds td.failed { background: #d99; }
 #content.build #builds td.in-progress { background: #ff9; }
+
+#content.build pre.log { overflow: auto; white-space: pre; }

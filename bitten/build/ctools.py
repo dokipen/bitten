@@ -33,11 +33,7 @@ def make(ctxt, target='all', file=None, jobs=None, keep_going=False):
     args.append(target)
     cmdline = Commandline('make', args)
     for out, err in cmdline.execute(timeout=100.0):
-        if out:
-            for line in out.splitlines():
-                print '[make] %s' % line
-        if err:
-            for line in err.splitlines():
-                print '[make] %s' % err
+        ctxt.log(ctxt.OUTPUT, out)
+        ctxt.log(ctxt.ERROR, err)
     if cmdline.returncode != 0:
         raise BuildError, "Executing make failed (%s)" % cmdline.returncode

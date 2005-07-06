@@ -24,7 +24,7 @@ import re
 import time
 
 from trac.env import Environment
-from bitten.model import Build, BuildConfig, TargetPlatform
+from bitten.model import BuildConfig, TargetPlatform, Build, BuildStep
 from bitten.util import archive, beep, xmlio
 
 
@@ -235,11 +235,11 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
                 if elem.name == 'error':
                     logging.warning('Slave did not accept archive: %s (%d)',
                                     elem.gettext(), int(elem.attr['code']))
+
             if cmd == 'ANS':
                 elem = xmlio.parse(msg.get_payload())
-                logging.debug('Received build answer <%s>' % elem.name)
+
                 if elem.name == 'started':
-                    self.steps = []
                     build.slave = self.name
                     build.slave_info.update(self.props)
                     build.started = int(time.time())
@@ -247,20 +247,33 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
                     build.update()
                     logging.info('Slave %s started build of "%s" as of [%s]',
                                  self.name, build.config, build.rev)
+
                 elif elem.name == 'step':
-                    logging.info('Slave completed step "%s"',
-                                 elem.attr['id'])
+                    logging.info('Slave completed step "%s"', elem.attr['id'])
+                    step = BuildStep(self.env)
+                    step.build = build.id
+                    step.name = elem.attr['id']
+                    step.description = elem.attr.get('description')
+                    step.stopped = int(time.time())
+                    step.log = elem.gettext().strip()
                     if elem.attr['result'] == 'failure':
                         logging.warning('Step failed: %s', elem.gettext())
-                    self.steps.append((elem.attr['id'],
-                                       elem.attr['result']))
+                        step.status = BuildStep.FAILURE
+                    else:
+                        step.status = BuildStep.SUCCESS
+                    step.insert()
+
                 elif elem.name == 'aborted':
                     logging.info('Slave "%s" aborted build', self.name)
                     build.slave = None
                     build.started = 0
                     build.status = Build.PENDING
+
                 elif elem.name == 'error':
                     build.status = Build.FAILURE
+
+                build.update()
+
             elif cmd == 'NUL':
                 if build.status != Build.PENDING: # Completed
                     logging.info('Slave %s completed build of "%s" as of [%s]',
@@ -268,13 +281,16 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
                     build.stopped = int(time.time())
                     if build.status is Build.IN_PROGRESS:
                         # Find out whether the build failed or succeeded
-                        if [st for st in self.steps if st[1] == 'failure']:
-                            build.status = Build.FAILURE
-                        else:
-                            build.status = Build.SUCCESS
+                        build.status = Build.SUCCESS
+                        for step in BuildStep.select(self.env, build=build.id):
+                            if step.status == BuildStep.FAILURE:
+                                build.status = Build.FAILURE
+                                break
+
                 else: # Aborted
                     build.slave = None
                     build.started = 0
+
                 build.update()
 
         # TODO: should not block while reading the file; rather stream it using
