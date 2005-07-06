@@ -1,0 +1,2 @@
+include htdocs/*.*
+include templates/*.cs

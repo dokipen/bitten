@@ -21,6 +21,7 @@
 
 from distutils.core import setup
 from distutils import util
+from glob import glob
 
 from bitten import __version__ as VERSION
 from bitten.util.testrunner import unittest
@@ -31,5 +32,7 @@ if util.get_platform()[:3] == 'win':
 
 setup(name='bitten', version=VERSION,
       packages=['bitten', 'bitten.build', 'bitten.trac_ext', 'bitten.util'],
+      data_files=[('share/bitten/htdocs', glob('htdocs/*.*')),
+                  ('share/bitten/templates', glob('templates/*.cs'))],
       scripts=scripts, author="Christopher Lenz", author_email="cmlenz@gmx.de",
       url="http://bitten.cmlenz.net/", cmdclass={'unittest': unittest})
