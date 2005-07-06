@@ -56,6 +56,9 @@ class Commandline(object):
                     args[idx] = '"%s"' % arg
             logging.debug('Executing %s', args)
 
+            if self.cwd:
+                os.chdir(self.cwd)
+
             import tempfile
             out_name = tempfile.mktemp()
             err_name = tempfile.mktemp()
