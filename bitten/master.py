@@ -18,6 +18,7 @@
 #
 # Author: Christopher Lenz <cmlenz@gmx.de>
 
+from itertools import ifilter
 import logging
 import os.path
 import re
@@ -70,7 +71,7 @@ class Master(beep.Listener):
                                               platform.id)
                         if not list(builds):
                             logging.info('Enqueuing build of configuration "%s"'
-                                         'at revision [%s] on %s', config.name,
+                                         ' at revision [%s] on %s', config.name,
                                          rev, platform.name)
                             build = Build(self.env)
                             build.config = config.name
@@ -96,13 +97,9 @@ class Master(beep.Listener):
                 platform = TargetPlatform(self.env, build.platform)
                 logging.debug('Matching slave %s against rules: %s',
                               slave.name, platform.rules)
-                for property, pattern in platform.rules:
-                    if not property or not pattern:
-                        continue
+                for property, pattern in ifilter(None, platform.rules):
                     try:
-                        if not re.match(pattern, slave.props.get(property)):
-                            logging.debug('Rule (%s, %s) did not match "%s"',
-                                          property, pattern, slave.props.get(property))
+                        if not re.match(pattern, slave.info.get(property)):
                             matches_platform = False
                             break
                     except re.error, e:
@@ -147,7 +144,7 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
         self.env = self.master.env
         assert self.env
         self.name = None
-        self.props = {}
+        self.info = {}
 
     def handle_disconnect(self):
         if self.name is None:
@@ -176,13 +173,13 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
             self.name = elem.attr['name']
             for child in elem.children():
                 if child.name == 'platform':
-                    self.props[Build.MACHINE] = child.gettext()
-                    self.props[Build.PROCESSOR] = child.attr.get('processor')
+                    self.info[Build.MACHINE] = child.gettext()
+                    self.info[Build.PROCESSOR] = child.attr.get('processor')
                 elif child.name == 'os':
-                    self.props[Build.OS_NAME] = child.gettext()
-                    self.props[Build.OS_FAMILY] = child.attr.get('family')
-                    self.props[Build.OS_VERSION] = child.attr.get('version')
-            self.props[Build.IP_ADDRESS] = self.session.addr[0]
+                    self.info[Build.OS_NAME] = child.gettext()
+                    self.info[Build.OS_FAMILY] = child.attr.get('family')
+                    self.info[Build.OS_VERSION] = child.attr.get('version')
+            self.info[Build.IP_ADDRESS] = self.session.addr[0]
 
             self.name = elem.attr['name']
             self.master.slaves[self.name] = self
@@ -200,8 +197,9 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
                 if msg.get_content_type() == beep.BEEP_XML:
                     elem = xmlio.parse(msg.get_payload())
                     if elem.name == 'error':
-                        logging.warning('Slave refused build request: %s (%d)',
-                                        elem.gettext(), int(elem.attr['code']))
+                        logging.warning('Slave %s refused build request: '
+                                        '%s (%d)', self.name, elem.gettext(),
+                                        int(elem.attr['code']))
                 return
 
             elem = xmlio.parse(msg.get_payload())
@@ -233,16 +231,17 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
                 assert msg.get_content_type() == beep.BEEP_XML
                 elem = xmlio.parse(msg.get_payload())
                 if elem.name == 'error':
-                    logging.warning('Slave did not accept archive: %s (%d)',
-                                    elem.gettext(), int(elem.attr['code']))
+                    logging.warning('Slave %s did not accept archive: %s (%d)',
+                                    self.name, elem.gettext(),
+                                    int(elem.attr['code']))
 
             if cmd == 'ANS':
                 elem = xmlio.parse(msg.get_payload())
 
                 if elem.name == 'started':
                     build.slave = self.name
-                    build.slave_info.update(self.props)
-                    build.started = int(time.time())
+                    build.slave_info.update(self.info)
+                    build.started = int(_parse_iso_datetime(elem.attr['time']))
                     build.status = Build.IN_PROGRESS
                     build.update()
                     logging.info('Slave %s started build of "%s" as of [%s]',
@@ -254,7 +253,8 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
                     step.build = build.id
                     step.name = elem.attr['id']
                     step.description = elem.attr.get('description')
-                    step.stopped = int(time.time())
+                    step.started = int(_parse_iso_datetime(elem.attr['time']))
+                    step.stopped = step.started + int(elem.attr['duration'])
                     step.log = elem.gettext().strip()
                     if elem.attr['result'] == 'failure':
                         logging.warning('Step failed: %s', elem.gettext())
@@ -262,6 +262,15 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
                     else:
                         step.status = BuildStep.SUCCESS
                     step.insert()
+
+                elif elem.name == 'completed':
+                    logging.info('Slave %s completed build of "%s" as of [%s]',
+                                 self.name, build.config, build.rev)
+                    build.stopped = int(_parse_iso_datetime(elem.attr['time']))
+                    if elem.attr['result'] == 'failure':
+                        build.status = Build.FAILURE
+                    else:
+                        build.status = Build.SUCCESS
 
                 elif elem.name == 'aborted':
                     logging.info('Slave "%s" aborted build', self.name)
@@ -274,25 +283,6 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
 
                 build.update()
 
-            elif cmd == 'NUL':
-                if build.status != Build.PENDING: # Completed
-                    logging.info('Slave %s completed build of "%s" as of [%s]',
-                                 self.name, build.config, build.rev)
-                    build.stopped = int(time.time())
-                    if build.status is Build.IN_PROGRESS:
-                        # Find out whether the build failed or succeeded
-                        build.status = Build.SUCCESS
-                        for step in BuildStep.select(self.env, build=build.id):
-                            if step.status == BuildStep.FAILURE:
-                                build.status = Build.FAILURE
-                                break
-
-                else: # Aborted
-                    build.slave = None
-                    build.started = 0
-
-                build.update()
-
         # TODO: should not block while reading the file; rather stream it using
         #       asyncore push_with_producer()
         snapshot_path = self.master.get_snapshot(build, type, encoding)
@@ -301,6 +291,22 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
                                    content_disposition=snapshot_name,
                                    content_type=type, content_encoding=encoding)
         self.channel.send_msg(message, handle_reply=handle_reply)
+
+
+def _parse_iso_datetime(string):
+    """Minimal parser for ISO date-time strings.
+    
+    Return the time as floating point number. Only handles UTC timestamps
+    without time zone information."""
+    try:
+        string = string.split('.', 1)[0] # strip out microseconds
+        secs = time.mktime(time.strptime(string, '%Y-%m-%dT%H:%M:%S'))
+        tzoffset = time.timezone
+        if time.daylight:
+            tzoffset = time.altzone
+        return secs - tzoffset
+    except ValueError, e:
+        raise ValueError, 'Invalid ISO date/time %s (%s)' % (string, e)
 
 
 def main():

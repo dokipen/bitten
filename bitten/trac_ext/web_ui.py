@@ -424,6 +424,7 @@ class BuildModule(Component):
         for step in BuildStep.select(self.env, build=build.id):
             steps.append({
                 'name': step.name, 'description': step.description,
+                'duration': pretty_timedelta(step.started, step.stopped),
                 'log': step.log
             })
         hdf['steps'] = steps

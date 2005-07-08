@@ -18,12 +18,12 @@
 #
 # Author: Christopher Lenz <cmlenz@gmx.de>
 
+from datetime import datetime
 import logging
 import os
 import platform
 import sys
 import tempfile
-import time
 
 from bitten.build import BuildError
 from bitten.recipe import Recipe, InvalidRecipeError
@@ -134,25 +134,38 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
         try:
             recipe = Recipe(recipe_path, basedir)
 
-            xml = xmlio.Element('started')
+            xml = xmlio.Element('started', time=datetime.utcnow().isoformat())
             self.channel.send_ans(msgno, beep.MIMEMessage(xml))
 
+            failed = False
             for step in recipe:
                 logging.info('Executing build step "%s"', step.id)
+                started = datetime.utcnow()
                 try:
                     step.execute(recipe.ctxt)
+                    duration = datetime.utcnow() - started
+                    log = '\n'.join([record[-1] for record in recipe.ctxt._log])
                     xml = xmlio.Element('step', id=step.id, result='success',
-                                        description=step.description)[
-                        '\n'.join([record[-1] for record in recipe.ctxt._log])
-                    ]
+                                        description=step.description,
+                                        time=started.isoformat(),
+                                        duration=duration.seconds)[log]
                     recipe.ctxt._log = []
                     self.channel.send_ans(msgno, beep.MIMEMessage(xml))
                 except (BuildError, InvalidRecipeError), e:
+                    duration = datetime.utcnow() - started
+                    failed = True
                     xml = xmlio.Element('step', id=step.id, result='failure',
-                                        description=step.description)[e]
+                                        description=step.description,
+                                        time=started.isoformat(),
+                                        duration=duration.seconds)[e]
                     self.channel.send_ans(msgno, beep.MIMEMessage(xml))
 
             logging.info('Build completed')
+            recipe.ctxt._log = []
+            xml = xmlio.Element('completed', time=datetime.utcnow().isoformat(),
+                                result=['success', 'failure'][failed])
+            self.channel.send_ans(msgno, beep.MIMEMessage(xml))
+
             self.channel.send_nul(msgno)
 
         except InvalidRecipeError, e:

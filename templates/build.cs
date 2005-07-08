@@ -157,7 +157,7 @@
    <p class="time">Completed: <?cs var:build.started ?> (<?cs
      var:build.started_delta ?> ago)<br />Took: <?cs var:build.duration ?></p><?cs
   each:step = build.steps ?>
-   <h2><?cs var:step.name ?></h2>
+   <h2><?cs var:step.name ?> (<?cs var:step.duration ?>)</h2>
    <p><?cs var:step.description ?></p>
    <pre class="log"><?cs var:step.log ?></pre><?cs
   /each ?><?cs
