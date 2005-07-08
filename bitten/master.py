@@ -138,7 +138,7 @@ class Master(beep.Listener):
                                       pattern, exc_info=True)
                         match = False
                         break
-                if matches:
+                if match:
                     self.slaves[platform.id].add(handler)
 
         if not any_match:
