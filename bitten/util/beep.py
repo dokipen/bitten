@@ -34,7 +34,10 @@ import email
 from email.Message import Message
 import logging
 import socket
-from sets import Set
+try:
+    set
+except NameError:
+    from sets import Set as set
 import sys
 import time
 
@@ -395,7 +398,7 @@ class Channel(object):
         self.reply_handlers = {}
 
         self.msgno = cycle_through(0, 2147483647)
-        self.msgnos = Set() # message numbers currently in use
+        self.msgnos = set() # message numbers currently in use
         self.ansnos = {} # answer numbers keyed by msgno, each 0-2147483647
 
         # incoming, outgoing sequence numbers

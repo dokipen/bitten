@@ -22,6 +22,10 @@ from itertools import ifilter
 import logging
 import os.path
 import re
+try:
+    set
+except NameError:
+    from sets import Set as set
 import time
 
 from trac.env import Environment
@@ -92,28 +96,12 @@ class Master(beep.Listener):
             return
         logging.debug('Checking for pending builds...')
         for build in Build.select(self.env, status=Build.PENDING):
-            for slave in self.slaves.values():
-                matches_platform = True
-                platform = TargetPlatform(self.env, build.platform)
-                logging.debug('Matching slave %s against rules: %s',
-                              slave.name, platform.rules)
-                for property, pattern in ifilter(None, platform.rules):
-                    try:
-                        if not re.match(pattern, slave.info.get(property)):
-                            matches_platform = False
-                            break
-                    except re.error, e:
-                        logging.error('Invalid platform matching pattern "%s"',
-                                      pattern, exc_info=True)
-                        matches_platform = False
-                        break
-
-                if matches_platform:
-                    active_builds = Build.select(self.env, slave=slave.name,
-                                                 status=Build.IN_PROGRESS)
-                    if not list(active_builds):
-                        slave.send_initiation(build)
-                        return
+            for slave in self.slaves[build.platform]:
+                active_builds = Build.select(self.env, slave=slave.name,
+                                             status=Build.IN_PROGRESS)
+                if not list(active_builds):
+                    slave.send_initiation(build)
+                    return
 
     def get_snapshot(self, build, type, encoding):
         formats = {
@@ -131,6 +119,51 @@ class Master(beep.Listener):
             self.snapshots[(build.config, build.rev, type, encoding)] = snapshot
         return self.snapshots[(build.config, build.rev, type, encoding)]
 
+    def register(self, handler):
+        any_match = False
+        for config in BuildConfig.select(self.env):
+            for platform in TargetPlatform.select(self.env, config=config.name):
+                if not platform.id in self.slaves:
+                    self.slaves[platform.id] = set()
+                logging.debug('Matching slave %s against rules: %s',
+                              handler.name, platform.rules)
+                match = False
+                for property, pattern in ifilter(None, platform.rules):
+                    try:
+                        if not re.match(pattern, handler.info.get(property)):
+                            match = any_match = True
+                            break
+                    except re.error, e:
+                        logging.error('Invalid platform matching pattern "%s"',
+                                      pattern, exc_info=True)
+                        match = False
+                        break
+                if matches:
+                    self.slaves[platform.id].add(handler)
+
+        if not any_match:
+            logging.warning('Slave %s does not match any of the configured '
+                            'target platforms', handler.name)
+            return False
+
+        logging.info('Registered slave "%s"', handler.name)
+        return True
+
+    def unregister(self, handler):
+        for slaves in self.slaves.values():
+            slaves.discard(handler)
+
+        for build in Build.select(self.env, slave=handler.name,
+                                  status=Build.IN_PROGRESS):
+            logging.info('Build [%s] of "%s" by %s cancelled', build.rev,
+                         build.config, handler.name)
+            build.slave = None
+            build.status = Build.PENDING
+            build.started = 0
+            build.update()
+            break
+        logging.info('Unregistered slave "%s"', handler.name)
+
 
 class OrchestrationProfileHandler(beep.ProfileHandler):
     """Handler for communication on the Bitten build orchestration profile from
@@ -147,23 +180,7 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
         self.info = {}
 
     def handle_disconnect(self):
-        if self.name is None:
-            # Slave didn't successfully register before disconnecting, so
-            # there's nothing to clean up
-            return
-
-        del self.master.slaves[self.name]
-
-        for build in Build.select(self.env, slave=self.name,
-                                  status=Build.IN_PROGRESS):
-            logging.info('Build [%s] of "%s" by %s cancelled', build.rev,
-                         build.config, self.name)
-            build.slave = None
-            build.status = Build.PENDING
-            build.started = 0
-            build.update()
-            break
-        logging.info('Unregistered slave "%s"', self.name)
+        self.master.unregister(self)
 
     def handle_msg(self, msgno, msg):
         assert msg.get_content_type() == beep.BEEP_XML
@@ -181,12 +198,15 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
                     self.info[Build.OS_VERSION] = child.attr.get('version')
             self.info[Build.IP_ADDRESS] = self.session.addr[0]
 
-            self.name = elem.attr['name']
-            self.master.slaves[self.name] = self
+            if not self.master.register(self):
+                xml = xmlio.Element('error', code=550)[
+                    'Nothing for you to build here, please move along'
+                ]
+                self.channel.send_err(msgno, beep.MIMEMessage(xml))
+                return
 
             xml = xmlio.Element('ok')
             self.channel.send_rpy(msgno, beep.MIMEMessage(xml))
-            logging.info('Registered slave "%s"', self.name)
 
     def send_initiation(self, build):
         logging.debug('Initiating build of "%s" on slave %s', build.config,
