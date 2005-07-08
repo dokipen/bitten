@@ -127,11 +127,11 @@ class Master(beep.Listener):
                     self.slaves[platform.id] = set()
                 logging.debug('Matching slave %s against rules: %s',
                               handler.name, platform.rules)
-                match = False
+                match = True
                 for property, pattern in ifilter(None, platform.rules):
                     try:
                         if not re.match(pattern, handler.info.get(property)):
-                            match = any_match = True
+                            match = any_match = False
                             break
                     except re.error, e:
                         logging.error('Invalid platform matching pattern "%s"',
