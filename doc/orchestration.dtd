@@ -36,8 +36,7 @@ initiation.
 -->
 <!ELEMENT error       #PCDATA>
 <!ATTLIST error
-          code        CDATA             #REQUIRED
-          xml:lang    CDATA             #IMPLIED>
+          code        CDATA             #REQUIRED>
 
 <!--
 Build initiation request sent by the master to a slave.
@@ -50,6 +49,8 @@ Build initiation request sent by the master to a slave.
 Build request acknowledgement.
 -->
 <!ELEMENT started     EMPTY>
+<!ATTLIST started
+          time        CDATA>
 
 <!--
 Build status reporting: ANS payload sent by the slave for every build step
@@ -59,7 +60,17 @@ processed.
 <!ATTLIST step
           id          ID                #REQUIRED
           result      (success|failure) #REQUIRED
-          description CDATA             #IMPLIED>
+          description CDATA             #IMPLIED
+          time        CDATA             #REQUIRED
+          duration    CDATA             #REQUIRED>
+
+<!--
+Completion of a build by the slave, independent of outcome.
+-->
+<!ELEMENT completed   #PCDATA>
+<!ATTLIST completed
+          result      (success|failure) #REQUIRED
+          time        CDATA>
 
 <!--
 Cancellation of a build by the slave.
