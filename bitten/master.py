@@ -96,7 +96,7 @@ class Master(beep.Listener):
             return
         logging.debug('Checking for pending builds...')
         for build in Build.select(self.env, status=Build.PENDING):
-            for slave in self.slaves[build.platform]:
+            for slave in self.slaves.get(build.platform, []):
                 active_builds = Build.select(self.env, slave=slave.name,
                                              status=Build.IN_PROGRESS)
                 if not list(active_builds):
@@ -125,13 +125,11 @@ class Master(beep.Listener):
             for platform in TargetPlatform.select(self.env, config=config.name):
                 if not platform.id in self.slaves:
                     self.slaves[platform.id] = set()
-                logging.debug('Matching slave %s against rules: %s',
-                              handler.name, platform.rules)
                 match = True
                 for property, pattern in ifilter(None, platform.rules):
                     try:
                         if not re.match(pattern, handler.info.get(property)):
-                            match = any_match = False
+                            match = False
                             break
                     except re.error, e:
                         logging.error('Invalid platform matching pattern "%s"',
@@ -139,7 +137,10 @@ class Master(beep.Listener):
                         match = False
                         break
                 if match:
+                    logging.info('Slave %s matched target platform %s',
+                                 handler.name, platform.name)
                     self.slaves[platform.id].add(handler)
+                    any_match = True
 
         if not any_match:
             logging.warning('Slave %s does not match any of the configured '

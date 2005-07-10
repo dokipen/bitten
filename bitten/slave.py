@@ -60,8 +60,8 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
                 if msg.get_content_type() == beep.BEEP_XML:
                     elem = xmlio.parse(msg.get_payload())
                     if elem.name == 'error':
-                        raise beep.TerminateSession, '%s (%d)' \
-                            % (elem.gettext(), int(elem.attr['code']))
+                        logging.error('Slave registration failed: %s (%d)',
+                                      elem.gettext(), int(elem.attr['code']))
                 raise beep.TerminateSession, 'Registration failed!'
             logging.info('Registration successful')
 
