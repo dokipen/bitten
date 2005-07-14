@@ -55,10 +55,10 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
         """Register with the build master."""
         self.recipe_path = None
 
-        def handle_reply(cmd, msgno, ansno, msg):
+        def handle_reply(cmd, msgno, ansno, payload):
             if cmd == 'ERR':
-                if msg.get_content_type() == beep.BEEP_XML:
-                    elem = xmlio.parse(msg.get_payload())
+                if payload.content_type == beep.BEEP_XML:
+                    elem = xmlio.parse(payload.body)
                     if elem.name == 'error':
                         logging.error('Slave registration failed: %s (%d)',
                                       elem.gettext(), int(elem.attr['code']))
@@ -75,12 +75,11 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
             xmlio.Element('platform', processor=processor)[machine],
             xmlio.Element('os', family=os.name, version=release)[system]
         ]
-        self.channel.send_msg(beep.MIMEMessage(xml), handle_reply)
+        self.channel.send_msg(beep.Payload(xml), handle_reply)
 
-    def handle_msg(self, msgno, msg):
-        content_type = msg.get_content_type()
-        if content_type == beep.BEEP_XML:
-            elem = xmlio.parse(msg.get_payload())
+    def handle_msg(self, msgno, payload):
+        if payload.content_type == beep.BEEP_XML:
+            elem = xmlio.parse(payload.body)
             if elem.name == 'build':
                 # Received a build request
                 self.recipe_path = elem.attr['recipe']
@@ -92,26 +91,25 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
                                   encoding='gzip'),
                     xmlio.Element('accept', type='application/zip')
                 ]
-                self.channel.send_rpy(msgno, beep.MIMEMessage(xml))
+                self.channel.send_rpy(msgno, beep.Payload(xml))
 
-        elif content_type in ('application/tar', 'application/zip'):
+        elif payload.content_type in ('application/tar', 'application/zip'):
             # Received snapshot archive for build
             workdir = tempfile.mkdtemp(prefix='bitten')
 
-            archive_name = msg.get('Content-Disposition')
+            archive_name = payload.content_disposition
             if not archive_name:
-                if content_type == 'application/tar':
-                    encoding = msg.get('Content-Transfer-Encoding')
-                    if encoding == 'gzip':
+                if payload.content_type == 'application/tar':
+                    if payload.content_encoding == 'gzip':
                         archive_name = 'snapshot.tar.gz'
-                    elif encoding == 'bzip2':
+                    elif payload.content_encoding == 'bzip2':
                         archive_name = 'snapshot.tar.bz2'
-                    elif not encoding:
+                    elif not payload.content_encoding:
                         archive_name = 'snapshot.tar'
                 else:
                     archive_name = 'snapshot.zip'
             archive_path = os.path.join(workdir, archive_name)
-            file(archive_path, 'wb').write(msg.get_payload())
+            file(archive_path, 'wb').write(payload.body)
             logging.debug('Received snapshot archive: %s', archive_path)
 
             # Unpack the archive
@@ -135,7 +133,7 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
             recipe = Recipe(recipe_path, basedir)
 
             xml = xmlio.Element('started', time=datetime.utcnow().isoformat())
-            self.channel.send_ans(msgno, beep.MIMEMessage(xml))
+            self.channel.send_ans(msgno, beep.Payload(xml))
 
             failed = False
             for step in recipe:
@@ -150,7 +148,7 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
                                         time=started.isoformat(),
                                         duration=duration.seconds)[log]
                     recipe.ctxt._log = []
-                    self.channel.send_ans(msgno, beep.MIMEMessage(xml))
+                    self.channel.send_ans(msgno, beep.Payload(xml))
                 except (BuildError, InvalidRecipeError), e:
                     duration = datetime.utcnow() - started
                     failed = True
@@ -158,24 +156,24 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
                                         description=step.description,
                                         time=started.isoformat(),
                                         duration=duration.seconds)[e]
-                    self.channel.send_ans(msgno, beep.MIMEMessage(xml))
+                    self.channel.send_ans(msgno, beep.Payload(xml))
 
             logging.info('Build completed')
             recipe.ctxt._log = []
             xml = xmlio.Element('completed', time=datetime.utcnow().isoformat(),
                                 result=['success', 'failure'][failed])
-            self.channel.send_ans(msgno, beep.MIMEMessage(xml))
+            self.channel.send_ans(msgno, beep.Payload(xml))
 
             self.channel.send_nul(msgno)
 
         except InvalidRecipeError, e:
             xml = xmlio.Element('error')[e]
-            self.channel.send_ans(msgno, beep.MIMEMessage(xml))
+            self.channel.send_ans(msgno, beep.Payload(xml))
             self.channel.send_nul(msgno)
 
         except (KeyboardInterrupt, SystemExit), e:
             xml = xmlio.Element('aborted')['Build cancelled']
-            self.channel.send_ans(msgno, beep.MIMEMessage(xml))
+            self.channel.send_ans(msgno, beep.Payload(xml))
             self.channel.send_nul(msgno)
 
             raise beep.TerminateSession, 'Cancelled'

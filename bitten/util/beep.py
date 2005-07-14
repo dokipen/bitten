@@ -31,7 +31,6 @@ import asynchat
 import asyncore
 import bisect
 import email
-from email.Message import Message
 import logging
 import socket
 try:
@@ -43,7 +42,7 @@ import time
 
 from bitten.util import xmlio
 
-__all__ = ['Listener', 'Initiator', 'MIMEMessage', 'ProfileHandler',
+__all__ = ['Listener', 'Initiator', 'Payload', 'ProfileHandler',
            'ProtocolError']
 
 BEEP_XML = 'application/beep+xml'
@@ -450,52 +449,58 @@ class Channel(object):
         if cmd in ('ERR', 'RPY', 'NUL') and msgno in self.msgnos:
             # Final reply using this message number, so dealloc
             self.msgnos.remove(msgno)
-        message = None
         if payload:
-            message = email.message_from_string(payload)
+            payload = Payload.parse(payload)
+        else:
+            payload = None
 
         if cmd == 'MSG':
-            self.profile.handle_msg(msgno, message)
+            self.profile.handle_msg(msgno, payload)
         else:
             if msgno in self.reply_handlers:
                 try:
-                    self.reply_handlers[msgno](cmd, msgno, ansno, message)
+                    self.reply_handlers[msgno](cmd, msgno, ansno, payload)
                 finally:
                     if cmd != 'ANS':
                         del self.reply_handlers[msgno]
             elif cmd == 'RPY':
-                self.profile.handle_rpy(msgno, message)
+                self.profile.handle_rpy(msgno, payload)
             elif cmd == 'ERR':
-                self.profile.handle_err(msgno, message)
+                self.profile.handle_err(msgno, payload)
             elif cmd == 'ANS':
-                self.profile.handle_ans(msgno, ansno, message)
+                self.profile.handle_ans(msgno, ansno, payload)
             elif cmd == 'NUL':
                 self.profile.handle_nul(msgno)
 
-    def _send(self, cmd, msgno, ansno=None, message=None):
+    def _send(self, cmd, msgno, ansno=None, payload=None):
         """Send a frame to the peer."""
-        payload = ''
-        if message is not None:
-            payload = message.as_string()
+        data = ''
+        if payload is not None:
+            data = payload.as_string()
 
         # If the size of the payload exceeds the current negotiated window size,
         # fragment the message and send in smaller chunks
-        while len(payload) > self.windowsize:
-            window = payload[:self.windowsize]
+        while len(data) > self.windowsize:
+            window = data[:self.windowsize]
             self.session.send_data_frame(cmd, self.channelno, msgno, True,
                                          self.seqno[1].value, payload=window,
                                          ansno=ansno)
             self.seqno[1] += self.windowsize
-            payload = payload[self.windowsize:]
+            data = data[self.windowsize:]
 
         # Send the final frame
         self.session.send_data_frame(cmd, self.channelno, msgno, False,
-                                     self.seqno[1].value, payload=payload,
+                                     self.seqno[1].value, payload=data,
                                      ansno=ansno)
-        self.seqno[1] += len(payload)
+        self.seqno[1] += len(data)
 
-    def send_msg(self, message, handle_reply=None):
-        """Send a MSG frame to the peer."""
+    def send_msg(self, payload, handle_reply=None):
+        """Send a MSG frame to the peer.
+        
+        @param payload: The message payload (a `Payload` instance)
+        @param handle_reply: A function that is called when a reply to this
+                             message is received
+        """
         while True: # Find a unique message number
             msgno = self.msgno.next()
             if msgno not in self.msgnos:
@@ -503,34 +508,34 @@ class Channel(object):
         self.msgnos.add(msgno) # Flag the chosen message number as in use
         if handle_reply is not None:
             self.reply_handlers[msgno] = handle_reply
-        self._send('MSG', msgno, None, message)
+        self._send('MSG', msgno, None, payload)
         return msgno
 
-    def send_rpy(self, msgno, message):
+    def send_rpy(self, msgno, payload):
         """Send a RPY frame to the peer.
         
         @param msgno: The number of the message this reply is in reference to
-        @param message: The message payload (a `MIMEMessage` instance)
+        @param payload: The message payload (a `Payload` instance)
         """
-        self._send('RPY', msgno, None, message)
+        self._send('RPY', msgno, None, payload)
 
-    def send_err(self, msgno, message):
+    def send_err(self, msgno, payload):
         """Send an ERR frame to the peer.
         
         @param msgno: The number of the message this reply is in reference to
-        @param message: The message payload (a `MIMEMessage` instance)
+        @param payload: The message payload (a `Payload` instance)
         """
-        self._send('ERR', msgno, None, message)
+        self._send('ERR', msgno, None, payload)
 
-    def send_ans(self, msgno, message):
+    def send_ans(self, msgno, payload):
         """Send an ANS frame to the peer.
         
         @param msgno: The number of the message this reply is in reference to
-        @param message: The message payload (a `MIMEMessage` instance)
+        @param payload: The message payload (a `Payload` instance)
         """
         ansnos = self.ansnos.setdefault(msgno, cycle_through(0, 2147483647))
         next_ansno = ansnos.next()
-        self._send('ANS', msgno, next_ansno, message)
+        self._send('ANS', msgno, next_ansno, payload)
         return next_ansno
 
     def send_nul(self, msgno):
@@ -592,12 +597,12 @@ class ManagementProfileHandler(ProfileHandler):
         xml = xmlio.Element('greeting')[
             [xmlio.Element('profile', uri=uri) for uri in profile_uris]
         ]
-        self.channel.send_rpy(0, MIMEMessage(xml))
+        self.channel.send_rpy(0, Payload(xml))
 
     def handle_msg(self, msgno, message):
         """Handle an incoming message."""
-        assert message.get_content_type() == BEEP_XML
-        elem = xmlio.parse(message.get_payload())
+        assert message.content_type == BEEP_XML
+        elem = xmlio.parse(message.body)
 
         if elem.name == 'start':
             channelno = int(elem.attr['number'])
@@ -612,7 +617,7 @@ class ManagementProfileHandler(ProfileHandler):
                                       self.session.profiles[profile.attr['uri']])
                     self.session.channels[channelno] = channel
                     xml = xmlio.Element('profile', uri=profile.attr['uri'])
-                    self.channel.send_rpy(msgno, MIMEMessage(xml))
+                    self.channel.send_rpy(msgno, Payload(xml))
                     return
             self.send_error(msgno, 550,
                             'None of the requested profiles is supported')
@@ -630,14 +635,14 @@ class ManagementProfileHandler(ProfileHandler):
                 self.send_error(msgno, 550, 'Channel waiting for replies')
                 return
             self.session.channels[channelno].close()
-            self.channel.send_rpy(msgno, MIMEMessage(xmlio.Element('ok')))
+            self.channel.send_rpy(msgno, Payload(xmlio.Element('ok')))
             if not self.session.channels:
                 self.session.close()
 
     def handle_rpy(self, msgno, message):
         """Handle a positive reply."""
-        assert message.get_content_type() == BEEP_XML
-        elem = xmlio.parse(message.get_payload())
+        assert message.content_type == BEEP_XML
+        elem = xmlio.parse(message.body)
 
         if elem.name == 'greeting':
             if isinstance(self.session, Initiator):
@@ -652,8 +657,8 @@ class ManagementProfileHandler(ProfileHandler):
         # Probably an error on connect, because other errors should get handled
         # by the corresponding callbacks
         # TODO: Terminate the session, I guess
-        assert message.get_content_type() == BEEP_XML
-        elem = xmlio.parse(message.get_payload())
+        assert message.content_type == BEEP_XML
+        elem = xmlio.parse(message.body)
         assert elem.name == 'error'
         logging.warning('Received error in response to message #%d: %s (%d)',
                         msgno, elem.gettext(), int(elem.attr['code']))
@@ -670,7 +675,7 @@ class ManagementProfileHandler(ProfileHandler):
                 if handle_ok is not None:
                     handle_ok()
             elif cmd == 'ERR':
-                elem = xmlio.parse(message.get_payload())
+                elem = xmlio.parse(message.body)
                 text = elem.gettext()
                 code = int(elem.attr['code'])
                 logging.debug('Peer refused to start channel %d: %s (%d)',
@@ -680,13 +685,13 @@ class ManagementProfileHandler(ProfileHandler):
 
         logging.debug('Requesting closure of channel %d', channelno)
         xml = xmlio.Element('close', number=channelno, code=code)
-        return self.channel.send_msg(MIMEMessage(xml), handle_reply)
+        return self.channel.send_msg(Payload(xml), handle_reply)
 
     def send_error(self, msgno, code, message=''):
         """Send an error reply to the peer."""
         logging.warning('%s (%d)', message, code)
         xml = xmlio.Element('error', code=code)[message]
-        self.channel.send_err(msgno, MIMEMessage(xml))
+        self.channel.send_err(msgno, Payload(xml))
 
     def send_start(self, profiles, handle_ok=None, handle_error=None):
         """Send a request to start a new channel to the peer.
@@ -702,7 +707,7 @@ class ManagementProfileHandler(ProfileHandler):
         channelno = self.session.channelno.next()
         def handle_reply(cmd, msgno, ansno, message):
             if cmd == 'RPY':
-                elem = xmlio.parse(message.get_payload())
+                elem = xmlio.parse(message.body)
                 for cls in [p for p in profiles if p.URI == elem.attr['uri']]:
                     logging.debug('Channel %d started with profile %s',
                                   channelno, elem.attr['uri'])
@@ -712,7 +717,7 @@ class ManagementProfileHandler(ProfileHandler):
                 if handle_ok is not None:
                     handle_ok(channelno, elem.attr['uri'])
             elif cmd == 'ERR':
-                elem = xmlio.parse(message.get_payload())
+                elem = xmlio.parse(message.body)
                 text = elem.gettext()
                 code = int(elem.attr['code'])
                 logging.debug('Peer refused to start channel %d: %s (%d)',
@@ -725,25 +730,40 @@ class ManagementProfileHandler(ProfileHandler):
         xml = xmlio.Element('start', number=channelno)[
             [xmlio.Element('profile', uri=profile.URI) for profile in profiles]
         ]
-        return self.channel.send_msg(MIMEMessage(xml), handle_reply)
+        return self.channel.send_msg(Payload(xml), handle_reply)
 
 
-class MIMEMessage(Message):
-    """Simplified construction of generic MIME messages for transmission as
-    payload with BEEP."""
+class Payload(object):
+    """MIME message for transmission as payload with BEEP."""
 
-    def __init__(self, payload, content_type=BEEP_XML, content_disposition=None,
+    def __init__(self, data, content_type=BEEP_XML, content_disposition=None,
                  content_encoding=None):
-        """Create the MIME message."""
-        Message.__init__(self)
-        if content_type:
-            self.set_type(content_type)
-            del self['MIME-Version']
-        if content_disposition:
-            self['Content-Disposition'] = content_disposition
-        if content_encoding:
-            self['Content-Transfer-Encoding'] = content_encoding
-        self.set_payload(str(payload))
+        """Initialize the payload."""
+        self.content_type = content_type
+        self.content_disposition = content_disposition
+        self.content_encoding = content_encoding
+        self.body = str(data)
+
+    def as_string(self):
+        hdrs = []
+        if self.content_type:
+            hdrs.append('Content-Type: ' + self.content_type)
+        if self.content_disposition:
+            hdrs.append('Content-Disposition: ' + self.content_disposition)
+        if self.content_encoding:
+            hdrs.append('Content-Transfer-Encoding: ' + self.content_encoding)
+        hdrs.append('')
+
+        return '\n'.join(hdrs) + '\n' + self.body
+
+    def parse(cls, string):
+        message = email.message_from_string(string)
+        content_type = message.get('Content-Type')
+        content_disposition = message.get('Content-Disposition')
+        content_encoding = message.get('Content-Transfer-Encoding')
+        return Payload(message.get_payload(), content_type,
+                       content_disposition, content_encoding)
+    parse = classmethod(parse)
 
 
 def cycle_through(start, stop=None, step=1):

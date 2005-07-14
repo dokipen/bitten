@@ -183,9 +183,9 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
     def handle_disconnect(self):
         self.master.unregister(self)
 
-    def handle_msg(self, msgno, msg):
-        assert msg.get_content_type() == beep.BEEP_XML
-        elem = xmlio.parse(msg.get_payload())
+    def handle_msg(self, msgno, payload):
+        assert payload.content_type == beep.BEEP_XML
+        elem = xmlio.parse(payload.body)
 
         if elem.name == 'register':
             self.name = elem.attr['name']
@@ -203,27 +203,27 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
                 xml = xmlio.Element('error', code=550)[
                     'Nothing for you to build here, please move along'
                 ]
-                self.channel.send_err(msgno, beep.MIMEMessage(xml))
+                self.channel.send_err(msgno, beep.Payload(xml))
                 return
 
             xml = xmlio.Element('ok')
-            self.channel.send_rpy(msgno, beep.MIMEMessage(xml))
+            self.channel.send_rpy(msgno, beep.Payload(xml))
 
     def send_initiation(self, build):
         logging.debug('Initiating build of "%s" on slave %s', build.config,
                       self.name)
 
-        def handle_reply(cmd, msgno, ansno, msg):
+        def handle_reply(cmd, msgno, ansno, payload):
             if cmd == 'ERR':
-                if msg.get_content_type() == beep.BEEP_XML:
-                    elem = xmlio.parse(msg.get_payload())
+                if payload.content_type == beep.BEEP_XML:
+                    elem = xmlio.parse(payload.body)
                     if elem.name == 'error':
                         logging.warning('Slave %s refused build request: '
                                         '%s (%d)', self.name, elem.gettext(),
                                         int(elem.attr['code']))
                 return
 
-            elem = xmlio.parse(msg.get_payload())
+            elem = xmlio.parse(payload.body)
             assert elem.name == 'proceed'
             type = encoding = None
             for child in elem.children('accept'):
@@ -238,26 +238,26 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
                 xml = xmlio.Element('error', code=550)[
                     'None of the accepted archive formats supported'
                 ]
-                self.channel.send_err(beep.MIMEMessage(xml))
+                self.channel.send_err(beep.Payload(xml))
                 return
             self.send_snapshot(build, type, encoding)
 
         xml = xmlio.Element('build', recipe='recipe.xml')
-        self.channel.send_msg(beep.MIMEMessage(xml), handle_reply=handle_reply)
+        self.channel.send_msg(beep.Payload(xml), handle_reply=handle_reply)
 
     def send_snapshot(self, build, type, encoding):
 
-        def handle_reply(cmd, msgno, ansno, msg):
+        def handle_reply(cmd, msgno, ansno, payload):
             if cmd == 'ERR':
-                assert msg.get_content_type() == beep.BEEP_XML
-                elem = xmlio.parse(msg.get_payload())
+                assert payload.content_type == beep.BEEP_XML
+                elem = xmlio.parse(payload.body)
                 if elem.name == 'error':
                     logging.warning('Slave %s did not accept archive: %s (%d)',
                                     self.name, elem.gettext(),
                                     int(elem.attr['code']))
 
             if cmd == 'ANS':
-                elem = xmlio.parse(msg.get_payload())
+                elem = xmlio.parse(payload.body)
 
                 if elem.name == 'started':
                     build.slave = self.name
@@ -308,9 +308,9 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
         #       asyncore push_with_producer()
         snapshot_path = self.master.get_snapshot(build, type, encoding)
         snapshot_name = os.path.basename(snapshot_path)
-        message = beep.MIMEMessage(file(snapshot_path).read(),
-                                   content_disposition=snapshot_name,
-                                   content_type=type, content_encoding=encoding)
+        message = beep.Payload(file(snapshot_path).read(),
+                               content_disposition=snapshot_name,
+                               content_type=type, content_encoding=encoding)
         self.channel.send_msg(message, handle_reply=handle_reply)
 
 
