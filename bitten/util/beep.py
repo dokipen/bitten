@@ -118,7 +118,7 @@ class Listener(asyncore.dispatcher):
                 if fired:
                     self.eventqueue = self.eventqueue[j:]
                     for callback in fired:
-                        callback(self, now)
+                        callback(now)
             asyncore.poll(timeout)
 
     def schedule(self, delta, callback):
@@ -134,7 +134,7 @@ class Listener(asyncore.dispatcher):
         if not self.sessions:
             self.close()
             return
-        def terminate_next_session(session=self, when=None):
+        def terminate_next_session(when):
             session = self.sessions[-1]
             def handle_ok():
                 if self.sessions:

@@ -27,8 +27,31 @@ import zipfile
 _formats = {'gzip': ('.tar.gz', 'gz'), 'bzip2': ('.tar.bz2', 'bz2'),
             'zip': ('.zip', None)}
 
+def index(env, prefix):
+    """Generator that yields `(rev, format, path)` tuples for every archive in
+    the environment snapshots directory that match the specified prefix."""
+    filedir = os.path.join(env.path, 'snapshots')
+    for filename in [f for f in os.listdir(filedir) if f.startswith(prefix)]:
+        rest = filename[len(prefix):]
+
+        # Determine format based of file extension
+        format = None
+        for fmt, (ext, comp) in _formats.items():
+            if rest.endswith(ext):
+                rest = rest[:-len(ext)]
+                format = fmt
+        if not format:
+            continue
+
+        if not rest.startswith('_r'):
+            continue
+        rev = rest[2:]
+
+        yield rev, format, os.path.join(filedir, filename)
+
 def pack(env, repos=None, path=None, rev=None, prefix=None, format='gzip',
          overwrite=False):
+    """Create a snapshot archive in the specified format."""
     if repos is None:
         repos = env.get_repository()
     root = repos.get_node(path or '/', rev)
@@ -79,6 +102,7 @@ def pack(env, repos=None, path=None, rev=None, prefix=None, format='gzip',
     return filename
 
 def unpack(filename, dest_path, format=None):
+    """Extract the contents of a snapshot archive."""
     if not format:
         for name, (extension, compression) in _formats.items():
             if filename.endswith(extension):

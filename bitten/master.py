@@ -46,6 +46,10 @@ class Master(beep.Listener):
 
         # path to generated snapshot archives, key is (config name, revision)
         self.snapshots = {}
+        for config in BuildConfig.select(self.env):
+            snapshots = archive.index(self.env, prefix=config.name)
+            for rev, format, path in snapshots:
+                self.snapshots[(config.name, rev, format)] = path
 
         self.schedule(self.TRIGGER_INTERVAL, self._check_build_triggers)
 
@@ -55,7 +59,7 @@ class Master(beep.Listener):
             build.delete()
         beep.Listener.close(self)
 
-    def _check_build_triggers(self, master, when):
+    def _check_build_triggers(self, when):
         self.schedule(self.TRIGGER_INTERVAL, self._check_build_triggers)
 
         repos = self.env.get_repository()
@@ -79,7 +83,7 @@ class Master(beep.Listener):
                                          rev, platform.name)
                             build = Build(self.env)
                             build.config = config.name
-                            build.rev = rev
+                            build.rev = str(rev)
                             build.rev_time = repos.get_changeset(rev).date
                             build.platform = platform.id
                             build.insert()
@@ -90,8 +94,9 @@ class Master(beep.Listener):
             repos.close()
 
         self.schedule(5, self._check_build_queue)
+        self.schedule(60, self._cleanup_snapshots)
 
-    def _check_build_queue(self, master, when):
+    def _check_build_queue(self, when):
         if not self.slaves:
             return
         logging.debug('Checking for pending builds...')
@@ -103,21 +108,28 @@ class Master(beep.Listener):
                     slave.send_initiation(build)
                     return
 
-    def get_snapshot(self, build, type, encoding):
-        formats = {
-            ('application/tar', 'bzip2'): 'bzip2',
-            ('application/tar', 'gzip'): 'bzip',
-            ('application/tar', None): 'tar',
-            ('application/zip', None): 'zip',
-        }
-        if not (build.config, build.rev, type, encoding) in self.snapshots:
+    def _cleanup_snapshots(self, when):
+        logging.debug('Checking for unused snapshot archives...')
+        for (config, rev, format), path in self.snapshots.items():
+            keep = False
+            for build in Build.select(self.env, config=config, rev=rev):
+                if build.status not in (Build.SUCCESS, Build.FAILURE):
+                    keep = True
+                    break
+            if not keep:
+                logging.info('Removing unused snapshot %s', path)
+                os.unlink(path)
+                del self.snapshots[(config, rev, format)]
+
+    def get_snapshot(self, build, format):
+        snapshot = self.snapshots.get((build.config, build.rev, format))
+        if not snapshot:
             config = BuildConfig(self.env, build.config)
             snapshot = archive.pack(self.env, path=config.path, rev=build.rev,
-                                    prefix=config.name,
-                                    format=formats[(type, encoding)])
+                                    prefix=config.name, format=format)
             logging.info('Prepared snapshot archive at %s' % snapshot)
-            self.snapshots[(build.config, build.rev, type, encoding)] = snapshot
-        return self.snapshots[(build.config, build.rev, type, encoding)]
+            self.snapshots[(build.config, build.rev, format)] = snapshot
+        return snapshot
 
     def register(self, handler):
         any_match = False
@@ -304,9 +316,13 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
 
                 build.update()
 
-        # TODO: should not block while reading the file; rather stream it using
-        #       asyncore push_with_producer()
-        snapshot_path = self.master.get_snapshot(build, type, encoding)
+        snapshot_format = {
+            ('application/tar', 'bzip2'): 'bzip2',
+            ('application/tar', 'gzip'): 'gzip',
+            ('application/tar', None): 'tar',
+            ('application/zip', None): 'zip',
+        }[(type, encoding)]
+        snapshot_path = self.master.get_snapshot(build, snapshot_format)
         snapshot_name = os.path.basename(snapshot_path)
         message = beep.Payload(file(snapshot_path), content_type=type,
                                content_disposition=snapshot_name,
