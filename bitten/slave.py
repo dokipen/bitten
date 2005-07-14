@@ -22,6 +22,7 @@ from datetime import datetime
 import logging
 import os
 import platform
+import shutil
 import sys
 import tempfile
 
@@ -109,7 +110,13 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
                 else:
                     archive_name = 'snapshot.zip'
             archive_path = os.path.join(workdir, archive_name)
-            file(archive_path, 'wb').write(payload.body)
+
+            archive_file = file(archive_path, 'wb')
+            try:
+                shutil.copyfileobj(payload.body, archive_file)
+            finally:
+                archive_file.close()
+
             logging.debug('Received snapshot archive: %s', archive_path)
 
             # Unpack the archive

@@ -37,6 +37,10 @@ try:
     set
 except NameError:
     from sets import Set as set
+try:
+    from cStringIO import StringIO
+except ImportError:
+    from StringIO import StringIO
 import sys
 import time
 
@@ -518,9 +522,7 @@ class FrameProducer(object):
         self.msgno = msgno
         self.ansno = ansno
 
-        self.data = ''
-        if payload is not None:
-            self.data = payload.as_string()
+        self.payload = payload
         self.done = False
 
     def more(self):
@@ -529,30 +531,26 @@ class FrameProducer(object):
         if self.done:
             return ''
 
-        if len(self.data) > self.channel.windowsize:
-            # If the size of the payload exceeds the current negotiated window
-            # size, fragment the message and send in smaller chunks
-            frame = self._make_frame(self.data[:self.channel.windowsize], True)
-            self.channel.seqno[1] += self.channel.windowsize
-            self.data = self.data[self.channel.windowsize:]
-            return frame
+        if self.payload:
+            data = self.payload.read(self.channel.windowsize)
+            if len(data) < self.channel.windowsize:
+                self.done = True
         else:
-            # Send the final frame
-            frame = self._make_frame(self.data, False)
-            self.channel.seqno[1] += len(self.data)
+            data = ''
             self.done = True
-            return frame
 
-    def _make_frame(self, payload, more=False):
         headerbits = [self.cmd, self.channel.channelno, self.msgno,
-                      more and '*' or '.', self.channel.seqno[1].value,
-                      len(payload)]
+                      self.done and '.' or '*', self.channel.seqno[1].value,
+                      len(data)]
         if self.cmd == 'ANS':
             assert self.ansno is not None
             headerbits.append(self.ansno)
         header = ' '.join([str(bit) for bit in headerbits])
         logging.debug('Sending frame [%s]', header)
-        return '\r\n'.join((header, payload, 'END', ''))
+        frame = '\r\n'.join((header, data, 'END', ''))
+        self.channel.seqno[1] += len(data)
+
+        return frame
 
 
 class ProfileHandler(object):
@@ -744,25 +742,56 @@ class ManagementProfileHandler(ProfileHandler):
 class Payload(object):
     """MIME message for transmission as payload with BEEP."""
 
-    def __init__(self, data, content_type=BEEP_XML, content_disposition=None,
-                 content_encoding=None):
+    def __init__(self, data=None, content_type=BEEP_XML,
+                 content_disposition=None, content_encoding=None):
         """Initialize the payload."""
+        self._hdr_buf = None
         self.content_type = content_type
         self.content_disposition = content_disposition
         self.content_encoding = content_encoding
-        self.body = str(data)
+
+        if data is None:
+            data = ''
+        if isinstance(data, xmlio.Element):
+            self.body = StringIO(str(data))
+        elif isinstance(data, (str, unicode)):
+            self.body = StringIO(data)
+        else:
+            assert hasattr(data, 'read'), \
+                   'Payload data %s must provide a `read` method' % data
+            self.body = data
 
     def as_string(self):
-        hdrs = []
-        if self.content_type:
-            hdrs.append('Content-Type: ' + self.content_type)
-        if self.content_disposition:
-            hdrs.append('Content-Disposition: ' + self.content_disposition)
-        if self.content_encoding:
-            hdrs.append('Content-Transfer-Encoding: ' + self.content_encoding)
-        hdrs.append('')
+        return self.read()
 
-        return '\n'.join(hdrs) + '\n' + self.body
+    def read(self, size=None):
+        if self._hdr_buf is None:
+            hdrs = []
+            if self.content_type:
+                hdrs.append('Content-Type: ' + self.content_type)
+            if self.content_disposition:
+                hdrs.append('Content-Disposition: ' + self.content_disposition)
+            if self.content_encoding:
+                hdrs.append('Content-Transfer-Encoding: ' +
+                            self.content_encoding)
+            hdrs.append('')
+            self._hdr_buf = '\n'.join(hdrs) + '\n'
+
+        ret_buf = ''
+        if len(self._hdr_buf):
+            if size is not None and len(self._hdr_buf) > size:
+                ret_buf = self._hdr_buf[:size]
+                self._hdr_buf = self._hdr_buf[size:]
+                return ret_buf
+            ret_buf = self._hdr_buf
+            self._hdr_buf = ''
+
+        if not self.body.closed:
+            ret_buf = ret_buf + self.body.read((size or -1) - len(ret_buf))
+            if size is None or len(ret_buf) < size:
+                self.body.close()
+
+        return ret_buf
 
     def parse(cls, string):
         message = email.message_from_string(string)

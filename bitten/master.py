@@ -308,9 +308,9 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
         #       asyncore push_with_producer()
         snapshot_path = self.master.get_snapshot(build, type, encoding)
         snapshot_name = os.path.basename(snapshot_path)
-        message = beep.Payload(file(snapshot_path).read(),
+        message = beep.Payload(file(snapshot_path), content_type=type,
                                content_disposition=snapshot_name,
-                               content_type=type, content_encoding=encoding)
+                               content_encoding=encoding)
         self.channel.send_msg(message, handle_reply=handle_reply)
 
 
