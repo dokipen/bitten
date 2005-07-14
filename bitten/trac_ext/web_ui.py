@@ -386,7 +386,8 @@ class BuildModule(Component):
         assert build.exists
         add_link(req, 'up', self.env.href.build(build.config),
                  'Build Configuration')
-        status2title = {Build.SUCCESS: 'Success', Build.FAILURE: 'Failure'}
+        status2title = {Build.SUCCESS: 'Success', Build.FAILURE: 'Failure',
+                        Build.IN_PROGRESS: 'In Progress'}
         req.hdf['title'] = 'Build %s - %s' % (build_id,
                                               status2title[build.status])
         req.hdf['build'] = self._build_to_hdf(build)

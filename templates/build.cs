@@ -100,7 +100,8 @@
         var:rev[platform.id].cls ?>"><a href="<?cs
         var:rev[platform.id].href ?>" title="View build results"><?cs
         var:rev[platform.id].slave.name ?></a><br /><?cs
-        if:rev[platform.id].status == 'in progress' ?>started <?cs var:rev[platform.id].started_delta ?> ago<?cs
+        if:rev[platform.id].status == 'in progress' ?>started <?cs
+         var:rev[platform.id].started_delta ?> ago<?cs
         else ?>took <?cs
          var:rev[platform.id].duration ?></td><?cs
         /if ?><?cs
