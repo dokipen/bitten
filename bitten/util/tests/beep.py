@@ -19,11 +19,31 @@ class MockSession(beep.Initiator):
     def close(self):
         self.closed = True
 
-    def send_data_frame(self, cmd, channel, msgno, more, seqno, ansno=None,
-                        payload=''):
+    def push_with_producer(self, producer):
         assert not self.closed
-        self.sent_messages.append((cmd, channel, msgno, more, seqno, ansno,
-                                   payload.strip()))
+        while True:
+            frame = producer.more()
+            if not frame:
+                break
+            header, rest = frame.split('\r\n', 1)
+            header = header.split(' ')
+            cmd = header[0].upper()
+            channel = int(header[1])
+            msgno = int(header[2])
+            more = header[3] == '*'
+            seqno = int(header[4])
+            size = int(header[5])
+            ansno = None
+            if cmd == 'ANS':
+                ansno = int(header[6])
+            if size == 0:
+                payload = ''
+            else:
+                payload = rest[:size]
+                rest = rest[size:]
+            self.sent_messages.append((cmd, channel, msgno, more, seqno, ansno,
+                                       payload.strip()))
+            assert rest == '\r\nEND\r\n'
 
 
 class MockProfileHandler(object):
