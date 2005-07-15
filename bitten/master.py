@@ -32,6 +32,8 @@ from trac.env import Environment
 from bitten.model import BuildConfig, TargetPlatform, Build, BuildStep
 from bitten.util import archive, beep, xmlio
 
+log = logging.getLogger('bitten.master')
+
 
 class Master(beep.Listener):
 
@@ -67,8 +69,8 @@ class Master(beep.Listener):
             repos.sync()
 
             for config in BuildConfig.select(self.env):
-                logging.debug('Checking for changes to "%s" at %s',
-                              config.label, config.path)
+                log.debug('Checking for changes to "%s" at %s', config.label,
+                          config.path)
                 node = repos.get_node(config.path)
                 for path, rev, chg in node.get_history():
                     enqueued = False
@@ -78,9 +80,9 @@ class Master(beep.Listener):
                         builds = Build.select(self.env, config.name, rev,
                                               platform.id)
                         if not list(builds):
-                            logging.info('Enqueuing build of configuration "%s"'
-                                         ' at revision [%s] on %s', config.name,
-                                         rev, platform.name)
+                            log.info('Enqueuing build of configuration "%s"at '
+                                     'revision [%s] on %s', config.name, rev,
+                                     platform.name)
                             build = Build(self.env)
                             build.config = config.name
                             build.rev = str(rev)
@@ -99,7 +101,7 @@ class Master(beep.Listener):
     def _check_build_queue(self, when):
         if not self.slaves:
             return
-        logging.debug('Checking for pending builds...')
+        log.debug('Checking for pending builds...')
         for build in Build.select(self.env, status=Build.PENDING):
             for slave in self.slaves.get(build.platform, []):
                 active_builds = Build.select(self.env, slave=slave.name,
@@ -109,7 +111,7 @@ class Master(beep.Listener):
                     return
 
     def _cleanup_snapshots(self, when):
-        logging.debug('Checking for unused snapshot archives...')
+        log.debug('Checking for unused snapshot archives...')
         for (config, rev, format), path in self.snapshots.items():
             keep = False
             for build in Build.select(self.env, config=config, rev=rev):
@@ -117,7 +119,7 @@ class Master(beep.Listener):
                     keep = True
                     break
             if not keep:
-                logging.info('Removing unused snapshot %s', path)
+                log.info('Removing unused snapshot %s', path)
                 os.unlink(path)
                 del self.snapshots[(config, rev, format)]
 
@@ -127,7 +129,7 @@ class Master(beep.Listener):
             config = BuildConfig(self.env, build.config)
             snapshot = archive.pack(self.env, path=config.path, rev=build.rev,
                                     prefix=config.name, format=format)
-            logging.info('Prepared snapshot archive at %s' % snapshot)
+            log.info('Prepared snapshot archive at %s' % snapshot)
             self.snapshots[(build.config, build.rev, format)] = snapshot
         return snapshot
 
@@ -144,22 +146,22 @@ class Master(beep.Listener):
                             match = False
                             break
                     except re.error, e:
-                        logging.error('Invalid platform matching pattern "%s"',
-                                      pattern, exc_info=True)
+                        log.error('Invalid platform matching pattern "%s"',
+                                  pattern, exc_info=True)
                         match = False
                         break
                 if match:
-                    logging.info('Slave %s matched target platform %s',
-                                 handler.name, platform.name)
+                    log.info('Slave %s matched target platform %s',
+                             handler.name, platform.name)
                     self.slaves[platform.id].add(handler)
                     any_match = True
 
         if not any_match:
-            logging.warning('Slave %s does not match any of the configured '
-                            'target platforms', handler.name)
+            log.warning('Slave %s does not match any of the configured target '
+                        'platforms', handler.name)
             return False
 
-        logging.info('Registered slave "%s"', handler.name)
+        log.info('Registered slave "%s"', handler.name)
         return True
 
     def unregister(self, handler):
@@ -168,14 +170,14 @@ class Master(beep.Listener):
 
         for build in Build.select(self.env, slave=handler.name,
                                   status=Build.IN_PROGRESS):
-            logging.info('Build [%s] of "%s" by %s cancelled', build.rev,
-                         build.config, handler.name)
+            log.info('Build [%s] of "%s" by %s cancelled', build.rev,
+                     build.config, handler.name)
             build.slave = None
             build.status = Build.PENDING
             build.started = 0
             build.update()
             break
-        logging.info('Unregistered slave "%s"', handler.name)
+        log.info('Unregistered slave "%s"', handler.name)
 
 
 class OrchestrationProfileHandler(beep.ProfileHandler):
@@ -222,17 +224,17 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
             self.channel.send_rpy(msgno, beep.Payload(xml))
 
     def send_initiation(self, build):
-        logging.debug('Initiating build of "%s" on slave %s', build.config,
-                      self.name)
+        log.debug('Initiating build of "%s" on slave %s', build.config,
+                  self.name)
 
         def handle_reply(cmd, msgno, ansno, payload):
             if cmd == 'ERR':
                 if payload.content_type == beep.BEEP_XML:
                     elem = xmlio.parse(payload.body)
                     if elem.name == 'error':
-                        logging.warning('Slave %s refused build request: '
-                                        '%s (%d)', self.name, elem.gettext(),
-                                        int(elem.attr['code']))
+                        log.warning('Slave %s refused build request: %s (%d)',
+                                    self.name, elem.gettext(),
+                                    int(elem.attr['code']))
                 return
 
             elem = xmlio.parse(payload.body)
@@ -264,9 +266,9 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
                 assert payload.content_type == beep.BEEP_XML
                 elem = xmlio.parse(payload.body)
                 if elem.name == 'error':
-                    logging.warning('Slave %s did not accept archive: %s (%d)',
-                                    self.name, elem.gettext(),
-                                    int(elem.attr['code']))
+                    log.warning('Slave %s did not accept archive: %s (%d)',
+                                self.name, elem.gettext(),
+                                int(elem.attr['code']))
 
             if cmd == 'ANS':
                 elem = xmlio.parse(payload.body)
@@ -277,11 +279,11 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
                     build.started = int(_parse_iso_datetime(elem.attr['time']))
                     build.status = Build.IN_PROGRESS
                     build.update()
-                    logging.info('Slave %s started build of "%s" as of [%s]',
-                                 self.name, build.config, build.rev)
+                    log.info('Slave %s started build of "%s" as of [%s]',
+                             self.name, build.config, build.rev)
 
                 elif elem.name == 'step':
-                    logging.info('Slave completed step "%s"', elem.attr['id'])
+                    log.info('Slave completed step "%s"', elem.attr['id'])
                     step = BuildStep(self.env)
                     step.build = build.id
                     step.name = elem.attr['id']
@@ -290,15 +292,15 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
                     step.stopped = step.started + int(elem.attr['duration'])
                     step.log = elem.gettext().strip()
                     if elem.attr['result'] == 'failure':
-                        logging.warning('Step failed: %s', elem.gettext())
+                        log.warning('Step failed: %s', elem.gettext())
                         step.status = BuildStep.FAILURE
                     else:
                         step.status = BuildStep.SUCCESS
                     step.insert()
 
                 elif elem.name == 'completed':
-                    logging.info('Slave %s completed build of "%s" as of [%s]',
-                                 self.name, build.config, build.rev)
+                    log.info('Slave %s completed build of "%s" as of [%s]',
+                             self.name, build.config, build.rev)
                     build.stopped = int(_parse_iso_datetime(elem.attr['time']))
                     if elem.attr['result'] == 'failure':
                         build.status = Build.FAILURE
@@ -306,7 +308,7 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
                         build.status = Build.SUCCESS
 
                 elif elem.name == 'aborted':
-                    logging.info('Slave "%s" aborted build', self.name)
+                    log.info('Slave "%s" aborted build %d', self.name, build.id)
                     build.slave = None
                     build.started = 0
                     build.status = Build.PENDING
@@ -355,7 +357,10 @@ def main():
     parser.add_option('-p', '--port', action='store', type='int', dest='port',
                       help='port number to use')
     parser.add_option('-H', '--host', action='store', dest='host',
+                      metavar='HOSTNAME',
                       help='the host name or IP address to bind to')
+    parser.add_option('-l', '--log', dest='logfile', metavar='FILENAME',
+                      help='write log messages to FILENAME')
     parser.add_option('--debug', action='store_const', dest='loglevel',
                       const=logging.DEBUG, help='enable debugging output')
     parser.add_option('-v', '--verbose', action='store_const', dest='loglevel',
@@ -364,12 +369,30 @@ def main():
                       const=logging.ERROR, help='print as little as possible')
     parser.set_defaults(port=7633, loglevel=logging.WARNING)
     options, args = parser.parse_args()
-    
+
     if len(args) < 1:
         parser.error('incorrect number of arguments')
     env_path = args[0]
 
-    logging.getLogger().setLevel(options.loglevel)
+    # Configure logging
+    log = logging.getLogger('bitten')
+    log.setLevel(options.loglevel)
+    handler = logging.StreamHandler()
+    if options.logfile:
+        handler.setLevel(logging.WARNING)
+    else:
+        handler.setLevel(options.loglevel)
+    formatter = logging.Formatter('%(message)s')
+    handler.setFormatter(formatter)
+    log.addHandler(handler)
+    if options.logfile:
+        handler = logging.FileHandler(options.logfile)
+        handler.setLevel(options.loglevel)
+        formatter = logging.Formatter('%(asctime)s [%(name)s] %(levelname)s: '
+                                      '%(message)s')
+        handler.setFormatter(formatter)
+        log.addHandler(handler)
+
     port = options.port
     if not (1 <= port <= 65535):
         parser.error('port must be an integer in the range 1-65535')
@@ -381,7 +404,7 @@ def main():
         try:
             host = socket.gethostbyaddr(ip)[0]
         except socket.error, e:
-            logging.warning('Reverse host name lookup failed (%s)', e)
+            log.warning('Reverse host name lookup failed (%s)', e)
             host = ip
 
     master = Master(env_path, host, port)

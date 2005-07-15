@@ -30,6 +30,8 @@ from bitten.build import BuildError
 from bitten.recipe import Recipe, InvalidRecipeError
 from bitten.util import archive, beep, xmlio
 
+log = logging.getLogger('bitten.slave')
+
 
 class Slave(beep.Initiator):
     """Build slave."""
@@ -41,7 +43,7 @@ class Slave(beep.Initiator):
     def greeting_received(self, profiles):
         if OrchestrationProfileHandler.URI not in profiles:
             err = 'Peer does not support the Bitten orchestration profile'
-            logging.error(err)
+            log.error(err)
             raise beep.TerminateSession, err
         self.channels[0].profile.send_start([OrchestrationProfileHandler])
 
@@ -61,17 +63,17 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
                 if payload.content_type == beep.BEEP_XML:
                     elem = xmlio.parse(payload.body)
                     if elem.name == 'error':
-                        logging.error('Slave registration failed: %s (%d)',
-                                      elem.gettext(), int(elem.attr['code']))
+                        log.error('Slave registration failed: %s (%d)',
+                                  elem.gettext(), int(elem.attr['code']))
                 raise beep.TerminateSession, 'Registration failed!'
-            logging.info('Registration successful')
+            log.info('Registration successful')
 
         system, node, release, version, machine, processor = platform.uname()
         system, release, version = platform.system_alias(system, release,
                                                          version)
         if self.session.name is not None:
             node = self.session.name
-        logging.info('Registering with build master as %s', node)
+        log.info('Registering with build master as %s', node)
         xml = xmlio.Element('register', name=node)[
             xmlio.Element('platform', processor=processor)[machine],
             xmlio.Element('os', family=os.name, version=release)[system]
@@ -117,12 +119,12 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
             finally:
                 archive_file.close()
 
-            logging.debug('Received snapshot archive: %s', archive_path)
+            log.debug('Received snapshot archive: %s', archive_path)
 
             # Unpack the archive
             prefix = archive.unpack(archive_path, workdir)
             path = os.path.join(workdir, prefix)
-            logging.debug('Unpacked snapshot to %s' % path)
+            log.debug('Unpacked snapshot to %s' % path)
 
             # Fix permissions
             for root, dirs, files in os.walk(workdir, topdown=False):
@@ -134,8 +136,9 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
             self.execute_build(msgno, path, self.recipe_path)
 
     def execute_build(self, msgno, basedir, recipe_path):
-        logging.info('Building in directory %s using recipe %s', basedir,
-                     recipe_path)
+        global log
+        log.info('Building in directory %s using recipe %s', basedir,
+                 recipe_path)
         try:
             recipe = Recipe(recipe_path, basedir)
 
@@ -144,16 +147,17 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
 
             failed = False
             for step in recipe:
-                logging.info('Executing build step "%s"', step.id)
+                log.info('Executing build step "%s"', step.id)
                 started = datetime.utcnow()
                 try:
                     step.execute(recipe.ctxt)
                     duration = datetime.utcnow() - started
-                    log = '\n'.join([record[-1] for record in recipe.ctxt._log])
+                    output = '\n'.join([record[-1] for record
+                                        in recipe.ctxt._log])
                     xml = xmlio.Element('step', id=step.id, result='success',
                                         description=step.description,
                                         time=started.isoformat(),
-                                        duration=duration.seconds)[log]
+                                        duration=duration.seconds)[output]
                     recipe.ctxt._log = []
                     self.channel.send_ans(msgno, beep.Payload(xml))
                 except (BuildError, InvalidRecipeError), e:
@@ -165,7 +169,7 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
                                         duration=duration.seconds)[e]
                     self.channel.send_ans(msgno, beep.Payload(xml))
 
-            logging.info('Build completed')
+            log.info('Build completed')
             recipe.ctxt._log = []
             xml = xmlio.Element('completed', time=datetime.utcnow().isoformat(),
                                 result=['success', 'failure'][failed])
@@ -215,7 +219,13 @@ def main():
     else:
         port = 7633
 
-    logging.getLogger().setLevel(options.loglevel)
+    log = logging.getLogger('bitten')
+    log.setLevel(options.loglevel)
+    handler = logging.StreamHandler()
+    handler.setLevel(options.loglevel)
+    formatter = logging.Formatter('[%(levelname)-8s] %(message)s')
+    handler.setFormatter(formatter)
+    log.addHandler(handler)
 
     slave = Slave(host, port, options.name)
     try:

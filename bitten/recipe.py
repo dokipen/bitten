@@ -27,6 +27,8 @@ from bitten.util import xmlio
 
 __all__ = ['Recipe']
 
+log = logging.getLogger('bitten.recipe')
+
 
 class InvalidRecipeError(Exception):
     """Exception raised when a recipe cannot be processed."""
@@ -51,9 +53,9 @@ class Context(object):
         assert level in (Context.ERROR, Context.OUTPUT), \
                'Invalid log level %s' % level
         if level == Context.ERROR:
-            logging.warning(text)
+            log.warning(text)
         else:
-            logging.info(text)
+            log.info(text)
         self._log.append((self.current_step, self.current_function, level,
                           time.time(), text))
 
@@ -95,7 +97,7 @@ class Step(object):
             except BuildError, e:
                 if self.onerror == 'fail':
                     raise BuildError, e
-                logging.warning('Ignoring error in step %s (%s)', self.id, e)
+                log.warning('Ignoring error in step %s (%s)', self.id, e)
                 return None
         finally:
             ctxt.current_step = None

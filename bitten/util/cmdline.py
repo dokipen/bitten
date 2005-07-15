@@ -23,6 +23,8 @@ import os
 import os.path
 import time
 
+log = logging.getLogger('bitten.cmdline')
+
 
 class TimeoutError(Exception):
     """Exception raised when the execution of a command times out."""
@@ -54,7 +56,7 @@ class Commandline(object):
             for idx, arg in enumerate(args):
                 if arg.find(' ') >= 0:
                     args[idx] = '"%s"' % arg
-            logging.debug('Executing %s', args)
+            log.debug('Executing %s', args)
 
             if self.cwd:
                 os.chdir(self.cwd)
@@ -81,7 +83,7 @@ class Commandline(object):
             if self.cwd:
                 os.chdir(self.cwd)
 
-            logging.debug('Executing %s', [self.executable] + self.arguments)
+            log.debug('Executing %s', [self.executable] + self.arguments)
             pipe = popen2.Popen3([self.executable] + self.arguments,
                                  capturestderr=True)
             pipe.tochild.close()

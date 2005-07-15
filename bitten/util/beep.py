@@ -51,6 +51,8 @@ __all__ = ['Listener', 'Initiator', 'Payload', 'ProfileHandler',
 
 BEEP_XML = 'application/beep+xml'
 
+log = logging.getLogger('bitten.beep')
+
 
 class ProtocolError(Exception):
     """Generic root class for BEEP exceptions."""
@@ -75,7 +77,7 @@ class Listener(asyncore.dispatcher):
         self.sessions = []
         self.profiles = {} # Mapping from URIs to ProfileHandler sub-classes
         self.eventqueue = []
-        logging.debug('Listening to connections on %s:%d', ip, port)
+        log.debug('Listening to connections on %s:%d', ip, port)
         self.listen(5)
 
     def writable(self):
@@ -93,7 +95,7 @@ class Listener(asyncore.dispatcher):
     def handle_accept(self):
         """Start a new BEEP session initiated by a peer."""
         conn, (ip, port) = self.accept()
-        logging.debug('Connected to %s:%d', ip, port)
+        log.debug('Connected to %s:%d', ip, port)
         self.sessions.append(Session(self, conn, (ip, port), self.profiles,
                                      first_channelno=2))
 
@@ -142,8 +144,8 @@ class Listener(asyncore.dispatcher):
                 else:
                     self.close()
             def handle_error(channelno, code, message):
-                logging.error('Failed to close channel %d', channelno)
-            logging.debug('Closing session with %s', session.addr)
+                log.error('Failed to close channel %d', channelno)
+            log.debug('Closing session with %s', session.addr)
             session.terminate(handle_ok=handle_ok)
         self.schedule(0, terminate_next_session)
         self.run(.5)
@@ -180,15 +182,14 @@ class Session(asynchat.async_chat):
 
     def close(self):
         if self.listener:
-            logging.debug('Closing connection to %s:%s', self.addr[0],
-                          self.addr[1])
+            log.debug('Closing connection to %s:%s', self.addr[0], self.addr[1])
             self.listener.sessions.remove(self)
         else:
-            logging.info('Session terminated')
+            log.info('Session terminated')
         asynchat.async_chat.close(self)
 
     def handle_close(self):
-        logging.warning('Peer %s:%s closed connection' % self.addr)
+        log.warning('Peer %s:%s closed connection' % self.addr)
         channels = self.channels.keys()
         channels.reverse()
         for channelno in channels:
@@ -200,7 +201,7 @@ class Session(asynchat.async_chat):
         cls, value = sys.exc_info()[:2]
         if cls is TerminateSession:
             raise cls, value
-        logging.exception(value)
+        log.exception(value)
         self.close()
 
     def collect_incoming_data(self, data):
@@ -231,8 +232,8 @@ class Session(asynchat.async_chat):
                 except ValueError:
                     # TODO: Malformed frame... should we terminate the session
                     # here?
-                    logging.error('Malformed frame header: [%s]',
-                                  ' '.join(self.header))
+                    log.error('Malformed frame header: [%s]',
+                              ' '.join(self.header))
                     self.header = None
                     return
             if size == 0:
@@ -259,7 +260,7 @@ class Session(asynchat.async_chat):
         
         This parses the frame header and decides which channel to pass it to.
         """
-        logging.debug('Handling frame [%s]', ' '.join(header))
+        log.debug('Handling frame [%s]', ' '.join(header))
         msgno = None
         channel = None
         try:
@@ -279,7 +280,7 @@ class Session(asynchat.async_chat):
                 self.channels[channel].handle_data_frame(cmd, msgno, more,
                                                          seqno, ansno, payload)
         except (ValueError, TypeError, ProtocolError), e:
-            logging.exception(e)
+            log.exception(e)
             if channel == 0 and msgno is not None:
                 self.channels[0].profile.send_error(msgno, 550, e)
 
@@ -294,8 +295,8 @@ class Session(asynchat.async_chat):
                 else:
                     close_next_channel()
             def _handle_error(code, message):
-                logging.error('Peer refused to close channel %d: %s (%d)',
-                              channelno, message, code)
+                log.error('Peer refused to close channel %d: %s (%d)',
+                          channelno, message, code)
                 if handle_error is not None:
                     handle_error(channelno, code, message)
                 else:
@@ -320,13 +321,13 @@ class Initiator(Session):
         """
         Session.__init__(self, profiles=profiles or {})
         self.create_socket(socket.AF_INET, socket.SOCK_STREAM)
-        logging.debug('Connecting to %s:%s', ip, port)
+        log.debug('Connecting to %s:%s', ip, port)
         self.addr = (ip, port)
         self.connect(self.addr)
 
     def handle_connect(self):
         """Called by asyncore when the connection is established."""
-        logging.debug('Connected to peer at %s:%s', self.addr[0], self.addr[1])
+        log.debug('Connected to peer at %s:%s', self.addr[0], self.addr[1])
 
     def greeting_received(self, profiles):
         """Sub-classes should override this to start the channels they need.
@@ -343,7 +344,7 @@ class Initiator(Session):
         try:
             asyncore.loop()
         except TerminateSession, e:
-            logging.info('Terminating session')
+            log.info('Terminating session')
             self.terminate()
 
     def quit(self):
@@ -546,7 +547,7 @@ class FrameProducer(object):
             assert self.ansno is not None
             headerbits.append(self.ansno)
         header = ' '.join([str(bit) for bit in headerbits])
-        logging.debug('Sending frame [%s]', header)
+        log.debug('Sending frame [%s]', header)
         frame = '\r\n'.join((header, data, 'END', ''))
         self.channel.seqno[1] += len(data)
 
@@ -599,7 +600,7 @@ class ManagementProfileHandler(ProfileHandler):
     def handle_connect(self):
         """Send a greeting reply directly after connecting to the peer."""
         profile_uris = self.session.profiles.keys()
-        logging.debug('Send greeting with profiles: %s', profile_uris)
+        log.debug('Send greeting with profiles: %s', profile_uris)
         xml = xmlio.Element('greeting')[
             [xmlio.Element('profile', uri=uri) for uri in profile_uris]
         ]
@@ -617,8 +618,8 @@ class ManagementProfileHandler(ProfileHandler):
                 return
             for profile in elem.children('profile'):
                 if profile.attr['uri'] in self.session.profiles:
-                    logging.debug('Start channel %s for profile <%s>',
-                                  elem.attr['number'], profile.attr['uri'])
+                    log.debug('Start channel %s for profile <%s>',
+                              elem.attr['number'], profile.attr['uri'])
                     channel = Channel(self.session, channelno,
                                       self.session.profiles[profile.attr['uri']])
                     self.session.channels[channelno] = channel
@@ -666,15 +667,15 @@ class ManagementProfileHandler(ProfileHandler):
         assert message.content_type == BEEP_XML
         elem = xmlio.parse(message.body)
         assert elem.name == 'error'
-        logging.warning('Received error in response to message #%d: %s (%d)',
-                        msgno, elem.gettext(), int(elem.attr['code']))
+        log.warning('Received error in response to message #%d: %s (%d)',
+                    msgno, elem.gettext(), int(elem.attr['code']))
 
     def send_close(self, channelno=0, code=200, handle_ok=None,
                    handle_error=None):
         """Send a request to close a channel to the peer."""
         def handle_reply(cmd, msgno, ansno, message):
             if cmd == 'RPY':
-                logging.debug('Channel %d closed', channelno)
+                log.debug('Channel %d closed', channelno)
                 self.session.channels[channelno].close()
                 if not self.session.channels:
                     self.session.close()
@@ -684,18 +685,18 @@ class ManagementProfileHandler(ProfileHandler):
                 elem = xmlio.parse(message.body)
                 text = elem.gettext()
                 code = int(elem.attr['code'])
-                logging.debug('Peer refused to start channel %d: %s (%d)',
-                              channelno, text, code)
+                log.debug('Peer refused to start channel %d: %s (%d)',
+                          channelno, text, code)
                 if handle_error is not None:
                     handle_error(code, text)
 
-        logging.debug('Requesting closure of channel %d', channelno)
+        log.debug('Requesting closure of channel %d', channelno)
         xml = xmlio.Element('close', number=channelno, code=code)
         return self.channel.send_msg(Payload(xml), handle_reply)
 
     def send_error(self, msgno, code, message=''):
         """Send an error reply to the peer."""
-        logging.warning('%s (%d)', message, code)
+        log.warning('%s (%d)', message, code)
         xml = xmlio.Element('error', code=code)[message]
         self.channel.send_err(msgno, Payload(xml))
 
@@ -715,8 +716,8 @@ class ManagementProfileHandler(ProfileHandler):
             if cmd == 'RPY':
                 elem = xmlio.parse(message.body)
                 for cls in [p for p in profiles if p.URI == elem.attr['uri']]:
-                    logging.debug('Channel %d started with profile %s',
-                                  channelno, elem.attr['uri'])
+                    log.debug('Channel %d started with profile %s', channelno,
+                              elem.attr['uri'])
                     self.session.channels[channelno] = Channel(self.session,
                                                                channelno, cls)
                     break
@@ -726,13 +727,13 @@ class ManagementProfileHandler(ProfileHandler):
                 elem = xmlio.parse(message.body)
                 text = elem.gettext()
                 code = int(elem.attr['code'])
-                logging.debug('Peer refused to start channel %d: %s (%d)',
-                              channelno, text, code)
+                log.debug('Peer refused to start channel %d: %s (%d)',
+                          channelno, text, code)
                 if handle_error is not None:
                     handle_error(code, text)
 
-        logging.debug('Requesting start of channel %d with profiles %s',
-                      channelno, [profile.URI for profile in profiles])
+        log.debug('Requesting start of channel %d with profiles %s', channelno,
+                  [profile.URI for profile in profiles])
         xml = xmlio.Element('start', number=channelno)[
             [xmlio.Element('profile', uri=profile.URI) for profile in profiles]
         ]
