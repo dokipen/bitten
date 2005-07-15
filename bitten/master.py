@@ -271,6 +271,7 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
                                 int(elem.attr['code']))
 
             if cmd == 'ANS':
+                db = self.env.get_db_cnx()
                 elem = xmlio.parse(payload.body)
 
                 if elem.name == 'started':
@@ -278,7 +279,6 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
                     build.slave_info.update(self.info)
                     build.started = int(_parse_iso_datetime(elem.attr['time']))
                     build.status = Build.IN_PROGRESS
-                    build.update()
                     log.info('Slave %s started build of "%s" as of [%s]',
                              self.name, build.config, build.rev)
 
@@ -296,7 +296,7 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
                         step.status = BuildStep.FAILURE
                     else:
                         step.status = BuildStep.SUCCESS
-                    step.insert()
+                    step.insert(db=db)
 
                 elif elem.name == 'completed':
                     log.info('Slave %s completed build of "%s" as of [%s]',
@@ -312,11 +312,16 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
                     build.slave = None
                     build.started = 0
                     build.status = Build.PENDING
+                    build.slave_info = {}
+                    for step in BuildStep.select(self.env, build=build.id,
+                                                 db=db):
+                        step.delete(db=db)
 
                 elif elem.name == 'error':
                     build.status = Build.FAILURE
 
-                build.update()
+                build.update(db=db)
+                db.commit()
 
         snapshot_format = {
             ('application/tar', 'bzip2'): 'bzip2',
