@@ -18,6 +18,7 @@
 #
 # Author: Christopher Lenz <cmlenz@gmx.de>
 
+from datetime import datetime, timedelta
 from itertools import ifilter
 import logging
 import os.path
@@ -34,15 +35,18 @@ from bitten.util import archive, beep, xmlio
 
 log = logging.getLogger('bitten.master')
 
+DEFAULT_CHECK_INTERVAL = 120 # 2 minutes
+
+
 
 class Master(beep.Listener):
 
-    TRIGGER_INTERVAL = 10
-
-    def __init__(self, env_path, ip, port):
+    def __init__(self, env_path, ip, port,
+                 check_interval=DEFAULT_CHECK_INTERVAL):
         beep.Listener.__init__(self, ip, port)
         self.profiles[OrchestrationProfileHandler.URI] = OrchestrationProfileHandler
         self.env = Environment(env_path)
+        self.check_interval = check_interval
 
         self.slaves = {}
 
@@ -53,7 +57,7 @@ class Master(beep.Listener):
             for rev, format, path in snapshots:
                 self.snapshots[(config.name, rev, format)] = path
 
-        self.schedule(self.TRIGGER_INTERVAL, self._check_build_triggers)
+        self.schedule(self.check_interval, self._check_build_triggers)
 
     def close(self):
         # Remove all pending builds
@@ -62,7 +66,7 @@ class Master(beep.Listener):
         beep.Listener.close(self)
 
     def _check_build_triggers(self, when):
-        self.schedule(self.TRIGGER_INTERVAL, self._check_build_triggers)
+        self.schedule(self.check_interval, self._check_build_triggers)
 
         repos = self.env.get_repository()
         try:
@@ -80,7 +84,7 @@ class Master(beep.Listener):
                         builds = Build.select(self.env, config.name, rev,
                                               platform.id)
                         if not list(builds):
-                            log.info('Enqueuing build of configuration "%s"at '
+                            log.info('Enqueuing build of configuration "%s" at '
                                      'revision [%s] on %s', config.name, rev,
                                      platform.name)
                             build = Build(self.env)
@@ -95,8 +99,8 @@ class Master(beep.Listener):
         finally:
             repos.close()
 
-        self.schedule(5, self._check_build_queue)
-        self.schedule(60, self._cleanup_snapshots)
+        self.schedule(self.check_interval * 0.2, self._check_build_queue)
+        self.schedule(self.check_interval * 1.8, self._cleanup_snapshots)
 
     def _check_build_queue(self, when):
         if not self.slaves:
@@ -160,6 +164,8 @@ class Master(beep.Listener):
             log.warning('Slave %s does not match any of the configured target '
                         'platforms', handler.name)
             return False
+
+        self.schedule(self.check_interval * 0.2, self._check_build_queue)
 
         log.info('Registered slave "%s"', handler.name)
         return True
@@ -366,6 +372,9 @@ def main():
                       help='the host name or IP address to bind to')
     parser.add_option('-l', '--log', dest='logfile', metavar='FILENAME',
                       help='write log messages to FILENAME')
+    parser.add_option('-i', '--interval', dest='interval', metavar='SECONDS',
+                      default=DEFAULT_CHECK_INTERVAL, type='int',
+                      help='poll interval for changeset detection')
     parser.add_option('--debug', action='store_const', dest='loglevel',
                       const=logging.DEBUG, help='enable debugging output')
     parser.add_option('-v', '--verbose', action='store_const', dest='loglevel',
@@ -412,7 +421,7 @@ def main():
             log.warning('Reverse host name lookup failed (%s)', e)
             host = ip
 
-    master = Master(env_path, host, port)
+    master = Master(env_path, host, port, check_interval=options.interval)
     try:
         master.run(timeout=5.0)
     except KeyboardInterrupt:

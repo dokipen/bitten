@@ -30,6 +30,7 @@ Current limitations:
 import asynchat
 import asyncore
 import bisect
+from datetime import datetime, timedelta
 import email
 import logging
 import socket
@@ -101,11 +102,12 @@ class Listener(asyncore.dispatcher):
 
     def run(self, timeout=15.0, granularity=5):
         """Start listening to incoming connections."""
+        granularity = timedelta(seconds=granularity)
         socket_map = asyncore.socket_map
-        last_event_check = 0
+        last_event_check = datetime.min
         while socket_map:
-            now = int(time.time())
-            if (now - last_event_check) >= granularity:
+            now = datetime.now()
+            if now - last_event_check >= granularity:
                 last_event_check = now
                 fired = []
                 i = j = 0
@@ -130,7 +132,10 @@ class Listener(asyncore.dispatcher):
                       invoked
         @param callback: The function to call
         """
-        bisect.insort(self.eventqueue, (int(time.time()) + delta, callback))
+        when = datetime.now() + timedelta(seconds=delta)
+        log.debug('Scheduling event %s to run at %s', callback.__name__, when)
+
+        bisect.insort(self.eventqueue, (when, callback))
 
     def quit(self):
         if not self.sessions:
