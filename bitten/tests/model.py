@@ -35,14 +35,23 @@ class BuildConfigTestCase(unittest.TestCase):
         db.commit()
 
     def test_new_config(self):
-        config = BuildConfig(self.env)
+        config = BuildConfig(self.env, name='test')
         assert not config.exists
 
+    def test_fetch(self):
+        db = self.env.get_db_cnx()
+        cursor = db.cursor()
+        cursor.execute("INSERT INTO bitten_config (name,path,label,active) "
+                       "VALUES (%s,%s,%s,%s)", ('test', 'trunk', 'Test', 0))
+        config = BuildConfig.fetch(self.env, name='test')
+        assert config.exists
+        self.assertEqual('test', config.name)
+        self.assertEqual('trunk', config.path)
+        self.assertEqual('Test', config.label)
+        self.assertEqual(False, config.active)
+
     def test_insert_config(self):
-        config = BuildConfig(self.env)
-        config.name = 'test'
-        config.label = 'Test'
-        config.path = 'trunk'
+        config = BuildConfig(self.env, name='test', path='trunk', label='Test')
         config.insert()
 
         db = self.env.get_db_cnx()
@@ -72,11 +81,8 @@ class TargetPlatformTestCase(unittest.TestCase):
         self.assertEqual([], platform.rules)
 
     def test_insert(self):
-        platform = TargetPlatform(self.env)
-        platform.config = 'test'
-        platform.name = 'Windows XP'
-        platform.rules.append((Build.OS_NAME, 'Windows'))
-        platform.rules.append((Build.OS_VERSION, 'XP'))
+        platform = TargetPlatform(self.env, config='test', name='Windows XP')
+        platform.rules += [(Build.OS_NAME, 'Windows'), (Build.OS_VERSION, 'XP')]
         platform.insert()
 
         assert platform.exists
@@ -97,7 +103,7 @@ class TargetPlatformTestCase(unittest.TestCase):
         cursor.execute("INSERT INTO bitten_platform (config,name) "
                        "VALUES (%s,%s)", ('test', 'Windows'))
         id = db.get_last_id('bitten_platform')
-        platform = TargetPlatform(self.env, id)
+        platform = TargetPlatform.fetch(self.env, id)
         assert platform.exists
         self.assertEqual('test', platform.config)
         self.assertEqual('Windows', platform.name)
@@ -130,13 +136,10 @@ class BuildTestCase(unittest.TestCase):
         self.assertEqual(0, build.started)
 
     def test_insert(self):
-        build = Build(self.env)
-        build.config = 'test'
-        build.rev = '42'
-        build.rev_time = 12039
-        build.platform = 1
-        build.slave_info[Build.IP_ADDRESS] = '127.0.0.1'
-        build.slave_info[Build.MAINTAINER] = 'joe@example.org'
+        build = Build(self.env, config='test', rev='42', rev_time=12039,
+                      platform=1)
+        build.slave_info.update({Build.IP_ADDRESS: '127.0.0.1',
+                                 Build.MAINTAINER: 'joe@example.org'})
         build.insert()
 
         db = self.env.get_db_cnx()
@@ -155,40 +158,21 @@ class BuildTestCase(unittest.TestCase):
         build = Build(self.env)
         self.assertRaises(AssertionError, build.insert)
 
-        # No config
-        build = Build(self.env)
-        build.rev = '42'
-        build.rev_time = 12039
-        build.platform = 1
-        self.assertRaises(AssertionError, build.insert)
+        build = Build(self.env, rev='42', rev_time=12039, platform=1)
+        self.assertRaises(AssertionError, build.insert) # No config
 
-        # No rev
-        build = Build(self.env)
-        build.config = 'test'
-        build.rev_time = 12039
-        build.platform = 1
-        self.assertRaises(AssertionError, build.insert)
+        build = Build(self.env, config='test', rev_time=12039, platform=1)
+        self.assertRaises(AssertionError, build.insert) # No rev
 
-        # No rev time
-        build = Build(self.env)
-        build.config = 'test'
-        build.rev = '42'
-        build.platform = 1
-        self.assertRaises(AssertionError, build.insert)
+        build = Build(self.env, config='test', rev='42', platform=1)
+        self.assertRaises(AssertionError, build.insert) # No rev time
 
-        # No platform
-        build = Build(self.env)
-        build.config = 'test'
-        build.rev = '42'
-        build.rev_time = 12039
-        self.assertRaises(AssertionError, build.insert)
+        build = Build(self.env, config='test', rev='42', rev_time=12039)
+        self.assertRaises(AssertionError, build.insert) # No platform
 
     def test_insert_no_slave(self):
-        build = Build(self.env)
-        build.config = 'test'
-        build.rev = '42'
-        build.rev_time = 12039
-        build.platform = 1
+        build = Build(self.env, config='test', rev='42', rev_time=12039,
+                      platform=1)
         build.status = Build.SUCCESS
         self.assertRaises(AssertionError, build.insert)
         build.status = Build.FAILURE
@@ -199,11 +183,8 @@ class BuildTestCase(unittest.TestCase):
         build.insert()
 
     def test_insert_invalid_status(self):
-        build = Build(self.env)
-        build.config = 'test'
-        build.rev = '42'
-        build.rev_time = 12039
-        build.status = 'DUNNO'
+        build = Build(self.env, config='test', rev='42', rev_time=12039,
+                      status='DUNNO')
         self.assertRaises(AssertionError, build.insert)
 
     def test_fetch(self):
@@ -219,7 +200,7 @@ class BuildTestCase(unittest.TestCase):
                            [(build_id, Build.IP_ADDRESS, '127.0.0.1'),
                             (build_id, Build.MAINTAINER, 'joe@example.org')])
 
-        build = Build(self.env, build_id)
+        build = Build.fetch(self.env, build_id)
         self.assertEquals(build_id, build.id)
         self.assertEquals('127.0.0.1', build.slave_info[Build.IP_ADDRESS])
         self.assertEquals('joe@example.org', build.slave_info[Build.MAINTAINER])
@@ -241,11 +222,8 @@ class BuildStepTestCase(unittest.TestCase):
         self.assertEqual(None, step.name)
 
     def test_insert(self):
-        step = BuildStep(self.env)
-        step.build = 1
-        step.name = 'test'
-        step.description = 'Foo bar'
-        step.status = BuildStep.SUCCESS
+        step = BuildStep(self.env, build=1, name='test', description='Foo bar',
+                         status=BuildStep.SUCCESS)
         step.insert()
 
         db = self.env.get_db_cnx()
@@ -256,15 +234,11 @@ class BuildStepTestCase(unittest.TestCase):
                          cursor.fetchone())
 
     def test_insert_no_build_or_name(self):
-        # No build
-        step = BuildStep(self.env)
-        step.name = 'test'
-        self.assertRaises(AssertionError, step.insert)
+        step = BuildStep(self.env, name='test')
+        self.assertRaises(AssertionError, step.insert) # No build
 
-        # No name
-        step = BuildStep(self.env)
-        step.build = 1
-        self.assertRaises(AssertionError, step.insert)
+        step = BuildStep(self.env, build=1)
+        self.assertRaises(AssertionError, step.insert) # No name
 
     def test_fetch(self):
         db = self.env.get_db_cnx()
@@ -272,7 +246,7 @@ class BuildStepTestCase(unittest.TestCase):
         cursor.execute("INSERT INTO bitten_step VALUES (%s,%s,%s,%s,%s,%s,%s)",
                        (1, 'test', 'Foo bar', BuildStep.SUCCESS, '', 0, 0))
 
-        step = BuildStep(self.env, 1, 'test')
+        step = BuildStep.fetch(self.env, build=1, name='test')
         self.assertEqual(1, step.build)
         self.assertEqual('test', step.name)
         self.assertEqual('Foo bar', step.description)

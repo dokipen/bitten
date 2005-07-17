@@ -118,7 +118,7 @@ class BuildModuleTestCase(unittest.TestCase):
         self.assertRaises(RequestDone, module.process_request, req)
         self.assertEqual('/trac.cgi/build/test', redirected_to[0])
 
-        build = BuildConfig(self.env, 'test')
+        build = BuildConfig.fetch(self.env, 'test')
         assert build.exists
         assert build.active
         self.assertEqual('Test', build.label)
@@ -142,7 +142,7 @@ class BuildModuleTestCase(unittest.TestCase):
         self.assertRaises(RequestDone, module.process_request, req)
         self.assertEqual('/trac.cgi/build', redirected_to[0])
 
-        self.assertRaises(Exception, BuildConfig, self.env, 'test')
+        self.assertEqual(None, BuildConfig.fetch(self.env, 'test'))
 
     def test_edit_config(self):
         config = BuildConfig(self.env)
@@ -183,9 +183,9 @@ class BuildModuleTestCase(unittest.TestCase):
         self.assertRaises(RequestDone, module.process_request, req)
         self.assertEqual('/trac.cgi/build/foo', redirected_to[0])
 
-        self.assertRaises(Exception, BuildConfig, self.env, 'test')
+        self.assertEqual(None, BuildConfig.fetch(self.env, 'test'))
 
-        build = BuildConfig(self.env, 'foo')
+        build = BuildConfig.fetch(self.env, 'foo')
         assert build.exists
         assert build.active
         self.assertEqual('Test', build.label)

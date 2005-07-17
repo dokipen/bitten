@@ -43,7 +43,9 @@ def _find_dir(name):
         path = os.path.join(sys.prefix, 'share', 'bitten', name)
     return path
 
+
 class BuildModule(Component):
+    """Implements the Bitten web interface."""
 
     implements(INavigationContributor, IRequestHandler, ITimelineEventProvider,
                ITemplateProvider)
@@ -99,8 +101,7 @@ class BuildModule(Component):
                         self._do_delete_platforms(req)
                         self._render_config_form(req, config)
                     elif 'new' in req.args.keys():
-                        platform = TargetPlatform(self.env)
-                        platform.config = config
+                        platform = TargetPlatform(self.env, config=config)
                         self._render_platform_form(req, platform)
                     else:
                         self._do_save_config(req, config)
@@ -114,10 +115,11 @@ class BuildModule(Component):
                 if action == 'edit':
                     platform_id = req.args.get('platform')
                     if platform_id:
-                        platform = TargetPlatform(self.env, int(platform_id))
+                        platform = TargetPlatform.fetch(self.env,
+                                                        int(platform_id))
                         self._render_platform_form(req, platform)
                     elif 'new' in req.args.keys():
-                        platform = TargetPlatform(self.env)
+                        platform = TargetPlatform(self.env, config=config)
                         self._render_platform_form(req, platform)
                     else:
                         self._render_config_form(req, config)
@@ -179,12 +181,11 @@ class BuildModule(Component):
         if 'cancel' in req.args.keys():
             req.redirect(self.env.href.build())
 
-        config = BuildConfig(self.env)
-        config.name = req.args.get('name')
-        config.active = req.args.has_key('active')
-        config.label = req.args.get('label', '')
-        config.path = req.args.get('path', '')
-        config.description = req.args.get('description', '')
+        config = BuildConfig(self.env, name=req.args.get('name'),
+                             path=req.args.get('path', ''),
+                             label=req.args.get('label', ''),
+                             active=req.args.has_key('active'),
+                             description=req.args.get('description'))
         config.insert()
 
         req.redirect(self.env.href.build(config.name))
@@ -196,7 +197,8 @@ class BuildModule(Component):
         if 'cancel' in req.args.keys():
             req.redirect(self.env.href.build(config_name))
 
-        config = BuildConfig(self.env, config_name)
+        config = BuildConfig.fetch(self.env, config_name)
+        assert config, 'Build configuration "%s" does not exist' % config_name
         config.name = req.args.get('name')
         config.active = req.args.has_key('active')
         config.label = req.args.get('label', '')
@@ -213,9 +215,8 @@ class BuildModule(Component):
         if 'cancel' in req.args.keys():
             req.redirect(self.env.href.build(config_name, action='edit'))
 
-        platform = TargetPlatform(self.env)
-        platform.config = config_name
-        platform.name = req.args.get('name')
+        platform = TargetPlatform(self.env, config=config_name,
+                                  name=req.args.get('name'))
 
         properties = [int(key[9:]) for key in req.args.keys()
                       if key.startswith('property_')]
@@ -251,7 +252,7 @@ class BuildModule(Component):
 
         db = self.env.get_db_cnx()
         for platform_id in [int(id) for id in req.args.get('delete_platform')]:
-            platform = TargetPlatform(self.env, platform_id, db=db)
+            platform = TargetPlatform.fetch(self.env, platform_id, db=db)
             self.log.info('Deleting target platform %s of configuration %s',
                           platform.name, platform.config)
             platform.delete(db=db)
@@ -264,7 +265,7 @@ class BuildModule(Component):
         if 'cancel' in req.args.keys():
             req.redirect(self.env.href.build(config_name, action='edit'))
 
-        platform = TargetPlatform(self.env, platform_id)
+        platform = TargetPlatform.fetch(self.env, platform_id)
         platform.name = req.args.get('name')
 
         properties = [int(key[9:]) for key in req.args.keys()
@@ -310,7 +311,7 @@ class BuildModule(Component):
         req.hdf['build.can_create'] = req.perm.has_permission('BUILD_CREATE')
 
     def _render_config(self, req, config_name):
-        config = BuildConfig(self.env, config_name)
+        config = BuildConfig.fetch(self.env, config_name)
         req.hdf['title'] = 'Build Configuration "%s"' \
                            % escape(config.label or config.name)
         add_link(req, 'up', self.env.href.build(), 'Build Status')
@@ -344,8 +345,8 @@ class BuildModule(Component):
                 break
 
     def _render_config_form(self, req, config_name=None):
-        config = BuildConfig(self.env, config_name)
-        if config.exists:
+        config = BuildConfig.fetch(self.env, config_name)
+        if config:
             req.perm.assert_permission('BUILD_MODIFY')
             req.hdf['build.config'] = {
                 'name': config.name, 'label': config.label, 'path': config.path,
@@ -382,8 +383,8 @@ class BuildModule(Component):
         req.hdf['build.mode'] = 'edit_platform'
 
     def _render_build(self, req, build_id):
-        build = Build(self.env, build_id)
-        assert build.exists
+        build = Build.fetch(self.env, build_id)
+        assert build, 'Build %s does not exist' % build_id
         add_link(req, 'up', self.env.href.build(build.config),
                  'Build Configuration')
         status2title = {Build.SUCCESS: 'Success', Build.FAILURE: 'Failure',
@@ -393,7 +394,7 @@ class BuildModule(Component):
         req.hdf['build'] = self._build_to_hdf(build)
         req.hdf['build.mode'] = 'view_build'
 
-        config = BuildConfig(self.env, build.config)
+        config = BuildConfig.fetch(self.env, build.config)
         req.hdf['build.config'] = {
             'name': config.label,
             'href': self.env.href.build(config.name)

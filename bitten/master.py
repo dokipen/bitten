@@ -130,7 +130,7 @@ class Master(beep.Listener):
     def get_snapshot(self, build, format):
         snapshot = self.snapshots.get((build.config, build.rev, format))
         if not snapshot:
-            config = BuildConfig(self.env, build.config)
+            config = BuildConfig.fetch(self.env, build.config)
             snapshot = archive.pack(self.env, path=config.path, rev=build.rev,
                                     prefix=config.name, format=format)
             log.info('Prepared snapshot archive at %s' % snapshot)
@@ -155,8 +155,8 @@ class Master(beep.Listener):
                         match = False
                         break
                 if match:
-                    log.info('Slave %s matched target platform %s',
-                             handler.name, platform.name)
+                    log.debug('Slave %s matched target platform %s',
+                              handler.name, platform.name)
                     self.slaves[platform.id].add(handler)
                     any_match = True
 
@@ -285,18 +285,17 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
                     build.slave_info.update(self.info)
                     build.started = int(_parse_iso_datetime(elem.attr['time']))
                     build.status = Build.IN_PROGRESS
-                    log.info('Slave %s started build of "%s" as of [%s]',
-                             self.name, build.config, build.rev)
+                    log.info('Slave %s started build %d ("%s" as of [%s])',
+                             self.name, build.id, build.config, build.rev)
 
                 elif elem.name == 'step':
                     log.info('Slave completed step "%s"', elem.attr['id'])
-                    step = BuildStep(self.env)
-                    step.build = build.id
-                    step.name = elem.attr['id']
-                    step.description = elem.attr.get('description')
+                    step = BuildStep(self.env, build=build.id,
+                                     name=elem.attr['id'],
+                                     description=elem.attr.get('description'),
+                                     log=elem.gettext().strip())
                     step.started = int(_parse_iso_datetime(elem.attr['time']))
                     step.stopped = step.started + int(elem.attr['duration'])
-                    step.log = elem.gettext().strip()
                     if elem.attr['result'] == 'failure':
                         log.warning('Step failed: %s', elem.gettext())
                         step.status = BuildStep.FAILURE
@@ -305,8 +304,8 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
                     step.insert(db=db)
 
                 elif elem.name == 'completed':
-                    log.info('Slave %s completed build of "%s" as of [%s]',
-                             self.name, build.config, build.rev)
+                    log.info('Slave %s completed build %d ("%s" as of [%s])',
+                             self.name, build.id, build.config, build.rev)
                     build.stopped = int(_parse_iso_datetime(elem.attr['time']))
                     if elem.attr['result'] == 'failure':
                         build.status = Build.FAILURE
@@ -314,7 +313,8 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
                         build.status = Build.SUCCESS
 
                 elif elem.name == 'aborted':
-                    log.info('Slave "%s" aborted build %d', self.name, build.id)
+                    log.info('Slave "%s" aborted build %d ("%s" as of [%s])',
+                             self.name, build.id, build.config, build.rev)
                     build.slave = None
                     build.started = 0
                     build.status = Build.PENDING

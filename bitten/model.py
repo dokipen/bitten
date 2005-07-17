@@ -31,30 +31,17 @@ class BuildConfig(object):
         ]
     ]
 
-    def __init__(self, env, name=None, db=None):
+    def __init__(self, env, name=None, path=None, label=None, active=False,
+                 description=None):
         self.env = env
-        self.name = self._old_name = None
-        self.path = self.label = self.description = self.active = None
-        if name:
-            self._fetch(name, db)
+        self._old_name = None
+        self.name = name
+        self.path = path or ''
+        self.label = label or ''
+        self.active = bool(active)
+        self.description = description or ''
 
     exists = property(fget=lambda self: self._old_name is not None)
-
-    def _fetch(self, name, db=None):
-        if not db:
-            db = self.env.get_db_cnx()
-
-        cursor = db.cursor()
-        cursor.execute("SELECT path,label,active,description FROM bitten_config "
-                       "WHERE name=%s", (name,))
-        row = cursor.fetchone()
-        if not row:
-            raise Exception, "Build configuration %s does not exist" % name
-        self.name = self._old_name = name
-        self.path = row[0] or ''
-        self.label = row[1] or ''
-        self.active = row[2] and True or False
-        self.description = row[3] or ''
 
     def insert(self, db=None):
         assert not self.exists, 'Cannot insert existing configuration'
@@ -93,6 +80,27 @@ class BuildConfig(object):
         if handle_ta:
             db.commit()
 
+    def fetch(cls, env, name, db=None):
+        if not db:
+            db = env.get_db_cnx()
+
+        cursor = db.cursor()
+        cursor.execute("SELECT path,label,active,description "
+                       "FROM bitten_config WHERE name=%s", (name,))
+        row = cursor.fetchone()
+        if not row:
+            return None
+
+        config = BuildConfig(env)
+        config.name = config._old_name = name
+        config.path = row[0] or ''
+        config.label = row[1] or ''
+        config.active = row[2] and True or False
+        config.description = row[3] or ''
+        return config
+
+    fetch = classmethod(fetch)
+
     def select(cls, env, include_inactive=False, db=None):
         if not db:
             db = env.get_db_cnx()
@@ -106,13 +114,10 @@ class BuildConfig(object):
                            "FROM bitten_config WHERE active=1 "
                            "ORDER BY name")
         for name, path, label, active, description in cursor:
-            config = BuildConfig(env)
-            config.name = name
-            config.path = path or ''
-            config.label = label or ''
-            config.active = active and True or False
-            config.description = description or ''
-            yield config
+            yield BuildConfig(env, name=name, path=path or '',
+                              label=label or '', active=bool(active),
+                              description=description or '')
+
     select = classmethod(select)
 
 
@@ -129,32 +134,12 @@ class TargetPlatform(object):
         ]
     ]
 
-    def __init__(self, env, id=None, db=None):
+    def __init__(self, env, id=None, config=None, name=None, db=None):
         self.env = env
-        self.rules = []
-        if id is not None:
-            self._fetch(id, db)
-        else:
-            self.id = self.config = self.name = None
-
-    def _fetch(self, id, db=None):
-        if not db:
-            db = self.env.get_db_cnx()
-
-        cursor = db.cursor()
-        cursor.execute("SELECT config,name FROM bitten_platform "
-                       "WHERE id=%s", (id,))
-        row = cursor.fetchone()
-        if not row:
-            raise Exception, 'Target platform %s does not exist' % id
         self.id = id
-        self.config = row[0]
-        self.name = row[1]
-
-        cursor.execute("SELECT propname,pattern FROM bitten_rule "
-                       "WHERE id=%s ORDER BY orderno", (id,))
-        for propname, pattern in cursor:
-            self.rules.append((propname, pattern))
+        self.config = config
+        self.name = name
+        self.rules = []
 
     exists = property(fget=lambda self: self.id is not None)
 
@@ -216,6 +201,26 @@ class TargetPlatform(object):
         if handle_ta:
             db.commit()
 
+    def fetch(cls, env, id, db=None):
+        if not db:
+            db = env.get_db_cnx()
+
+        cursor = db.cursor()
+        cursor.execute("SELECT config,name FROM bitten_platform "
+                       "WHERE id=%s", (id,))
+        row = cursor.fetchone()
+        if not row:
+            return None
+
+        platform = TargetPlatform(env, id=id, config=row[0], name=row[1])
+        cursor.execute("SELECT propname,pattern FROM bitten_rule "
+                       "WHERE id=%s ORDER BY orderno", (id,))
+        for propname, pattern in cursor:
+            platform.rules.append((propname, pattern))
+        return platform
+
+    fetch = classmethod(fetch)
+
     def select(cls, env, config=None, db=None):
         if not db:
             db = env.get_db_cnx()
@@ -232,7 +237,8 @@ class TargetPlatform(object):
         cursor.execute("SELECT id FROM bitten_platform %s ORDER BY name"
                        % where, [wc[1] for wc in where_clauses])
         for (id,) in cursor:
-            yield TargetPlatform(env, id)
+            yield TargetPlatform.fetch(env, id)
+
     select = classmethod(select)
 
 
@@ -267,40 +273,20 @@ class Build(object):
     MACHINE = 'machine'
     PROCESSOR = 'processor'
 
-    def __init__(self, env, id=None, db=None):
+    def __init__(self, env, id=None, config=None, rev=None, platform=None,
+                 slave=None, started=0, stopped=0, rev_time=0,
+                 status=PENDING):
         self.env = env
         self.slave_info = {}
-        if id is not None:
-            self._fetch(id, db)
-        else:
-            self.id = self.config = self.rev = self.platform = self.slave = None
-            self.started = self.stopped = self.rev_time = 0
-            self.status = self.PENDING
-
-    def _fetch(self, id, db=None):
-        if not db:
-            db = self.env.get_db_cnx()
-
-        cursor = db.cursor()
-        cursor.execute("SELECT config,rev,rev_time,platform,slave,started,"
-                       "stopped,status FROM bitten_build WHERE id=%s", (id,))
-        row = cursor.fetchone()
-        if not row:
-            raise Exception, "Build %s not found" % id
         self.id = id
-        self.config = row[0]
-        self.rev = row[1]
-        self.rev_time = int(row[2])
-        self.platform = int(row[3])
-        self.slave = row[4]
-        self.started = row[5] and int(row[5])
-        self.stopped = row[6] and int(row[6])
-        self.status = row[7]
-
-        cursor.execute("SELECT propname,propvalue FROM bitten_slave "
-                       "WHERE build=%s", (self.id,))
-        for propname, propvalue in cursor:
-            self.slave_info[propname] = propvalue
+        self.config = config
+        self.rev = rev
+        self.platform = platform
+        self.slave = slave
+        self.started = started or 0
+        self.stopped = stopped or 0
+        self.rev_time = rev_time
+        self.status = status
 
     exists = property(fget=lambda self: self.id is not None)
     completed = property(fget=lambda self: self.status != Build.IN_PROGRESS)
@@ -373,6 +359,29 @@ class Build(object):
         if handle_ta:
             db.commit()
 
+    def fetch(cls, env, id, db=None):
+        if not db:
+            db = env.get_db_cnx()
+
+        cursor = db.cursor()
+        cursor.execute("SELECT config,rev,rev_time,platform,slave,started,"
+                       "stopped,status FROM bitten_build WHERE id=%s", (id,))
+        row = cursor.fetchone()
+        if not row:
+            return None
+
+        build = Build(env, id=id, config=row[0], rev=row[1],
+                      rev_time=int(row[2]), platform=int(row[3]),
+                      slave=row[4], started=row[5] and int(row[5]) or 0,
+                      stopped=row[6] and int(row[6]) or 0, status=row[7])
+        cursor.execute("SELECT propname,propvalue FROM bitten_slave "
+                       "WHERE build=%s", (id,))
+        for propname, propvalue in cursor:
+            build.slave_info[propname] = propvalue
+        return build
+
+    fetch = classmethod(fetch)
+
     def select(cls, env, config=None, rev=None, platform=None, slave=None,
                status=None, db=None):
         if not db:
@@ -395,23 +404,11 @@ class Build(object):
             where = ""
 
         cursor = db.cursor()
-        cursor.execute("SELECT id,config,rev,platform,slave,started,stopped,"
-                       "status,rev_time FROM bitten_build %s "
+        cursor.execute("SELECT id FROM bitten_build %s "
                        "ORDER BY config,rev_time DESC,slave"
                        % where, [wc[1] for wc in where_clauses])
-        for id, config, rev, platform, slave, started, stopped, status, \
-                rev_time in cursor:
-            build = Build(env)
-            build.id = id
-            build.config = config
-            build.rev = rev
-            build.platform = platform
-            build.slave = slave
-            build.started = started and int(started) or 0
-            build.stopped = stopped and int(stopped) or 0
-            build.status = status
-            build.rev_time = int(rev_time)
-            yield build
+        for (id,) in cursor:
+            yield Build.fetch(env, id)
     select = classmethod(select)
 
 
@@ -430,32 +427,16 @@ class BuildStep(object):
     SUCCESS = 'S'
     FAILURE = 'F'
 
-    def __init__(self, env, build=None, name=None, db=None):
+    def __init__(self, env, build=None, name=None, description=None,
+                 status=None, log=None, started=None, stopped=None):
         self.env = env
-        if build is not None and name is not None:
-            self._fetch(build, name, db)
-        else:
-            self.build = self.name = self.description = self.status = None
-            self.log = self.started = self.stopped = None
-
-    def _fetch(self, build, name, db=None):
-        if not db:
-            db = self.env.get_db_cnx()
-
-        cursor = db.cursor()
-        cursor.execute("SELECT description,status,log,started,stopped "
-                       "FROM bitten_step WHERE build=%s AND name=%s",
-                       (build, name))
-        row = cursor.fetchone()
-        if not row:
-            raise Exception, "Build step %s of %s not found" % (name, build)
         self.build = build
         self.name = name
-        self.description = row[0] or ''
-        self.status = row[1]
-        self.log = row[2] or ''
-        self.started = row[3] and int(row[3]) or 0
-        self.stopped = row[4] and int(row[4]) or 0
+        self.description = description
+        self.status = status
+        self.log = log
+        self.started = started
+        self.stopped = stopped
 
     exists = property(fget=lambda self: self.build is not None)
     successful = property(fget=lambda self: self.status == BuildStep.SUCCESS)
@@ -492,6 +473,22 @@ class BuildStep(object):
         if handle_ta:
             db.commit()
 
+    def fetch(cls, env, build, name, db=None):
+        if not db:
+            db = env.get_db_cnx()
+
+        cursor = db.cursor()
+        cursor.execute("SELECT description,status,log,started,stopped "
+                       "FROM bitten_step WHERE build=%s AND name=%s",
+                       (build, name))
+        row = cursor.fetchone()
+        if not row:
+            return None
+
+        return BuildStep(env, build, name, row[0] or '', row[1], row[2] or '',
+                         row[3] and int(row[3]), row[4] and int(row[4]))
+    fetch = classmethod(fetch)
+
     def select(cls, env, build=None, name=None, db=None):
         if not db:
             db = env.get_db_cnx()
@@ -511,15 +508,9 @@ class BuildStep(object):
                        "stopped FROM bitten_step %s ORDER BY stopped"
                        % where, [wc[1] for wc in where_clauses])
         for build, name, description, status, log, started, stopped in cursor:
-            step = BuildStep(env)
-            step.build = build
-            step.name = name
-            step.description = description
-            step.status = status
-            step.log = log
-            step.started = started and int(started) or 0
-            step.stopped = stopped and int(stopped) or 0
-            yield step
+            yield BuildStep(env, build, name, description or '', status,
+                            log or '', started and int(started),
+                            stopped and int(stopped))
     select = classmethod(select)
 
 

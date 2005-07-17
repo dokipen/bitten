@@ -23,12 +23,15 @@ import os.path
 from trac.core import *
 from trac.env import IEnvironmentSetupParticipant
 from trac.perm import IPermissionRequestor
-from bitten.model import schema, schema_version
+from trac.wiki import IWikiSyntaxProvider
+from bitten.model import schema, schema_version, Build, BuildConfig
 from bitten.trac_ext import web_ui
+
 
 class BuildSystem(Component):
 
-    implements(IEnvironmentSetupParticipant, IPermissionRequestor)
+    implements(IEnvironmentSetupParticipant, IPermissionRequestor,
+               IWikiSyntaxProvider)
 
     # IEnvironmentSetupParticipant methods
 
@@ -80,3 +83,21 @@ class BuildSystem(Component):
     def get_permission_actions(self):
         actions = ['BUILD_VIEW', 'BUILD_CREATE', 'BUILD_MODIFY', 'BUILD_DELETE']
         return actions + [('BUILD_ADMIN', actions)]
+
+    # IWikiSyntaxProvider methods
+
+    def get_wiki_syntax(self):
+        return []
+
+    def get_link_resolvers(self):
+        def _format_link(formatter, ns, name, label):
+            build = Build.fetch(self.env, int(name))
+            if build:
+                config = BuildConfig.fetch(self.env, build.config)
+                title = 'Build %d ([%s] of %s) by %s' % (build.id, build.rev,
+                        config.label, build.slave)
+                return '<a class="build" href="%s" title="%s">%s</a>' \
+                       % (formatter.href.build(build.config, build.id), title,
+                          label)
+            return label
+        yield 'build', _format_link
