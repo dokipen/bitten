@@ -114,9 +114,11 @@ class BuildConfig(object):
                            "FROM bitten_config WHERE active=1 "
                            "ORDER BY name")
         for name, path, label, active, description in cursor:
-            yield BuildConfig(env, name=name, path=path or '',
-                              label=label or '', active=bool(active),
-                              description=description or '')
+            config = BuildConfig(env, name=name, path=path or '',
+                                 label=label or '', active=bool(active),
+                                 description=description or '')
+            config._old_name = name
+            yield config
 
     select = classmethod(select)
 
