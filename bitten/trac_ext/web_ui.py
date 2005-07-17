@@ -92,15 +92,14 @@ class BuildModule(Component):
                 if action == 'new':
                     self._do_create_platform(req, config)
                 else:
-                    self.log.debug('Request args: %s', req.args.keys())
                     platform_id = req.args.get('platform')
                     if platform_id:
                         if action == 'edit':
                             self._do_save_platform(req, config, platform_id)
-                    elif 'delete' in req.args.keys():
+                    elif 'delete' in req.args:
                         self._do_delete_platforms(req)
                         self._render_config_form(req, config)
-                    elif 'new' in req.args.keys():
+                    elif 'new' in req.args:
                         platform = TargetPlatform(self.env, config=config)
                         self._render_platform_form(req, platform)
                     else:
@@ -118,7 +117,7 @@ class BuildModule(Component):
                         platform = TargetPlatform.fetch(self.env,
                                                         int(platform_id))
                         self._render_platform_form(req, platform)
-                    elif 'new' in req.args.keys():
+                    elif 'new' in req.args:
                         platform = TargetPlatform(self.env, config=config)
                         self._render_platform_form(req, platform)
                     else:
@@ -178,7 +177,7 @@ class BuildModule(Component):
         """Create a new build configuration."""
         req.perm.assert_permission('BUILD_CREATE')
 
-        if 'cancel' in req.args.keys():
+        if 'cancel' in req.args:
             req.redirect(self.env.href.build())
 
         config = BuildConfig(self.env, name=req.args.get('name'),
@@ -194,7 +193,7 @@ class BuildModule(Component):
         """Save changes to a build configuration."""
         req.perm.assert_permission('BUILD_MODIFY')
 
-        if 'cancel' in req.args.keys():
+        if 'cancel' in req.args:
             req.redirect(self.env.href.build(config_name))
 
         config = BuildConfig.fetch(self.env, config_name)
@@ -212,29 +211,29 @@ class BuildModule(Component):
         """Create a new target platform."""
         req.perm.assert_permission('BUILD_MODIFY')
 
-        if 'cancel' in req.args.keys():
+        if 'cancel' in req.args:
             req.redirect(self.env.href.build(config_name, action='edit'))
 
         platform = TargetPlatform(self.env, config=config_name,
                                   name=req.args.get('name'))
 
-        properties = [int(key[9:]) for key in req.args.keys()
+        properties = [int(key[9:]) for key in req.args
                       if key.startswith('property_')]
         properties.sort()
-        patterns = [int(key[8:]) for key in req.args.keys()
+        patterns = [int(key[8:]) for key in req.args
                     if key.startswith('pattern_')]
         patterns.sort()
         platform.rules = [(req.args.get('property_%d' % property),
                            req.args.get('pattern_%d' % pattern))
                           for property, pattern in zip(properties, patterns)]
 
-        add_rules = [int(key[9:]) for key in req.args.keys()
+        add_rules = [int(key[9:]) for key in req.args
                      if key.startswith('add_rule_')]
         if add_rules:
             platform.rules.insert(add_rules[0] + 1, ('', ''))
             self._render_platform_form(req, platform)
             return
-        rm_rules = [int(key[8:]) for key in req.args.keys()
+        rm_rules = [int(key[8:]) for key in req.args
                      if key.startswith('rm_rule_')]
         if rm_rules:
             del platform.rules[rm_rules[0]]
@@ -262,29 +261,29 @@ class BuildModule(Component):
         """Save changes to a target platform."""
         req.perm.assert_permission('BUILD_MODIFY')
 
-        if 'cancel' in req.args.keys():
+        if 'cancel' in req.args:
             req.redirect(self.env.href.build(config_name, action='edit'))
 
         platform = TargetPlatform.fetch(self.env, platform_id)
         platform.name = req.args.get('name')
 
-        properties = [int(key[9:]) for key in req.args.keys()
+        properties = [int(key[9:]) for key in req.args
                       if key.startswith('property_')]
         properties.sort()
-        patterns = [int(key[8:]) for key in req.args.keys()
+        patterns = [int(key[8:]) for key in req.args
                     if key.startswith('pattern_')]
         patterns.sort()
         platform.rules = [(req.args.get('property_%d' % property),
                            req.args.get('pattern_%d' % pattern))
                           for property, pattern in zip(properties, patterns)]
 
-        add_rules = [int(key[9:]) for key in req.args.keys()
+        add_rules = [int(key[9:]) for key in req.args
                      if key.startswith('add_rule_')]
         if add_rules:
             platform.rules.insert(add_rules[0] + 1, ('', ''))
             self._render_platform_form(req, platform)
             return
-        rm_rules = [int(key[8:]) for key in req.args.keys()
+        rm_rules = [int(key[8:]) for key in req.args
                      if key.startswith('rm_rule_')]
         if rm_rules:
             del platform.rules[rm_rules[0]]
