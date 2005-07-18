@@ -23,6 +23,7 @@ import re
 import sys
 from time import localtime, strftime
 
+import pkg_resources
 from trac.core import *
 from trac.Timeline import ITimelineEventProvider
 from trac.util import escape, pretty_timedelta
@@ -31,17 +32,6 @@ from trac.web.chrome import INavigationContributor, ITemplateProvider, \
 from trac.web.main import IRequestHandler
 from trac.wiki import wiki_to_html
 from bitten.model import BuildConfig, TargetPlatform, Build, BuildStep
-
-def _find_dir(name):
-    import bitten
-    # First assume we're being executing directly form the source directory
-    path = os.path.join(os.path.split(os.path.dirname(bitten.__file__))[0],
-                        name)
-    if not os.path.isdir(path):
-        # Not being executed from the source directory, so assume the
-        # default installation prefix
-        path = os.path.join(sys.prefix, 'share', 'bitten', name)
-    return path
 
 
 class BuildModule(Component):
@@ -53,9 +43,6 @@ class BuildModule(Component):
     _status_label = {Build.IN_PROGRESS: 'in progress',
                      Build.SUCCESS: 'completed',
                      Build.FAILURE: 'failed'}
-
-    htdocs_dir = _find_dir('htdocs')
-    templates_dir = _find_dir('templates')
 
     # INavigationContributor methods
 
@@ -136,10 +123,10 @@ class BuildModule(Component):
     # ITemplatesProvider methods
 
     def get_htdocs_dir(self):
-        return self.config.get('bitten', 'htdocs_dir') or self.htdocs_dir
+        return pkg_resources.resource_filename(__name__, 'htdocs')
 
     def get_templates_dir(self):
-        return self.config.get('bitten', 'templates_dir') or self.templates_dir
+        return pkg_resources.resource_filename(__name__, 'templates')
 
     # ITimelineEventProvider methods
 

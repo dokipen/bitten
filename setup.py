@@ -19,7 +19,11 @@
 #
 # Author: Christopher Lenz <cmlenz@gmx.de>
 
-from distutils.core import setup
+import ez_setup # From http://peak.telecommunity.com/DevCenter/setuptools
+ez_setup.use_setuptools()
+
+
+from setuptools import setup, find_packages
 from distutils import util
 from glob import glob
 
@@ -30,9 +34,9 @@ scripts = ['scripts/bitten', 'scripts/bittend']
 if util.get_platform()[:3] == 'win':
     scripts = [script + '.bat' for script in scripts]
 
-setup(name='bitten', version=VERSION,
-      packages=['bitten', 'bitten.build', 'bitten.trac_ext', 'bitten.util'],
-      data_files=[('share/bitten/htdocs', glob('htdocs/*.*')),
-                  ('share/bitten/templates', glob('templates/*.cs'))],
-      scripts=scripts, author="Christopher Lenz", author_email="cmlenz@gmx.de",
-      url="http://bitten.cmlenz.net/", cmdclass={'unittest': unittest})
+setup(name='bitten', version=VERSION, author="Christopher Lenz",
+      author_email="cmlenz@gmx.de", url="http://bitten.cmlenz.net/",
+      packages=find_packages(exclude=["*.tests*"]),
+      package_data={'bitten.trac_ext': ['templates/*.cs', 'htdocs/*.*']},
+      scripts=scripts, test_suite='bitten.tests.suite', zip_safe=True,
+      cmdclass={'unittest': unittest})
