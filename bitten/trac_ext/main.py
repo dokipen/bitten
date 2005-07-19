@@ -40,12 +40,16 @@ class BuildSystem(Component):
         db = self.env.get_db_cnx()
         cursor = db.cursor()
         for table in schema:
-            cursor.execute(db.to_sql(table))
+            for stmt in db.to_sql(table):
+                cursor.execute(stmt)
 
-        tarballs_dir = os.path.join(self.env.path, 'snapshots')
-
+        # Insert a global version flag
         cursor.execute("INSERT INTO system (name,value) "
                        "VALUES ('bitten_version',%s)", (schema_version,))
+
+        # Create the directory for storing snapshot archives
+        tarballs_dir = os.path.join(self.env.path, 'snapshots')
+
         db.commit()
 
     def environment_needs_upgrade(self, db):
