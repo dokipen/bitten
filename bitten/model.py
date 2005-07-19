@@ -173,10 +173,12 @@ class TargetPlatform(object):
         cursor = db.cursor()
         cursor.execute("INSERT INTO bitten_platform (config,name) "
                        "VALUES (%s,%s)", (self.config, self.name))
-        self.id = db.get_last_id('bitten_platform')
-        cursor.executemany("INSERT INTO bitten_rule VALUES (%s,%s,%s,%s)",
-                           [(self.id, propname, pattern, idx) for
-                            idx, (propname, pattern) in enumerate(self.rules)])
+        self.id = db.get_last_id(cursor, 'bitten_platform')
+        if self.rules:
+            cursor.executemany("INSERT INTO bitten_rule VALUES (%s,%s,%s,%s)",
+                               [(self.id, propname, pattern, idx)
+                                for idx, (propname, pattern)
+                                in enumerate(self.rules)])
 
         if handle_ta:
             db.commit()
@@ -195,10 +197,12 @@ class TargetPlatform(object):
         cursor = db.cursor()
         cursor.execute("UPDATE bitten_platform SET name=%s WHERE id=%s",
                        (self.name, self.id))
-        cursor.execute("DELETE FROM bitten_rule WHERE id=%s", (self.id))
-        cursor.executemany("INSERT INTO bitten_rule VALUES (%s,%s,%s,%s)",
-                           [(self.id, propname, pattern, idx) for
-                            idx, (propname, pattern) in enumerate(self.rules)])
+        cursor.execute("DELETE FROM bitten_rule WHERE id=%s", (self.id,))
+        if self.rules:
+            cursor.executemany("INSERT INTO bitten_rule VALUES (%s,%s,%s,%s)",
+                               [(self.id, propname, pattern, idx)
+                                for idx, (propname, pattern)
+                                in enumerate(self.rules)])
 
         if handle_ta:
             db.commit()
@@ -328,10 +332,11 @@ class Build(object):
                        (self.config, self.rev, self.rev_time, self.platform,
                         self.slave or '', self.started or 0, self.stopped or 0,
                         self.status))
-        self.id = db.get_last_id('bitten_build')
-        cursor.executemany("INSERT INTO bitten_slave VALUES (%s,%s,%s)",
-                           [(self.id, name, value) for name, value
-                            in self.slave_info.items()])
+        self.id = db.get_last_id(cursor, 'bitten_build')
+        if self.slave_info:
+            cursor.executemany("INSERT INTO bitten_slave VALUES (%s,%s,%s)",
+                               [(self.id, name, value) for name, value
+                                in self.slave_info.items()])
 
         if handle_ta:
             db.commit()

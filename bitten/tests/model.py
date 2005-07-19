@@ -31,7 +31,8 @@ class BuildConfigTestCase(unittest.TestCase):
         db = self.env.get_db_cnx()
         cursor = db.cursor()
         for table in BuildConfig._schema:
-            cursor.execute(db.to_sql(table))
+            for stmt in db.to_sql(table):
+                cursor.execute(stmt)
         db.commit()
 
     def test_new_config(self):
@@ -72,7 +73,8 @@ class TargetPlatformTestCase(unittest.TestCase):
         db = self.env.get_db_cnx()
         cursor = db.cursor()
         for table in TargetPlatform._schema:
-            cursor.execute(db.to_sql(table))
+            for stmt in db.to_sql(table):
+                cursor.execute(stmt)
         db.commit()
 
     def test_new(self):
@@ -102,7 +104,7 @@ class TargetPlatformTestCase(unittest.TestCase):
         cursor = db.cursor()
         cursor.execute("INSERT INTO bitten_platform (config,name) "
                        "VALUES (%s,%s)", ('test', 'Windows'))
-        id = db.get_last_id('bitten_platform')
+        id = db.get_last_id(cursor, 'bitten_platform')
         platform = TargetPlatform.fetch(self.env, id)
         assert platform.exists
         self.assertEqual('test', platform.config)
@@ -125,7 +127,8 @@ class BuildTestCase(unittest.TestCase):
         db = self.env.get_db_cnx()
         cursor = db.cursor()
         for table in Build._schema:
-            cursor.execute(db.to_sql(table))
+            for stmt in db.to_sql(table):
+                cursor.execute(stmt)
         db.commit()
 
     def test_new(self):
@@ -195,7 +198,7 @@ class BuildTestCase(unittest.TestCase):
                        "VALUES (%s,%s,%s,%s,%s,%s,%s,%s)",
                        ('test', '42', 12039, 1, 'tehbox', 15006, 16007,
                         Build.SUCCESS))
-        build_id = db.get_last_id('bitten_build')
+        build_id = db.get_last_id(cursor, 'bitten_build')
         cursor.executemany("INSERT INTO bitten_slave VALUES (%s,%s,%s)",
                            [(build_id, Build.IP_ADDRESS, '127.0.0.1'),
                             (build_id, Build.MAINTAINER, 'joe@example.org')])
@@ -213,7 +216,8 @@ class BuildStepTestCase(unittest.TestCase):
         db = self.env.get_db_cnx()
         cursor = db.cursor()
         for table in BuildStep._schema:
-            cursor.execute(db.to_sql(table))
+            for stmt in db.to_sql(table):
+                cursor.execute(stmt)
         db.commit()
 
     def test_new(self):

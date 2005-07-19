@@ -19,7 +19,8 @@ class BuildModuleTestCase(unittest.TestCase):
         db = self.env.get_db_cnx()
         cursor = db.cursor()
         for table in schema:
-            cursor.execute(db.to_sql(table))
+            for stmt in db.to_sql(table):
+                cursor.execute(stmt)
 
         # Set up permissions
         self.env.config.set('trac', 'permission_store',
