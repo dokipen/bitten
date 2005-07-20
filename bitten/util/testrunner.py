@@ -61,8 +61,8 @@ class XMLTestResult(_TextTestResult):
 
 class XMLTestRunner(TextTestRunner):
 
-    def __init__(self, stream=sys.stderr, xml_stream=None):
-        TextTestRunner.__init__(self, stream, descriptions=0, verbosity=1)
+    def __init__(self, stream=sys.stdout, xml_stream=None):
+        TextTestRunner.__init__(self, stream, descriptions=0, verbosity=2)
         self.xml_stream = xml_stream
 
     def _makeResult(self):
@@ -148,5 +148,7 @@ class unittest(Command):
         suite = __import__(self.test_suite)
         for comp in self.test_suite.split('.')[1:]:
             suite = getattr(suite, comp)
-        runner = XMLTestRunner(stream=sys.stderr, xml_stream=self.xml_results)
-        runner.run(suite.suite())
+        runner = XMLTestRunner(stream=sys.stdout, xml_stream=self.xml_results)
+        result = runner.run(suite.suite())
+        if result.failures or result.errors:
+            raise DistutilsExecError, 'unit tests failed'

@@ -66,6 +66,7 @@ class Commandline(object):
             err_name = tempfile.mktemp()
             cmd = "( %s ) > %s 2> %s" % (' '.join(args), out_name, err_name)
             self.returncode = os.system(cmd) >> 8
+            log.debug('Exited with code %s', self.returncode)
 
             out_file = file(out_name, 'r')
             err_file = file(err_name, 'r')
@@ -124,6 +125,7 @@ class Commandline(object):
                     yield out_line, err_line
                 time.sleep(.1)
             self.returncode = pipe.wait()
+            log.debug('Exited with code %s', self.returncode)
 
     def _combine(self, *iterables):
         iterables = [iter(iterable) for iterable in iterables]

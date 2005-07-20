@@ -36,4 +36,4 @@ def make(ctxt, target='all', file=None, jobs=None, keep_going=False):
         ctxt.log(ctxt.OUTPUT, out)
         ctxt.log(ctxt.ERROR, err)
     if cmdline.returncode != 0:
-        raise BuildError, "Executing make failed (%s)" % cmdline.returncode
+        raise BuildError, 'make failed (%s)' % cmdline.returncode

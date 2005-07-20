@@ -30,7 +30,7 @@ def distutils(ctxt, command='build'):
         ctxt.log(ctxt.OUTPUT, out)
         ctxt.log(ctxt.ERROR, err)
     if cmdline.returncode != 0:
-        raise BuildError, 'Executing distutils failed (%s)' % cmdline.returncode
+        raise BuildError, 'distutils failed (%s)' % cmdline.returncode
 
 def pylint(ctxt, file=None):
     """Extract data from a `pylint` run written to a file."""
