@@ -74,7 +74,8 @@ class Commandline(object):
             out_file.close()
             err_file.close()
             for out_line, err_line in self._combine(out_lines, err_lines):
-                yield out_line, err_line
+                yield out_line and out_line.rstrip(), \
+                      err_line and err_line.rstrip()
 
     else: # posix
 

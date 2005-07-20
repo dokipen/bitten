@@ -19,31 +19,47 @@
 #
 # Author: Christopher Lenz <cmlenz@gmx.de>
 
+import itertools
+import logging
 import sys
 
 from bitten.build import BuildError
 from bitten.recipe import Recipe
 
-def build():
-    step_id = None
-    if len(sys.argv) > 1:
-        step_id = sys.argv[1]
+def main():
+    from bitten import __version__ as VERSION
+    from optparse import OptionParser
 
+    parser = OptionParser(usage='usage: %prog [options] [step1] [step2] ...',
+                          version='%%prog %s' % VERSION)
+    parser.add_option('-v', '--verbose', action='store_const', dest='loglevel',
+                      const=logging.DEBUG, help='print as much as possible')
+    parser.add_option('-q', '--quiet', action='store_const', dest='loglevel',
+                      const=logging.ERROR, help='print as little as possible')
+    parser.set_defaults(loglevel=logging.INFO)
+    options, args = parser.parse_args()
+
+    log = logging.getLogger('bitten')
+    log.setLevel(options.loglevel)
+    handler = logging.StreamHandler()
+    handler.setLevel(options.loglevel)
+    formatter = logging.Formatter('[%(levelname)-8s] %(message)s')
+    handler.setFormatter(formatter)
+    log.addHandler(handler)
+
+    steps_to_run = dict([(step, False) for step in args])
     recipe = Recipe()
-    steps_run = []
     for step in recipe:
-        if not step_id or step.id == step_id:
+        if not steps_to_run or step.id in steps_to_run:
             print '-->', step.description or step.id
             step.execute(recipe.ctxt)
             print
-            steps_run.append(step.id)
-
-    if step_id and not step_id in steps_run:
-        raise BuildError, 'Recipe has no step named "%s"' % step_id
+            if step.id in steps_to_run:
+                steps_to_run[step.id] = True
 
 if __name__ == '__main__':
     try:
-        build()
+        main()
     except BuildError, e:
         print>>sys.stderr, 'FAILED: %s' % e
         sys.exit(-1)
