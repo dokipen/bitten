@@ -25,7 +25,6 @@ from trac.env import IEnvironmentSetupParticipant
 from trac.perm import IPermissionRequestor
 from trac.wiki import IWikiSyntaxProvider
 from bitten.model import schema, schema_version, Build, BuildConfig
-from bitten.trac_ext import web_ui
 
 
 class BuildSystem(Component):
