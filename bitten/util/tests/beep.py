@@ -60,23 +60,55 @@ class MockProfileHandler(object):
         pass
 
     def handle_msg(self, msgno, message):
-        text = message.as_string().strip()
+        text = message.read().strip()
         self.handled_messages.append(('MSG', msgno, text, None))
 
     def handle_rpy(self, msgno, message):
-        text = message.as_string().strip()
+        text = message.read().strip()
         self.handled_messages.append(('RPY', msgno, text, None))
 
     def handle_err(self, msgno, message):
-        text = message.as_string().strip()
+        text = message.read().strip()
         self.handled_messages.append(('ERR', msgno, text, None))
 
     def handle_ans(self, msgno, ansno, message):
-        text = message.as_string().strip()
+        text = message.read().strip()
         self.handled_messages.append(('ANS', msgno, text, ansno))
 
     def handle_nul(self, msgno):
         self.handled_messages.append(('NUL', msgno, '', None))
+
+
+class SessionTestCase(unittest.TestCase):
+    """Unit tests for the `beep.Session` class."""
+
+    def setUp(self):
+        self.session = beep.Session()
+
+    def test_malformed_frame_invalid_keyword(self):
+        self.session.collect_incoming_data('XYZ 0 0 . 0 0')
+        self.session.found_terminator()
+        self.assertRaises(beep.TerminateSession, self.session.found_terminator)
+
+    def test_malformed_frame_invalid_parameter1(self):
+        self.session.collect_incoming_data('MSG x y . z 0')
+        self.session.found_terminator()
+        self.assertRaises(beep.TerminateSession, self.session.found_terminator)
+
+    def test_malformed_frame_invalid_parameter2(self):
+        self.session.collect_incoming_data('MSG 0 0 + 0 0')
+        self.session.found_terminator()
+        self.assertRaises(beep.TerminateSession, self.session.found_terminator)
+
+    def test_malformed_frame_missing_size_param(self):
+        self.session.collect_incoming_data('MSG 0 0 . 0')
+        self.session.found_terminator()
+        self.assertRaises(beep.TerminateSession, self.session.found_terminator)
+
+    def test_malformed_frame_missing_ansno_param(self):
+        self.session.collect_incoming_data('ANS 0 0 . 0 0')
+        self.session.found_terminator()
+        self.assertRaises(beep.TerminateSession, self.session.found_terminator)
 
 
 class ChannelTestCase(unittest.TestCase):
@@ -112,8 +144,8 @@ class ChannelTestCase(unittest.TestCase):
         channel = beep.Channel(self.session, 0, MockProfileHandler)
         channel.handle_data_frame('MSG', 0, False, 0L, None, 'foo bar')
         # The next sequence number should be 8; send 12 instead
-        self.assertRaises(beep.ProtocolError, channel.handle_data_frame, 'MSG',
-                          0, False, 12L, None, 'foo baz')
+        self.assertRaises(beep.TerminateSession, channel.handle_data_frame,
+                          'MSG', 0, False, 12L, None, 'foo baz')
 
     def test_send_single_frame_message(self):
         """
@@ -260,7 +292,7 @@ class ManagementProfileHandlerTestCase(unittest.TestCase):
         self.profile.handle_connect()
         self.assertEqual(1, len(self.session.sent_messages))
         xml = xmlio.Element('greeting')
-        message = beep.Payload(xml).as_string()
+        message = beep.Payload(xml).read()
         self.assertEqual(('RPY', 0, 0, False, 0, None, message),
                          self.session.sent_messages[0])
 
@@ -275,7 +307,7 @@ class ManagementProfileHandlerTestCase(unittest.TestCase):
         xml = xmlio.Element('greeting')[
             xmlio.Element('profile', uri=MockProfileHandler.URI)
         ]
-        message = beep.Payload(xml).as_string()
+        message = beep.Payload(xml).read()
         self.assertEqual(('RPY', 0, 0, False, 0, None, message),
                          self.session.sent_messages[0])
 
@@ -290,7 +322,7 @@ class ManagementProfileHandlerTestCase(unittest.TestCase):
         greeting_received.called = False
         self.session.greeting_received = greeting_received
         xml = xmlio.Element('greeting')[xmlio.Element('profile', uri='test')]
-        message = beep.Payload(xml).as_string()
+        message = beep.Payload(xml).read()
         self.channel.handle_data_frame('RPY', 0, False, 0L, None, message)
         assert greeting_received.called
 
@@ -304,7 +336,7 @@ class ManagementProfileHandlerTestCase(unittest.TestCase):
 
         assert 2 in self.session.channels
         xml = xmlio.Element('profile', uri=MockProfileHandler.URI)
-        message = beep.Payload(xml).as_string()
+        message = beep.Payload(xml).read()
         self.assertEqual(('RPY', 0, 0, False, 0, None, message),
                          self.session.sent_messages[0])
 
@@ -314,15 +346,9 @@ class ManagementProfileHandlerTestCase(unittest.TestCase):
             xmlio.Element('profile', uri='http://example.com/foo'),
             xmlio.Element('profile', uri='http://example.com/bar')
         ]
-        self.profile.handle_msg(0, beep.Payload(xml))
-
+        self.assertRaises(beep.ProtocolError, self.profile.handle_msg, 0,
+                          beep.Payload(xml))
         assert 2 not in self.session.channels
-        xml = xmlio.Element('error', code=550)[
-            'None of the requested profiles is supported'
-        ]
-        message = beep.Payload(xml).as_string()
-        self.assertEqual(('ERR', 0, 0, False, 0, None, message),
-                         self.session.sent_messages[0])
 
     def test_handle_start_channel_in_use(self):
         self.session.channels[2] = beep.Channel(self.session, 2,
@@ -332,13 +358,9 @@ class ManagementProfileHandlerTestCase(unittest.TestCase):
         xml = xmlio.Element('start', number=2)[
             xmlio.Element('profile', uri=MockProfileHandler.URI)
         ]
-        self.profile.handle_msg(0, beep.Payload(xml))
-
+        self.assertRaises(beep.ProtocolError, self.profile.handle_msg, 0,
+                          beep.Payload(xml))
         assert self.session.channels[2].profile is orig_profile
-        xml = xmlio.Element('error', code=550)['Channel already in use']
-        message = beep.Payload(xml).as_string()
-        self.assertEqual(('ERR', 0, 0, False, 0, None, message),
-                         self.session.sent_messages[0])
 
     def test_handle_close(self):
         self.session.channels[1] = beep.Channel(self.session, 1,
@@ -348,7 +370,7 @@ class ManagementProfileHandlerTestCase(unittest.TestCase):
 
         assert 1 not in self.session.channels
         xml = xmlio.Element('ok')
-        message = beep.Payload(xml).as_string()
+        message = beep.Payload(xml).read()
         self.assertEqual(('RPY', 0, 0, False, 0, None, message),
                          self.session.sent_messages[0])
 
@@ -358,19 +380,15 @@ class ManagementProfileHandlerTestCase(unittest.TestCase):
 
         assert 1 not in self.session.channels
         xml = xmlio.Element('ok')
-        message = beep.Payload(xml).as_string()
+        message = beep.Payload(xml).read()
         self.assertEqual(('RPY', 0, 0, False, 0, None, message),
                          self.session.sent_messages[0])
         assert self.session.closed
 
     def test_handle_close_channel_not_open(self):
         xml = xmlio.Element('close', number=1, code=200)
-        self.profile.handle_msg(0, beep.Payload(xml))
-
-        xml = xmlio.Element('error', code=550)['Channel not open']
-        message = beep.Payload(xml).as_string()
-        self.assertEqual(('ERR', 0, 0, False, 0, None, message),
-                         self.session.sent_messages[0])
+        self.assertRaises(beep.ProtocolError, self.profile.handle_msg, 0,
+                          beep.Payload(xml))
 
     def test_handle_close_channel_busy(self):
         self.session.channels[1] = beep.Channel(self.session, 1,
@@ -379,34 +397,16 @@ class ManagementProfileHandlerTestCase(unittest.TestCase):
         assert self.session.channels[1].msgnos
 
         xml = xmlio.Element('close', number=1, code=200)
-        self.profile.handle_msg(0, beep.Payload(xml))
-
-        xml = xmlio.Element('error', code=550)['Channel waiting for replies']
-        message = beep.Payload(xml).as_string()
-        self.assertEqual(('ERR', 0, 0, False, 0, None, message),
-                         self.session.sent_messages[1])
+        self.assertRaises(beep.ProtocolError, self.profile.handle_msg, 0,
+                          beep.Payload(xml))
 
     def test_handle_close_session_busy(self):
         self.session.channels[1] = beep.Channel(self.session, 1,
                                                 MockProfileHandler)
 
         xml = xmlio.Element('close', number=0, code=200)
-        self.profile.handle_msg(0, beep.Payload(xml))
-
-        xml = xmlio.Element('error', code=550)['Other channels still open']
-        message = beep.Payload(xml).as_string()
-        self.assertEqual(('ERR', 0, 0, False, 0, None, message),
-                         self.session.sent_messages[0])
-
-    def test_send_error(self):
-        """
-        Verify that a negative reply is sent as expected.
-        """
-        self.profile.send_error(0, 521, 'ouch')
-        xml = xmlio.Element('error', code=521)['ouch']
-        message = beep.Payload(xml).as_string()
-        self.assertEqual(('ERR', 0, 0, False, 0, None, message),
-                         self.session.sent_messages[0])
+        self.assertRaises(beep.ProtocolError, self.profile.handle_msg, 0,
+                          beep.Payload(xml))
 
     def test_send_start(self):
         """
@@ -416,7 +416,7 @@ class ManagementProfileHandlerTestCase(unittest.TestCase):
         xml = xmlio.Element('start', number="1")[
             xmlio.Element('profile', uri=MockProfileHandler.URI)
         ]
-        message = beep.Payload(xml).as_string()
+        message = beep.Payload(xml).read()
         self.assertEqual(('MSG', 0, 0, False, 0, None, message),
                          self.session.sent_messages[0])
 
@@ -427,7 +427,7 @@ class ManagementProfileHandlerTestCase(unittest.TestCase):
         """
         self.profile.send_start([MockProfileHandler])
         xml = xmlio.Element('profile', uri=MockProfileHandler.URI)
-        message = beep.Payload(xml).as_string()
+        message = beep.Payload(xml).read()
         self.channel.handle_data_frame('RPY', 0, False, 0L, None, message)
         assert isinstance(self.session.channels[1].profile, MockProfileHandler)
 
@@ -438,7 +438,7 @@ class ManagementProfileHandlerTestCase(unittest.TestCase):
         """
         self.profile.send_start([MockProfileHandler])
         xml = xmlio.Element('error', code=500)['ouch']
-        message = beep.Payload(xml).as_string()
+        message = beep.Payload(xml).read()
         self.channel.handle_data_frame('ERR', 0, False, 0L, None, message)
         assert 1 not in self.session.channels
 
@@ -459,7 +459,7 @@ class ManagementProfileHandlerTestCase(unittest.TestCase):
                                 handle_error=handle_error)
 
         xml = xmlio.Element('profile', uri=MockProfileHandler.URI)
-        message = beep.Payload(xml).as_string()
+        message = beep.Payload(xml).read()
         self.channel.handle_data_frame('RPY', 0, False, 0L, None, message)
         assert isinstance(self.session.channels[1].profile, MockProfileHandler)
         assert handle_ok.called
@@ -482,7 +482,7 @@ class ManagementProfileHandlerTestCase(unittest.TestCase):
                                 handle_error=handle_error)
 
         xml = xmlio.Element('error', code=500)['ouch']
-        message = beep.Payload(xml).as_string()
+        message = beep.Payload(xml).read()
         self.channel.handle_data_frame('ERR', 0, False, 0L, None, message)
         assert 1 not in self.session.channels
         assert not handle_ok.called
@@ -494,7 +494,7 @@ class ManagementProfileHandlerTestCase(unittest.TestCase):
         """
         self.profile.send_close(1, code=200)
         xml = xmlio.Element('close', number=1, code=200)
-        message = beep.Payload(xml).as_string()
+        message = beep.Payload(xml).read()
         self.assertEqual(('MSG', 0, 0, False, 0, None, message),
                          self.session.sent_messages[0])
 
@@ -508,7 +508,7 @@ class ManagementProfileHandlerTestCase(unittest.TestCase):
         self.profile.send_close(1, code=200)
 
         xml = xmlio.Element('ok')
-        message = beep.Payload(xml).as_string()
+        message = beep.Payload(xml).read()
         self.channel.handle_data_frame('RPY', 0, False, 0L, None, message)
         assert 1 not in self.session.channels
 
@@ -520,7 +520,7 @@ class ManagementProfileHandlerTestCase(unittest.TestCase):
         self.profile.send_close(0, code=200)
 
         xml = xmlio.Element('ok')
-        message = beep.Payload(xml).as_string()
+        message = beep.Payload(xml).read()
         self.channel.handle_data_frame('RPY', 0, False, 0L, None, message)
         assert 0 not in self.session.channels
         assert self.session.closed
@@ -535,7 +535,7 @@ class ManagementProfileHandlerTestCase(unittest.TestCase):
         self.profile.send_close(1, code=200)
 
         xml = xmlio.Element('error', code=500)['ouch']
-        message = beep.Payload(xml).as_string()
+        message = beep.Payload(xml).read()
         self.channel.handle_data_frame('ERR', 0, False, 0L, None, message)
         assert 1 in self.session.channels
 
@@ -556,7 +556,7 @@ class ManagementProfileHandlerTestCase(unittest.TestCase):
                                 handle_error=handle_error)
 
         xml = xmlio.Element('profile', uri=MockProfileHandler.URI)
-        message = beep.Payload(xml).as_string()
+        message = beep.Payload(xml).read()
         self.channel.handle_data_frame('RPY', 0, False, 0L, None, message)
         assert 1 not in self.session.channels
         assert handle_ok.called
@@ -581,7 +581,7 @@ class ManagementProfileHandlerTestCase(unittest.TestCase):
                                 handle_error=handle_error)
 
         xml = xmlio.Element('error', code=500)['ouch']
-        message = beep.Payload(xml).as_string()
+        message = beep.Payload(xml).read()
         self.channel.handle_data_frame('ERR', 0, False, 0L, None, message)
         assert 1 in self.session.channels
         assert not handle_ok.called
@@ -590,6 +590,7 @@ class ManagementProfileHandlerTestCase(unittest.TestCase):
 
 def suite():
     suite = unittest.TestSuite()
+    suite.addTest(unittest.makeSuite(SessionTestCase, 'test'))
     suite.addTest(unittest.makeSuite(ChannelTestCase, 'test'))
     suite.addTest(unittest.makeSuite(ManagementProfileHandlerTestCase, 'test'))
     return suite
