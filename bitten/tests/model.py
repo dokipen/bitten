@@ -35,7 +35,7 @@ class BuildConfigTestCase(unittest.TestCase):
                 cursor.execute(stmt)
         db.commit()
 
-    def test_new_config(self):
+    def test_new(self):
         config = BuildConfig(self.env, name='test')
         assert not config.exists
 
@@ -51,7 +51,19 @@ class BuildConfigTestCase(unittest.TestCase):
         self.assertEqual('Test', config.label)
         self.assertEqual(False, config.active)
 
-    def test_insert_config(self):
+    def test_fetch_none(self):
+        config = BuildConfig.fetch(self.env, name='test')
+        self.assertEqual(None, config)
+
+    def test_select_none(self):
+        configs = BuildConfig.select(self.env)
+        self.assertRaises(StopIteration, configs.next)
+
+    def test_select_none(self):
+        configs = BuildConfig.select(self.env)
+        self.assertRaises(StopIteration, configs.next)
+
+    def test_insert(self):
         config = BuildConfig(self.env, name='test', path='trunk', label='Test')
         config.insert()
 
@@ -61,9 +73,57 @@ class BuildConfigTestCase(unittest.TestCase):
                        "FROM bitten_config")
         self.assertEqual(('test', 'trunk', 'Test', 0, ''), cursor.fetchone())
 
-    def test_insert_config_no_name(self):
+    def test_insert_no_name(self):
         config = BuildConfig(self.env)
         self.assertRaises(AssertionError, config.insert)
+
+    def test_update(self):
+        db = self.env.get_db_cnx()
+        cursor = db.cursor()
+        cursor.execute("INSERT INTO bitten_config (name,path,label,active) "
+                       "VALUES (%s,%s,%s,%s)", ('test', 'trunk', 'Test', 0))
+
+        config = BuildConfig.fetch(self.env, 'test')
+        config.path = 'some_branch'
+        config.label = 'Updated'
+        config.active = True
+        config.description = 'Bla bla bla'
+        config.update()
+
+        db = self.env.get_db_cnx()
+        cursor = db.cursor()
+        cursor.execute("SELECT name,path,label,active,description "
+                       "FROM bitten_config")
+        self.assertEqual(('test', 'some_branch', 'Updated', 1, 'Bla bla bla'),
+                         cursor.fetchone())
+        self.assertEqual(None, cursor.fetchone())
+
+    def test_config_update_name(self):
+        db = self.env.get_db_cnx()
+        cursor = db.cursor()
+        cursor.execute("INSERT INTO bitten_config (name,path,label,active) "
+                       "VALUES (%s,%s,%s,%s)", ('test', 'trunk', 'Test', 0))
+
+        config = BuildConfig.fetch(self.env, 'test')
+        config.name = 'foobar'
+        config.update()
+
+        db = self.env.get_db_cnx()
+        cursor = db.cursor()
+        cursor.execute("SELECT name,path,label,active,description "
+                       "FROM bitten_config")
+        self.assertEqual(('foobar', 'trunk', 'Test', 0, ''), cursor.fetchone())
+        self.assertEqual(None, cursor.fetchone())
+
+    def test_update_no_name(self):
+        db = self.env.get_db_cnx()
+        cursor = db.cursor()
+        cursor.execute("INSERT INTO bitten_config (name,path,label,active) "
+                       "VALUES (%s,%s,%s,%s)", ('test', 'trunk', 'Test', 0))
+
+        config = BuildConfig.fetch(self.env, 'test')
+        config.name = None
+        self.assertRaises(AssertionError, config.update)
 
 
 class TargetPlatformTestCase(unittest.TestCase):
