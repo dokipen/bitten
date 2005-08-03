@@ -107,7 +107,7 @@ class Listener(asyncore.dispatcher):
     communication with the connected peer.
     """
     def __init__(self, ip, port):
-        super(Listener, self).__init__(self)
+        asyncore.dispatcher.__init__(self)
         self.create_socket(socket.AF_INET, socket.SOCK_STREAM)
         self.set_reuse_addr()
         self.bind((ip, port))
