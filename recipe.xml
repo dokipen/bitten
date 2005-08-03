@@ -8,7 +8,7 @@
     </step>
 
     <step id="test" title="Unit tests"
-          description="Run unit tests and trace code coverage">
+          description="Run unit tests and record code coverage">
         <python:distutils command="unittest"/>
         <reports>
             <python:unittest file="build/test-results.xml"/>

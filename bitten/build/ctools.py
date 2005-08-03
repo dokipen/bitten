@@ -18,22 +18,35 @@
 #
 # Author: Christopher Lenz <cmlenz@gmx.de>
 
+import logging
+
 from bitten.build import BuildError
+from bitten.util import xmlio
 from bitten.util.cmdline import Commandline
 
-def make(ctxt, target='all', file=None, jobs=None, keep_going=False):
+log = logging.getLogger('bitten.build.ctools')
+
+def make(ctxt, target=None, file=None, jobs=None, keep_going=False):
     """Execute a Makefile target."""
-    args = ['-C', ctxt.basedir]
+    args = ['--directory', ctxt.basedir]
     if file:
-        args += ['-f', ctxt.resolve(file)]
+        args += ['--file', ctxt.resolve(file)]
     if jobs:
-        args += ['-j', int(jobs)]
+        args += ['--jobs', int(jobs)]
     if keep_going:
-        args.append('-k')
-    args.append(target)
+        args.append('--keep-going')
+    if target:
+        args.append(target)
+
+    log_elem = xmlio.Element('messages')
     cmdline = Commandline('make', args)
     for out, err in cmdline.execute(timeout=100.0):
-        ctxt.log(ctxt.OUTPUT, out)
-        ctxt.log(ctxt.ERROR, err)
+        if out:
+            log.info(out)
+            xmlio.SubElement(log_elem, 'message', level='info')[out]
+        if err:
+            log.error(err)
+            xmlio.SubElement(log_elem, 'message', level='error')[err]
+    ctxt.log(log_elem)
     if cmdline.returncode != 0:
         raise BuildError, 'make failed (%s)' % cmdline.returncode

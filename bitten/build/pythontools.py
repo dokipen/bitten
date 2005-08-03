@@ -18,38 +18,62 @@
 #
 # Author: Christopher Lenz <cmlenz@gmx.de>
 
+import logging
 import re
 
 from bitten.build import BuildError
+from bitten.util import xmlio
 from bitten.util.cmdline import Commandline
+
+log = logging.getLogger('bitten.build.pythontools')
 
 def distutils(ctxt, command='build'):
     """Execute a `distutils` command."""
     cmdline = Commandline('python', ['setup.py', command], cwd=ctxt.basedir)
+    log_elem = xmlio.Element('messages')
     for out, err in cmdline.execute(timeout=100.0):
-        ctxt.log(ctxt.OUTPUT, out)
-        ctxt.log(ctxt.ERROR, err)
+        if out:
+            log.info(out)
+            xmlio.SubElement(log_elem, 'message', level='info')[out]
+        if err:
+            level = 'error'
+            if err.startswith('warning: '):
+                err = err[9:]
+                level = 'warning'
+                log.warning(err)
+            else:
+                log.error(err)
+            xmlio.SubElement(log_elem, 'message', level=level)[err]
+    ctxt.log(log_elem)
     if cmdline.returncode != 0:
         raise BuildError, 'distutils failed (%s)' % cmdline.returncode
 
 def pylint(ctxt, file=None):
     """Extract data from a `pylint` run written to a file."""
     assert file, 'Missing required attribute "file"'
-    _msg_re = re.compile(r'^(?P<file>.+):(?P<line>\d+): '
+    msg_re = re.compile(r'^(?P<file>.+):(?P<line>\d+): '
                          r'\[(?P<type>[A-Z])(?:, (?P<tag>[\w\.]+))?\] '
                          r'(?P<msg>.*)$')
+    msg_types = dict(W='warning', E='error', C='convention', R='refactor')
 
+    lint_elem = xmlio.Element('lint')
     try:
         fd = open(ctxt.resolve(file), 'r')
         try:
             for line in fd:
-                match = _msg_re.search(line)
+                match = msg_re.search(line)
                 if match:
+                    type = msg_types.get(match.group('type'))
                     filename = match.group('file')
                     if filename.startswith(ctxt.basedir):
                         filename = filename[len(ctxt.basedir) + 1:]
                     lineno = int(match.group('line'))
-                    # TODO: emit to build master
+                    tag = match.group('tag')
+                    xmlio.SubElement(lint_elem, 'problem', type=type, tag=tag,
+                                     file=filename, line=lineno)[
+                        match.group('msg') or ''
+                    ]
+            ctxt.report(lint_elem)
         finally:
             fd.close()
     except IOError, e:

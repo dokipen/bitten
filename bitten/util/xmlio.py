@@ -76,17 +76,17 @@ class Element(object):
     >>> print Element('foo')['<bar a="3" b="4"><baz/></bar>']
     <foo><![CDATA[<bar a="3" b="4"><baz/></bar>]]></foo>
     """
-    __slots__ = ['name', 'attrs', 'children']
+    __slots__ = ['name', 'attr', 'children']
 
-    def __init__(self, *args, **attrs):
+    def __init__(self, *args, **attr):
         """Create an XML element using the specified tag name.
         
         The tag name must be supplied as the first positional argument. All
         keyword arguments following it are handled as attributes of the element.
         """
         self.name = args[0]
-        self.attrs = dict([(name, value) for name, value in attrs.items()
-                           if value is not None])
+        self.attr = dict([(name, value) for name, value in attr.items()
+                          if value is not None])
         self.children = []
 
     def __getitem__(self, children):
@@ -109,7 +109,7 @@ class Element(object):
         """
         out.write('<')
         out.write(self.name)
-        for name, value in self.attrs.items():
+        for name, value in self.attr.items():
             out.write(' %s="%s"' % (name, self._escape_attr(value)))
         if self.children:
             out.write('>')
@@ -139,7 +139,7 @@ class SubElement(Element):
 
     __slots__ = []
 
-    def __init__(self, *args, **attrs):
+    def __init__(self, *args, **attr):
         """Create an XML element using the specified tag name.
         
         The first positional argument is the instance of the parent element that
@@ -148,7 +148,7 @@ class SubElement(Element):
         the element.
         """
         assert len(args) == 2
-        Element.__init__(self, args[1], **attrs)
+        Element.__init__(self, args[1], **attr)
         args[0].children.append(self)
 
 

@@ -37,27 +37,18 @@ class InvalidRecipeError(Exception):
 class Context(object):
     """The context in which a recipe command or report is run."""
 
-    ERROR = 0
-    OUTPUT = 1
-
     current_step = None
     current_function = None
 
     def __init__(self, basedir):
         self.basedir = basedir
-        self._log = []
+        self.output = []
 
-    def log(self, level, text):
-        if text is None:
-            return
-        assert level in (Context.ERROR, Context.OUTPUT), \
-               'Invalid log level %s' % level
-        if level == Context.ERROR:
-            log.warning(text)
-        else:
-            log.info(text)
-        self._log.append((self.current_step, self.current_function, level,
-                          time.time(), text))
+    def log(self, xml_elem):
+        self.output.append((Recipe.LOG, self.current_function, xml_elem))
+
+    def report(self, xml_elem):
+        self.output.append((Recipe.REPORT, self.current_function, xml_elem))
 
     def resolve(self, *path):
         return os.path.normpath(os.path.join(self.basedir, *path))
@@ -98,9 +89,10 @@ class Step(object):
                 if self.onerror == 'fail':
                     raise BuildError, e
                 log.warning('Ignoring error in step %s (%s)', self.id, e)
-                return None
         finally:
             ctxt.current_step = None
+        while ctxt.output:
+            yield ctxt.output.pop()
 
     def _args(self, elem):
         return dict([(name.replace('-', '_'), value) for name, value
@@ -125,6 +117,9 @@ class Recipe(object):
     
     Iterate over this object to get the individual build steps in the order they
     have been defined in the recipe file."""
+
+    LOG = 'log'
+    REPORT = 'report'
 
     def __init__(self, filename='recipe.xml', basedir=os.getcwd()):
         self.ctxt = Context(basedir)

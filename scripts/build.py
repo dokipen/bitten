@@ -43,7 +43,7 @@ def main():
     log.setLevel(options.loglevel)
     handler = logging.StreamHandler()
     handler.setLevel(options.loglevel)
-    formatter = logging.Formatter('[%(levelname)-8s] %(message)s')
+    formatter = logging.Formatter('%(message)s')
     handler.setFormatter(formatter)
     log.addHandler(handler)
 
@@ -51,9 +51,10 @@ def main():
     recipe = Recipe()
     for step in recipe:
         if not steps_to_run or step.id in steps_to_run:
-            print '-->', step.description or step.id
-            step.execute(recipe.ctxt)
             print
+            print '-->', step.description or step.id
+            for type, function, output in step.execute(recipe.ctxt):
+                pass
             if step.id in steps_to_run:
                 steps_to_run[step.id] = True
 

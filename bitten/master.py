@@ -31,12 +31,12 @@ import time
 
 from trac.env import Environment
 from bitten.model import BuildConfig, TargetPlatform, Build, BuildStep
+from bitten.store import MetricsStore
 from bitten.util import archive, beep, xmlio
 
 log = logging.getLogger('bitten.master')
 
 DEFAULT_CHECK_INTERVAL = 120 # 2 minutes
-
 
 
 class Master(beep.Listener):
@@ -57,12 +57,11 @@ class Master(beep.Listener):
             for rev, format, path in snapshots:
                 self.snapshots[(config.name, rev, format)] = path
 
+        self._cleanup_orphaned_builds()
         self.schedule(self.check_interval, self._check_build_triggers)
 
     def close(self):
-        # Remove all pending builds
-        for build in Build.select(self.env, status=Build.PENDING):
-            build.delete()
+        self._cleanup_orphaned_builds()
         beep.Listener.close(self)
 
     def _check_build_triggers(self, when):
@@ -113,6 +112,15 @@ class Master(beep.Listener):
                 if not list(active_builds):
                     slave.send_initiation(build)
                     return
+
+    def _cleanup_orphaned_builds(self):
+        # Remove all pending or in-progress builds
+        db = self.env.get_db_cnx()
+        for build in Build.select(self.env, status=Build.IN_PROGRESS, db=db):
+            build.status = Build.PENDING
+            build.update(db=db)
+        for build in Build.select(self.env, status=Build.PENDING, db=db):
+            build.delete(db=db)
 
     def _cleanup_snapshots(self, when):
         log.debug('Checking for unused snapshot archives...')
@@ -230,8 +238,8 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
             self.channel.send_rpy(msgno, beep.Payload(xml))
 
     def send_initiation(self, build):
-        log.debug('Initiating build of "%s" on slave %s', build.config,
-                  self.name)
+        log.info('Initiating build of "%s" on slave %s', build.config,
+                 self.name)
 
         def handle_reply(cmd, msgno, ansno, payload):
             if cmd == 'ERR':
@@ -276,58 +284,22 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
                                 self.name, elem.gettext(),
                                 int(elem.attr['code']))
 
-            if cmd == 'ANS':
+            elif cmd == 'ANS':
+                assert payload.content_type == beep.BEEP_XML
                 db = self.env.get_db_cnx()
                 elem = xmlio.parse(payload.body)
-
                 if elem.name == 'started':
-                    build.slave = self.name
-                    build.slave_info.update(self.info)
-                    build.started = int(_parse_iso_datetime(elem.attr['time']))
-                    build.status = Build.IN_PROGRESS
-                    log.info('Slave %s started build %d ("%s" as of [%s])',
-                             self.name, build.id, build.config, build.rev)
-
+                    self._build_started(db, build, elem)
                 elif elem.name == 'step':
-                    log.info('Slave completed step "%s"', elem.attr['id'])
-                    step = BuildStep(self.env, build=build.id,
-                                     name=elem.attr['id'],
-                                     description=elem.attr.get('description'),
-                                     log=elem.gettext().strip())
-                    step.started = int(_parse_iso_datetime(elem.attr['time']))
-                    step.stopped = step.started + int(elem.attr['duration'])
-                    if elem.attr['result'] == 'failure':
-                        log.warning('Step failed: %s', elem.gettext())
-                        step.status = BuildStep.FAILURE
-                    else:
-                        step.status = BuildStep.SUCCESS
-                    step.insert(db=db)
-
+                    self._build_step_completed(db, build, elem)
                 elif elem.name == 'completed':
-                    log.info('Slave %s completed build %d ("%s" as of [%s])',
-                             self.name, build.id, build.config, build.rev)
-                    build.stopped = int(_parse_iso_datetime(elem.attr['time']))
-                    if elem.attr['result'] == 'failure':
-                        build.status = Build.FAILURE
-                    else:
-                        build.status = Build.SUCCESS
-
+                    self._build_completed(db, build, elem)
                 elif elem.name == 'aborted':
-                    log.info('Slave "%s" aborted build %d ("%s" as of [%s])',
-                             self.name, build.id, build.config, build.rev)
-                    build.slave = None
-                    build.started = 0
-                    build.status = Build.PENDING
-                    build.slave_info = {}
-                    for step in BuildStep.select(self.env, build=build.id,
-                                                 db=db):
-                        step.delete(db=db)
-
+                    self._build_aborted(db, build, elem)
                 elif elem.name == 'error':
                     build.status = Build.FAILURE
-
                 build.update(db=db)
-                db.commit()
+                db.commit()                    
 
         snapshot_format = {
             ('application/tar', 'bzip2'): 'bzip2',
@@ -341,6 +313,55 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
                                content_disposition=snapshot_name,
                                content_encoding=encoding)
         self.channel.send_msg(message, handle_reply=handle_reply)
+
+    def _build_started(self, db, build, elem):
+        build.slave = self.name
+        build.slave_info.update(self.info)
+        build.started = int(_parse_iso_datetime(elem.attr['time']))
+        build.status = Build.IN_PROGRESS
+        log.info('Slave %s started build %d ("%s" as of [%s])',
+                 self.name, build.id, build.config, build.rev)
+
+    def _build_step_completed(self, db, build, elem):
+        log.debug('Slave completed step "%s"', elem.attr['id'])
+        step = BuildStep(self.env, build=build.id, name=elem.attr['id'],
+                         description=elem.attr.get('description'))
+        step.started = int(_parse_iso_datetime(elem.attr['time']))
+        step.stopped = step.started + int(elem.attr['duration'])
+        if elem.attr['result'] == 'failure':
+            log.warning('Step failed: %s', elem.gettext())
+            step.status = BuildStep.FAILURE
+        else:
+            step.status = BuildStep.SUCCESS
+
+        # TODO: Insert log messages into separate table, and also store reports
+        log_lines = []
+        for log_elem in elem.children('log'):
+            for messages_elem in log_elem.children('messages'):
+                for message_elem in messages_elem.children('message'):
+                    log_lines.append(message_elem.gettext())
+        step.log = '\n'.join(log_lines)
+
+        step.insert(db=db)
+
+    def _build_completed(self, db, build, elem):
+        log.info('Slave %s completed build %d ("%s" as of [%s])', self.name,
+                 build.id, build.config, build.rev)
+        build.stopped = int(_parse_iso_datetime(elem.attr['time']))
+        if elem.attr['result'] == 'failure':
+            build.status = Build.FAILURE
+        else:
+            build.status = Build.SUCCESS
+
+    def _build_aborted(self, db, build, elem):
+        log.info('Slave "%s" aborted build %d ("%s" as of [%s])',
+                 self.name, build.id, build.config, build.rev)
+        build.slave = None
+        build.started = 0
+        build.status = Build.PENDING
+        build.slave_info = {}
+        for step in BuildStep.select(self.env, build=build.id, db=db):
+            step.delete(db=db)
 
 
 def _parse_iso_datetime(string):
