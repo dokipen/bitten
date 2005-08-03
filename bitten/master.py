@@ -31,7 +31,6 @@ import time
 
 from trac.env import Environment
 from bitten.model import BuildConfig, TargetPlatform, Build, BuildStep
-from bitten.store import MetricsStore
 from bitten.util import archive, beep, xmlio
 
 log = logging.getLogger('bitten.master')
