@@ -318,17 +318,20 @@ class BuildModule(Component):
         ]
 
         repos = self.env.get_repository(req.authname)
-        root = repos.get_node(config.path)
-        num = 0
-        for idx, (path, rev, chg) in enumerate(root.get_history()):
-            prefix = 'build.builds.%d' % rev
-            req.hdf[prefix + '.href'] = self.env.href.changeset(rev)
-            for build in Build.select(self.env, config=config.name, rev=rev):
-                if build.status == Build.PENDING:
-                    continue
-                req.hdf['%s.%s' % (prefix, build.platform)] = self._build_to_hdf(build)
-            if idx > 4:
-                break
+        try:
+            root = repos.get_node(config.path)
+            num = 0
+            for idx, (path, rev, chg) in enumerate(root.get_history()):
+                prefix = 'build.builds.%d' % rev
+                req.hdf[prefix + '.href'] = self.env.href.changeset(rev)
+                for build in Build.select(self.env, config=config.name, rev=rev):
+                    if build.status == Build.PENDING:
+                        continue
+                    req.hdf['%s.%s' % (prefix, build.platform)] = self._build_to_hdf(build)
+                if idx > 4:
+                    break
+        except TracError, e:
+            self.log.error('Error accessing repository info', exc_info=True)
 
     def _render_config_form(self, req, config_name=None):
         config = BuildConfig.fetch(self.env, config_name)
