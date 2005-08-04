@@ -31,7 +31,7 @@ from trac.web.chrome import INavigationContributor, ITemplateProvider, \
                             add_link, add_stylesheet
 from trac.web.main import IRequestHandler
 from trac.wiki import wiki_to_html
-from bitten.model import BuildConfig, TargetPlatform, Build, BuildStep
+from bitten.model import BuildConfig, TargetPlatform, Build, BuildStep, BuildLog
 
 
 class BuildModule(Component):
@@ -43,6 +43,10 @@ class BuildModule(Component):
     _status_label = {Build.IN_PROGRESS: 'in progress',
                      Build.SUCCESS: 'completed',
                      Build.FAILURE: 'failed'}
+    _level_label = {BuildLog.DEBUG: 'debug',
+                    BuildLog.INFO: 'info',
+                    BuildLog.WARNING: 'warning',
+                    BuildLog.ERROR: 'error'}
 
     # INavigationContributor methods
 
@@ -380,7 +384,7 @@ class BuildModule(Component):
                         Build.IN_PROGRESS: 'In Progress'}
         req.hdf['title'] = 'Build %s - %s' % (build_id,
                                               status2title[build.status])
-        req.hdf['build'] = self._build_to_hdf(build)
+        req.hdf['build'] = self._build_to_hdf(build, include_output=True)
         req.hdf['build.mode'] = 'view_build'
 
         config = BuildConfig.fetch(self.env, build.config)
@@ -389,7 +393,7 @@ class BuildModule(Component):
             'href': self.env.href.build(config.name)
         }
 
-    def _build_to_hdf(self, build):
+    def _build_to_hdf(self, build, include_output=False):
         hdf = {'id': build.id, 'name': build.slave, 'rev': build.rev,
                'status': self._status_label[build.status],
                'cls': self._status_label[build.status].replace(' ', '-'),
@@ -411,13 +415,19 @@ class BuildModule(Component):
             'machine': build.slave_info.get(Build.MACHINE),
             'processor': build.slave_info.get(Build.PROCESSOR)
         }
+        db = self.env.get_db_cnx()
         steps = []
-        for step in BuildStep.select(self.env, build=build.id):
+        for step in BuildStep.select(self.env, build=build.id, db=db):
             steps.append({
                 'name': step.name, 'description': step.description,
-                'duration': pretty_timedelta(step.started, step.stopped),
-                'log': step.log
+                'duration': pretty_timedelta(step.started, step.stopped)
             })
+            if include_output:
+                for log in BuildLog.select(self.env, build=build.id,
+                                           step=step.name, db=db):
+                    steps[-1]['log'] = [{'level': level,
+                                         'message': message}
+                                        for level, message in log.messages]
         hdf['steps'] = steps
 
         return hdf

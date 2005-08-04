@@ -30,7 +30,7 @@ except NameError:
 import time
 
 from trac.env import Environment
-from bitten.model import BuildConfig, TargetPlatform, Build, BuildStep
+from bitten.model import BuildConfig, TargetPlatform, Build, BuildStep, BuildLog
 from bitten.util import archive, beep, xmlio
 
 log = logging.getLogger('bitten.master')
@@ -70,17 +70,19 @@ class Master(beep.Listener):
         try:
             repos.sync()
 
-            for config in BuildConfig.select(self.env):
+            db = self.env.get_db_cnx()
+            for config in BuildConfig.select(self.env, db=db):
                 log.debug('Checking for changes to "%s" at %s', config.label,
                           config.path)
                 node = repos.get_node(config.path)
                 for path, rev, chg in node.get_history():
                     enqueued = False
-                    for platform in TargetPlatform.select(self.env, config.name):
+                    for platform in TargetPlatform.select(self.env,
+                                                          config.name, db=db):
                         # Check whether the latest revision of the configuration
                         # has already been built on this platform
                         builds = Build.select(self.env, config.name, rev,
-                                              platform.id)
+                                              platform.id, db=db)
                         if not list(builds):
                             log.info('Enqueuing build of configuration "%s" at '
                                      'revision [%s] on %s', config.name, rev,
@@ -90,9 +92,10 @@ class Master(beep.Listener):
                             build.rev = str(rev)
                             build.rev_time = repos.get_changeset(rev).date
                             build.platform = platform.id
-                            build.insert()
+                            build.insert(db)
                             enqueued = True
                     if enqueued:
+                        db.commit()
                         break
         finally:
             repos.close()
@@ -119,7 +122,13 @@ class Master(beep.Listener):
             build.status = Build.PENDING
             build.update(db=db)
         for build in Build.select(self.env, status=Build.PENDING, db=db):
+            for step in BuildStep.select(self.env, build=build.id, db=db):
+                for log in BuildLog.select(self.env, build=build.id,
+                                           step=step.name, db=db):
+                    log.delete(db=db)
+                step.delete(db=db)
             build.delete(db=db)
+        db.commit()
 
     def _cleanup_snapshots(self, when):
         log.debug('Checking for unused snapshot archives...')
@@ -332,16 +341,19 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
             step.status = BuildStep.FAILURE
         else:
             step.status = BuildStep.SUCCESS
+        step.insert(db=db)
 
-        # TODO: Insert log messages into separate table, and also store reports
-        log_lines = []
+        # TODO: Store reports, too
+        level_map = {'debug': BuildLog.DEBUG, 'info': BuildLog.INFO,
+                     'warning': BuildLog.WARNING, 'error': BuildLog.ERROR}
         for log_elem in elem.children('log'):
+            build_log = BuildLog(self.env, build=build.id, step=step.name,
+                                 type=log_elem.attr.get('type'))
             for messages_elem in log_elem.children('messages'):
                 for message_elem in messages_elem.children('message'):
-                    log_lines.append(message_elem.gettext())
-        step.log = '\n'.join(log_lines)
-
-        step.insert(db=db)
+                    build_log.messages.append((message_elem.attr['level'],
+                                               message_elem.gettext()))
+            build_log.insert(db=db)
 
     def _build_completed(self, db, build, elem):
         log.info('Slave %s completed build %d ("%s" as of [%s])', self.name,
@@ -378,11 +390,11 @@ def _parse_iso_datetime(string):
     except ValueError, e:
         raise ValueError, 'Invalid ISO date/time %s (%s)' % (string, e)
 
-
 def main():
     from bitten import __version__ as VERSION
     from optparse import OptionParser
 
+    # Parse command-line arguments
     parser = OptionParser(usage='usage: %prog [options] env-path',
                           version='%%prog %s' % VERSION)
     parser.add_option('-p', '--port', action='store', type='int', dest='port',

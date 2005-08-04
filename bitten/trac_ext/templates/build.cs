@@ -160,7 +160,10 @@
   each:step = build.steps ?>
    <h2><?cs var:step.name ?> (<?cs var:step.duration ?>)</h2>
    <p><?cs var:step.description ?></p>
-   <pre class="log"><?cs var:step.log ?></pre><?cs
+   <div class="log"><?cs
+    each:item = step.log ?><code class="<?cs var:item.level ?>"><?cs
+     var:item.message ?></code><br /><?cs
+    /each ?></div><?cs
   /each ?><?cs
   /if ?>
 

@@ -17,3 +17,6 @@
 # Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 #
 # Author: Christopher Lenz <cmlenz@gmx.de>
+
+import bitten.trac_ext.main
+import bitten.trac_ext.web_ui

@@ -359,7 +359,7 @@ class Build(object):
                        "stopped=%s,status=%s WHERE id=%s",
                        (self.slave or '', self.started or 0,
                         self.stopped or 0, self.status, self.id))
-        cursor.execute("DELETE FROM bitten_slave WHERE build=%s", (self.id))
+        cursor.execute("DELETE FROM bitten_slave WHERE build=%s", (self.id,))
         cursor.executemany("INSERT INTO bitten_slave VALUES (%s,%s,%s)",
                            [(self.id, name, value) for name, value
                             in self.slave_info.items()])
@@ -425,8 +425,8 @@ class BuildStep(object):
     _schema = [
         Table('bitten_step', key=('build', 'name'))[
             Column('build', type='int'), Column('name'), Column('description'),
-            Column('status', size=1), Column('log'),
-            Column('started', type='int'), Column('stopped', type='int')
+            Column('status', size=1), Column('started', type='int'),
+            Column('stopped', type='int')
         ]
     ]
 
@@ -435,13 +435,12 @@ class BuildStep(object):
     FAILURE = 'F'
 
     def __init__(self, env, build=None, name=None, description=None,
-                 status=None, log=None, started=None, stopped=None):
+                 status=None, started=None, stopped=None):
         self.env = env
         self.build = build
         self.name = name
         self.description = description
         self.status = status
-        self.log = log
         self.started = started
         self.stopped = stopped
 
@@ -473,10 +472,9 @@ class BuildStep(object):
 
         cursor = db.cursor()
         cursor.execute("INSERT INTO bitten_step (build,name,description,status,"
-                       "log,started,stopped) VALUES (%s,%s,%s,%s,%s,%s,%s)",
+                       "started,stopped) VALUES (%s,%s,%s,%s,%s,%s)",
                        (self.build, self.name, self.description or '',
-                        self.status, self.log or '', self.started or 0,
-                        self.stopped or 0))
+                        self.status, self.started or 0, self.stopped or 0))
         if handle_ta:
             db.commit()
 
@@ -485,15 +483,15 @@ class BuildStep(object):
             db = env.get_db_cnx()
 
         cursor = db.cursor()
-        cursor.execute("SELECT description,status,log,started,stopped "
+        cursor.execute("SELECT description,status,started,stopped "
                        "FROM bitten_step WHERE build=%s AND name=%s",
                        (build, name))
         row = cursor.fetchone()
         if not row:
             return None
 
-        return BuildStep(env, build, name, row[0] or '', row[1], row[2] or '',
-                         row[3] and int(row[3]), row[4] and int(row[4]))
+        return BuildStep(env, build, name, row[0] or '', row[1],
+                         row[2] and int(row[2]), row[3] and int(row[3]))
     fetch = classmethod(fetch)
 
     def select(cls, env, build=None, name=None, db=None):
@@ -511,16 +509,129 @@ class BuildStep(object):
             where = ""
 
         cursor = db.cursor()
-        cursor.execute("SELECT build,name,description,status,log,started,"
-                       "stopped FROM bitten_step %s ORDER BY stopped"
+        cursor.execute("SELECT build,name,description,status,started,stopped "
+                       "FROM bitten_step %s ORDER BY stopped"
                        % where, [wc[1] for wc in where_clauses])
-        for build, name, description, status, log, started, stopped in cursor:
+        for build, name, description, status, started, stopped in cursor:
             yield BuildStep(env, build, name, description or '', status,
-                            log or '', started and int(started),
-                            stopped and int(stopped))
+                            started and int(started), stopped and int(stopped))
+    select = classmethod(select)
+
+
+class BuildLog(object):
+    """Represents a build log."""
+
+    _schema = [
+        Table('bitten_log', key='id')[
+            Column('id', auto_increment=True), Column('build', type='int'),
+            Column('step'), Column('type')
+        ],
+        Table('bitten_log_message', key=('log', 'line'))[
+            Column('log', type='int'), Column('line', type='int'),
+            Column('level', size=1), Column('message')
+        ]
+    ]
+
+    # Message levels
+    DEBUG = 'D'
+    INFO = 'I'
+    WARNING = 'W'
+    ERROR = 'E'
+
+    def __init__(self, env, build=None, step=None, type=None):
+        self.env = env
+        self.id = None
+        self.build = build
+        self.step = step
+        self.type = type
+        self.messages = []
+
+    exists = property(fget=lambda self: self.id is not None)
+
+    def delete(self, db=None):
+        assert self.exists, 'Cannot delete a non-existing build log'
+        if not db:
+            db = self.env.get_db_cnx()
+            handle_ta = True
+        else:
+            handle_ta = False
+
+        cursor = db.cursor()
+        cursor.execute("DELETE FROM bitten_log WHERE id=%s", (self.id,))
+        cursor.execute("DELETE FROM bitten_log_message WHERE log=%s",
+                       (self.id,))
+
+        if handle_ta:
+            db.commit()
+        self.id = None
+
+    def insert(self, db=None):
+        if not db:
+            db = self.env.get_db_cnx()
+            handle_ta = True
+        else:
+            handle_ta = False
+
+        assert self.build and self.step
+
+        cursor = db.cursor()
+        cursor.execute("INSERT INTO bitten_log (build,step,type) "
+                       "VALUES (%s,%s,%s)", (self.build, self.step, self.type))
+        id = db.get_last_id(cursor, 'bitten_log')
+        cursor.executemany("INSERT INTO bitten_log_message "
+                           "(log,line,level,message) VALUES (%s,%s,%s,%s)",
+                           [(id, idx, message[0], message[1]) for idx, message
+                            in enumerate(self.messages)])
+
+        if handle_ta:
+            db.commit()
+        self.id = id
+
+    def fetch(cls, env, id, db=None):
+        if not db:
+            db = env.get_db_cnx()
+
+        cursor = db.cursor()
+        cursor.execute("SELECT build,step,type FROM bitten_log "
+                       "WHERE id=%s", (id,))
+        row = cursor.fetchone()
+        if not row:
+            return None
+        log = BuildLog(env, int(row[0]), row[1], row[2] or '')
+        log.id = id
+        cursor.execute("SELECT level,message FROM bitten_log_message "
+                       "WHERE log=%s ORDER BY line", (id,))
+        log.messages = cursor.fetchall()
+
+        return log
+
+    fetch = classmethod(fetch)
+
+    def select(cls, env, build=None, step=None, type=None, db=None):
+        if not db:
+            db = env.get_db_cnx()
+
+        where_clauses = []
+        if build is not None:
+            where_clauses.append(("build=%s", build))
+        if step is not None:
+            where_clauses.append(("step=%s", step))
+        if type is not None:
+            where_clauses.append(("type=%s", type))
+        if where_clauses:
+            where = "WHERE " + " AND ".join([wc[0] for wc in where_clauses])
+        else:
+            where = ""
+
+        cursor = db.cursor()
+        cursor.execute("SELECT id FROM bitten_log %s ORDER BY type"
+                       % where, [wc[1] for wc in where_clauses])
+        for (id, ) in cursor:
+            yield BuildLog.fetch(env, id, db=db)
+
     select = classmethod(select)
 
 
 schema = BuildConfig._schema + TargetPlatform._schema + Build._schema + \
-         BuildStep._schema
-schema_version = 1
+         BuildStep._schema + BuildLog._schema
+schema_version = 2

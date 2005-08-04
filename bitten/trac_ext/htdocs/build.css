@@ -16,4 +16,6 @@
 #content.build #builds td.failed { background: #d99; }
 #content.build #builds td.in-progress { background: #ff9; }
 
-#content.build pre.log { overflow: auto; white-space: pre; }
+#content.build .log { overflow: auto; white-space: pre; }
+#content.build .log .warning { color: #660; font-weight: bold; }
+#content.build .log .error { color: #900; font-weight: bold; }

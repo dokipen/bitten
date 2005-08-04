@@ -55,6 +55,8 @@ class BuildSystem(Component):
         cursor = db.cursor()
         cursor.execute("SELECT value FROM system WHERE name='bitten_version'")
         row = cursor.fetchone()
+        self.log.debug("Current DB version is %s, we need %s",
+                       row and int(row[0]) or None, schema_version)
         if not row or int(row[0]) < schema_version:
             return True
 
@@ -65,19 +67,15 @@ class BuildSystem(Component):
         if not row:
             self.environment_created()
         else:
-            current_version = int(row.fetchone()[0])
-            for i in range(current_version + 1, schema_version + 1):
-                name  = 'db%i' % i
-                try:
-                    upgrades = __import__('upgrades', globals(), locals(),
-                                          [name])
-                    script = getattr(upgrades, name)
-                except AttributeError:
-                    err = 'No upgrade module for version %i (%s.py)' % (i, name)
-                    raise TracError, err
-                script.do_upgrade(self.env, i, cursor)
+            current_version = int(row[0])
+            from bitten import upgrades
+            for version in range(current_version + 1, schema_version + 1):
+                self.log.debug('Updating to schema version %s', version)
+                for function in upgrades.map.get(version):
+                    self.log.debug('Executing upgrade function %s', function)
+                    function(self.env, db)
             cursor.execute("UPDATE system SET value=%s WHERE "
-                           "name='bitten_version'", (schema_version))
+                           "name='bitten_version'", (schema_version,))
             self.log.info('Upgraded Bitten tables from version %d to %d',
                           current_version, schema_version)
 
