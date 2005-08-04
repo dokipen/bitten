@@ -55,8 +55,6 @@ class BuildSystem(Component):
         cursor = db.cursor()
         cursor.execute("SELECT value FROM system WHERE name='bitten_version'")
         row = cursor.fetchone()
-        self.log.debug("Current DB version is %s, we need %s",
-                       row and int(row[0]) or None, schema_version)
         if not row or int(row[0]) < schema_version:
             return True
 
@@ -70,9 +68,7 @@ class BuildSystem(Component):
             current_version = int(row[0])
             from bitten import upgrades
             for version in range(current_version + 1, schema_version + 1):
-                self.log.debug('Updating to schema version %s', version)
                 for function in upgrades.map.get(version):
-                    self.log.debug('Executing upgrade function %s', function)
                     function(self.env, db)
             cursor.execute("UPDATE system SET value=%s WHERE "
                            "name='bitten_version'", (schema_version,))
