@@ -207,6 +207,18 @@ class ParsedElement(object):
     def gettext(self):
         return ''.join([c.nodeValue for c in self._node.childNodes])
 
+    def write(self, out, newlines=False):
+        """Serializes the element and writes the XML to the given output
+        stream.
+        """
+        self._node.writexml(out, newl=newlines and '\n' or '')
+
+    def __str__(self):
+        """Return a string representation of the XML element."""
+        buf = StringIO()
+        self.write(buf)
+        return buf.getvalue()
+
 
 if __name__ == '__main__':
     import doctest

@@ -56,7 +56,7 @@ def pylint(ctxt, file=None):
                          r'(?P<msg>.*)$')
     msg_types = dict(W='warning', E='error', C='convention', R='refactor')
 
-    lint_elem = xmlio.Element('lint')
+    problems = xmlio.Element('problems')
     try:
         fd = open(ctxt.resolve(file), 'r')
         try:
@@ -69,11 +69,11 @@ def pylint(ctxt, file=None):
                         filename = filename[len(ctxt.basedir) + 1:]
                     lineno = int(match.group('line'))
                     tag = match.group('tag')
-                    xmlio.SubElement(lint_elem, 'problem', type=type, tag=tag,
+                    xmlio.SubElement(problems, 'problem', type=type, tag=tag,
                                      file=filename, line=lineno)[
                         match.group('msg') or ''
                     ]
-            ctxt.report(lint_elem)
+            ctxt.report(problems)
         finally:
             fd.close()
     except IOError, e:

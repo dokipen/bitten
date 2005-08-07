@@ -31,6 +31,7 @@ import time
 
 from trac.env import Environment
 from bitten.model import BuildConfig, TargetPlatform, Build, BuildStep, BuildLog
+from bitten.store import ReportStore
 from bitten.util import archive, beep, xmlio
 
 log = logging.getLogger('bitten.master')
@@ -353,6 +354,10 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
                 build_log.messages.append((message_elem.attr['level'],
                                            message_elem.gettext()))
             build_log.insert(db=db)
+
+        store = ReportStore(self.env)
+        for report in elem.children('report'):
+            store.store_report(build, step, report)
 
     def _build_completed(self, db, build, elem):
         log.info('Slave %s completed build %d ("%s" as of [%s])', self.name,
