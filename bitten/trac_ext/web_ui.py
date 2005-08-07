@@ -34,11 +34,25 @@ from trac.wiki import wiki_to_html
 from bitten.model import BuildConfig, TargetPlatform, Build, BuildStep, BuildLog
 
 
+class ILogFormatter(Interface):
+    """Extension point interface for components that format build log
+    messages."""
+
+    def get_formatter(req, build, step, type):
+        """Return a function that gets called for every log message.
+        
+        The function must take two positional arguments, `level` and `message`,
+        and return the formatted message.
+        """
+
+
 class BuildModule(Component):
     """Implements the Bitten web interface."""
 
     implements(INavigationContributor, IRequestHandler, ITimelineEventProvider,
                ITemplateProvider)
+
+    log_formatters = ExtensionPoint(ILogFormatter)
 
     _status_label = {Build.IN_PROGRESS: 'in progress',
                      Build.SUCCESS: 'completed',
@@ -331,7 +345,7 @@ class BuildModule(Component):
                 for build in Build.select(self.env, config=config.name, rev=rev):
                     if build.status == Build.PENDING:
                         continue
-                    req.hdf['%s.%s' % (prefix, build.platform)] = self._build_to_hdf(build)
+                    req.hdf['%s.%s' % (prefix, build.platform)] = self._build_to_hdf(req, build)
                 if idx > 4:
                     break
         except TracError, e:
@@ -384,7 +398,7 @@ class BuildModule(Component):
                         Build.IN_PROGRESS: 'In Progress'}
         req.hdf['title'] = 'Build %s - %s' % (build_id,
                                               status2title[build.status])
-        req.hdf['build'] = self._build_to_hdf(build, include_output=True)
+        req.hdf['build'] = self._build_to_hdf(req, build, include_output=True)
         req.hdf['build.mode'] = 'view_build'
 
         config = BuildConfig.fetch(self.env, build.config)
@@ -393,7 +407,7 @@ class BuildModule(Component):
             'href': self.env.href.build(config.name)
         }
 
-    def _build_to_hdf(self, build, include_output=False):
+    def _build_to_hdf(self, req, build, include_output=False):
         hdf = {'id': build.id, 'name': build.slave, 'rev': build.rev,
                'status': self._status_label[build.status],
                'cls': self._status_label[build.status].replace(' ', '-'),
@@ -425,9 +439,48 @@ class BuildModule(Component):
             if include_output:
                 for log in BuildLog.select(self.env, build=build.id,
                                            step=step.name, db=db):
-                    steps[-1]['log'] = [{'level': level,
-                                         'message': message}
-                                        for level, message in log.messages]
+                    formatters = []
+                    items = []
+                    for formatter in self.log_formatters:
+                        formatters.append(formatter.get_formatter(req, build,
+                                                                  step,
+                                                                  log.type))
+                    for level, message in log.messages:
+                        for format in formatters:
+                            message = format(level, message)
+                        items.append({'level': level, 'message': message})
+                    steps[-1]['log'] = items
         hdf['steps'] = steps
 
         return hdf
+
+
+class SourceFileLinkFormatter(Component):
+    """Finds references to files and directories in the repository in the build
+    log and renders them as links to the repository browser."""
+    
+    implements(ILogFormatter)
+
+    def get_formatter(self, req, build, step, type):
+        config = BuildConfig.fetch(self.env, build.config)
+        repos = self.env.get_repository(req.authname)
+        nodes = []
+        def _walk(node):
+            for child in node.get_entries():
+                path = child.path[len(config.path) + 1:]
+                pattern = re.compile("([\s'\"])(%s)([\s'\"])" % re.escape(path))
+                nodes.append((child.path, pattern))
+                if child.isdir:
+                    _walk(child)
+        _walk(repos.get_node(config.path, build.rev))
+        nodes.sort(lambda x, y: -cmp(len(x[0]), len(y[0])))
+
+        def _formatter(level, message):
+            for path, pattern in nodes:
+                def _replace(m):
+                    return '%s<a href="%s">%s</a>%s' % (m.group(1),
+                           self.env.href.browser(path, rev=build.rev),
+                           m.group(2), m.group(3))
+                message = pattern.sub(_replace, message)
+            return message
+        return _formatter

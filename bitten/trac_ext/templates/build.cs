@@ -99,7 +99,9 @@
        if:len(rev[platform.id]) ?><td class="<?cs
         var:rev[platform.id].cls ?>"><a href="<?cs
         var:rev[platform.id].href ?>" title="View build results"><?cs
-        var:rev[platform.id].slave.name ?></a><br /><?cs
+        var:rev[platform.id].slave.name ?></a> (<?cs
+        var:rev[platform.id].slave.os ?> <?cs
+        var:rev[platform.id].slave.os.version ?>)<br /><?cs
         if:rev[platform.id].status == 'in progress' ?>started <?cs
          var:rev[platform.id].started_delta ?> ago<?cs
         else ?>took <?cs
