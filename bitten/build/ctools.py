@@ -38,7 +38,7 @@ def make(ctxt, target=None, file=None, jobs=None, keep_going=False):
     if target:
         args.append(target)
 
-    log_elem = xmlio.Element('messages')
+    log_elem = xmlio.Fragment()
     cmdline = Commandline('make', args)
     for out, err in cmdline.execute(timeout=100.0):
         if out:

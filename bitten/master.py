@@ -349,10 +349,9 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
         for log_elem in elem.children('log'):
             build_log = BuildLog(self.env, build=build.id, step=step.name,
                                  type=log_elem.attr.get('type'))
-            for messages_elem in log_elem.children('messages'):
-                for message_elem in messages_elem.children('message'):
-                    build_log.messages.append((message_elem.attr['level'],
-                                               message_elem.gettext()))
+            for message_elem in log_elem.children('message'):
+                build_log.messages.append((message_elem.attr['level'],
+                                           message_elem.gettext()))
             build_log.insert(db=db)
 
     def _build_completed(self, db, build, elem):

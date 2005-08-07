@@ -30,7 +30,7 @@ log = logging.getLogger('bitten.build.pythontools')
 def distutils(ctxt, command='build'):
     """Execute a `distutils` command."""
     cmdline = Commandline('python', ['setup.py', command], cwd=ctxt.basedir)
-    log_elem = xmlio.Element('messages')
+    log_elem = xmlio.Fragment()
     for out, err in cmdline.execute(timeout=100.0):
         if out:
             log.info(out)

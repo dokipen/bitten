@@ -27,8 +27,61 @@ except ImportError:
 
 __all__ = ['Element', 'parse']
 
+def _escape_text(text):
+    return str(text).replace('&', '&amp;').replace('<', '&lt;') \
+                    .replace('>', '&gt;')
 
-class Element(object):
+def _escape_attr(attr):
+    return _escape_text(attr).replace('"', '&#34;')
+
+
+class Fragment(object):
+    """A collection of XML elements."""
+    
+    __slots__ = ['children']
+
+    def __init__(self, *args, **attr):
+        """Create an XML fragment."""
+        self.children = []
+
+    def __getitem__(self, nodes):
+        """Add nodes to the fragment."""
+        if not isinstance(nodes, (list, tuple)):
+            nodes = [nodes]
+        for node in nodes:
+            self.append(node)
+        return self
+
+    def __str__(self):
+        """Return a string representation of the XML fragment."""
+        buf = StringIO()
+        self.write(buf)
+        return buf.getvalue()
+
+    def append(self, node):
+        """Append an element or fragment as child."""
+        if isinstance(node, Element):
+            self.children.append(node)
+        elif isinstance(node, Fragment):
+            self.children += node.children
+        elif node is not None and node != '':
+            self.children.append(node)
+
+    def write(self, out, newlines=False):
+        """Serializes the element and writes the XML to the given output
+        stream.
+        """
+        for child in self.children:
+            if isinstance(child, Element):
+                child.write(out, newlines=newlines)
+            else:
+                if child[0] == '<':
+                    out.write('<![CDATA[' + child + ']]>')
+                else:
+                    out.write(_escape_text(child))
+
+
+class Element(Fragment):
     """Simple XML output generator based on the builder pattern.
 
     Construct XML elements by passing the tag name to the constructor:
@@ -76,7 +129,7 @@ class Element(object):
     >>> print Element('foo')['<bar a="3" b="4"><baz/></bar>']
     <foo><![CDATA[<bar a="3" b="4"><baz/></bar>]]></foo>
     """
-    __slots__ = ['name', 'attr', 'children']
+    __slots__ = ['name', 'attr']
 
     def __init__(self, *args, **attr):
         """Create an XML element using the specified tag name.
@@ -84,24 +137,10 @@ class Element(object):
         The tag name must be supplied as the first positional argument. All
         keyword arguments following it are handled as attributes of the element.
         """
+        Fragment.__init__(self)
         self.name = args[0]
         self.attr = dict([(name, value) for name, value in attr.items()
                           if value is not None])
-        self.children = []
-
-    def __getitem__(self, children):
-        """Add child nodes to an element."""
-        if not isinstance(children, (list, tuple)):
-            children = [children]
-        self.children = [child for child in children
-                         if child is not None and child != '']
-        return self
-
-    def __str__(self):
-        """Return a string representation of the XML element."""
-        buf = StringIO()
-        self.write(buf)
-        return buf.getvalue()
 
     def write(self, out, newlines=False):
         """Serializes the element and writes the XML to the given output
@@ -110,36 +149,22 @@ class Element(object):
         out.write('<')
         out.write(self.name)
         for name, value in self.attr.items():
-            out.write(' %s="%s"' % (name, self._escape_attr(value)))
+            out.write(' %s="%s"' % (name, _escape_attr(value)))
         if self.children:
             out.write('>')
-            for child in self.children:
-                if isinstance(child, Element):
-                    child.write(out, newlines=newlines)
-                else:
-                    if child[0] == '<':
-                        out.write('<![CDATA[' + child + ']]>')
-                    else:
-                        out.write(self._escape_text(child))
+            Fragment.write(self, out, newlines)
             out.write('</' + self.name + '>')
         else:
             out.write('/>')
         if newlines:
             out.write(os.linesep)
 
-    def _escape_text(self, text):
-        return str(text).replace('&', '&amp;').replace('<', '&lt;') \
-                        .replace('>', '&gt;')
-
-    def _escape_attr(self, attr):
-        return self._escape_text(attr).replace('"', '&#34;')
-
 
 class SubElement(Element):
 
     __slots__ = []
 
-    def __init__(self, *args, **attr):
+    def __init__(self, parent, name, **attr):
         """Create an XML element using the specified tag name.
         
         The first positional argument is the instance of the parent element that
@@ -147,9 +172,8 @@ class SubElement(Element):
         the name of the tag. All keyword arguments are handled as attributes of
         the element.
         """
-        assert len(args) == 2
-        Element.__init__(self, args[1], **attr)
-        args[0].children.append(self)
+        Element.__init__(self, name, **attr)
+        parent.append(self)
 
 
 def parse(text):
