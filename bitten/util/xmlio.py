@@ -72,7 +72,7 @@ class Fragment(object):
         stream.
         """
         for child in self.children:
-            if isinstance(child, Element):
+            if isinstance(child, (Element, ParsedElement)):
                 child.write(out, newlines=newlines)
             else:
                 if child[0] == '<':

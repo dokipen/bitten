@@ -22,6 +22,7 @@ import logging
 import os
 
 from trac.core import *
+from bitten.util import xmlio
 
 log = logging.getLogger('bitten.store')
 
@@ -73,15 +74,15 @@ class BDBXMLStore(Component):
     ]
 
 
-    class XmlValueWrapper(object):
+    class XmlValueWrapper(xmlio.ParsedElement):
 
         _metadata = None
 
         def __init__(self, value):
             self.value = value
-
-        def __str__(self):
-            return self.value.asString()
+            from xml.dom import minidom
+            dom = minidom.parseString(value.asString())
+            xmlio.ParsedElement.__init__(self, dom.documentElement)
 
         def _get_metadata(self):
             if self._metadata is None:

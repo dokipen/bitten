@@ -91,17 +91,10 @@ def unittest(ctxt, file=None):
     try:
         fd = open(ctxt.resolve(file), 'r')
         try:
-            from xml.dom import minidom
-            root = minidom.parse(fd).documentElement
-            assert root.tagName == 'unittest-results'
-            for test in root.getElementsByTagName('test'):
-                filename = test.getAttribute('file')
-                if filename.startswith(ctxt.basedir):
-                    filename = filename[len(ctxt.basedir) + 1:]
-                duration = float(test.getAttribute('duration'))
-                name = test.getAttribute('name')
-                status = test.getAttribute('status')
-                # TODO: emit to build master
+            results = xmlio.Fragment()
+            for child in xmlio.parse(fd).children():
+                results.append(child)
+            ctxt.report(results)
         finally:
             fd.close()
     except IOError, e:
