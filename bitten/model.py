@@ -360,9 +360,10 @@ class Build(object):
                        (self.slave or '', self.started or 0,
                         self.stopped or 0, self.status, self.id))
         cursor.execute("DELETE FROM bitten_slave WHERE build=%s", (self.id,))
-        cursor.executemany("INSERT INTO bitten_slave VALUES (%s,%s,%s)",
-                           [(self.id, name, value) for name, value
-                            in self.slave_info.items()])
+        if self.slave_info:
+            cursor.executemany("INSERT INTO bitten_slave VALUES (%s,%s,%s)",
+                               [(self.id, name, value) for name, value
+                                in self.slave_info.items()])
         if handle_ta:
             db.commit()
 
@@ -377,7 +378,7 @@ class Build(object):
         if not row:
             return None
 
-        build = Build(env, id=id, config=row[0], rev=row[1],
+        build = Build(env, id=int(id), config=row[0], rev=row[1],
                       rev_time=int(row[2]), platform=int(row[3]),
                       slave=row[4], started=row[5] and int(row[5]) or 0,
                       stopped=row[6] and int(row[6]) or 0, status=row[7])

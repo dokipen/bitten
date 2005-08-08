@@ -191,15 +191,20 @@ class Master(beep.Listener):
         for slaves in self.slaves.values():
             slaves.discard(handler)
 
+        db = self.env.get_db_cnx()
         for build in Build.select(self.env, slave=handler.name,
-                                  status=Build.IN_PROGRESS):
+                                  status=Build.IN_PROGRESS, db=db):
             log.info('Build [%s] of "%s" by %s cancelled', build.rev,
                      build.config, handler.name)
+            for step in BuildStep.select(self.env, build=build.id):
+                step.delete(db=db)
             build.slave = None
+            build.slave_info = {}
             build.status = Build.PENDING
             build.started = 0
-            build.update()
+            build.update(db=db)
             break
+        db.commit()
         log.info('Unregistered slave "%s"', handler.name)
 
 
