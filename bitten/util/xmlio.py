@@ -131,14 +131,14 @@ class Element(Fragment):
     """
     __slots__ = ['name', 'attr']
 
-    def __init__(self, *args, **attr):
+    def __init__(self, name_, **attr):
         """Create an XML element using the specified tag name.
         
         The tag name must be supplied as the first positional argument. All
         keyword arguments following it are handled as attributes of the element.
         """
         Fragment.__init__(self)
-        self.name = args[0]
+        self.name = name_
         self.attr = dict([(name, value) for name, value in attr.items()
                           if value is not None])
 
@@ -164,7 +164,7 @@ class SubElement(Element):
 
     __slots__ = []
 
-    def __init__(self, parent, name, **attr):
+    def __init__(self, parent_, name_, **attr):
         """Create an XML element using the specified tag name.
         
         The first positional argument is the instance of the parent element that
@@ -172,8 +172,8 @@ class SubElement(Element):
         the name of the tag. All keyword arguments are handled as attributes of
         the element.
         """
-        Element.__init__(self, name, **attr)
-        parent.append(self)
+        Element.__init__(self, name_, **attr)
+        parent_.append(self)
 
 
 def parse(text):

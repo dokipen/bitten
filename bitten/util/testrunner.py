@@ -53,10 +53,12 @@ class XMLTestResult(_TextTestResult):
         sys.stdout, sys.stderr = self.buf_stdout, self.buf_stderr
 
     def stopTest(self, test):
-        _TextTestResult.stopTest(self, test)
         self.tests[-1][2] = time.time() - self.tests[-1][2]
         self.tests[-1][3] = self.buf_stdout.getvalue()
         self.tests[-1][4] = self.buf_stderr.getvalue()
+        sys.stdout, sys.stderr = self.orig_stdout, self.orig_stderr
+
+        _TextTestResult.stopTest(self, test)
 
 
 class XMLTestRunner(TextTestRunner):
