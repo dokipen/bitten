@@ -161,6 +161,13 @@
      var:build.started_delta ?> ago)<br />Took: <?cs var:build.duration ?></p><?cs
   each:step = build.steps ?>
    <h2><?cs var:step.name ?> (<?cs var:step.duration ?>)</h2>
+   <?cs if:len(step.reports) ?>
+    <div class="reports"><h3>Generated Reports</h3><ul>
+     <?cs each:report = step.reports ?>
+      <li class="<?cs var:report.type ?>"><?cs var:report.type ?></li>
+     <?cs /each ?>
+    </ul></div>
+   <?cs /if ?>
    <p><?cs var:step.description ?></p>
    <div class="log"><?cs
     each:item = step.log ?><code class="<?cs var:item.level ?>"><?cs

@@ -32,6 +32,7 @@ from trac.web.chrome import INavigationContributor, ITemplateProvider, \
 from trac.web.main import IRequestHandler
 from trac.wiki import wiki_to_html
 from bitten.model import BuildConfig, TargetPlatform, Build, BuildStep, BuildLog
+from bitten.store import ReportStore
 
 
 class ILogFormatter(Interface):
@@ -450,6 +451,13 @@ class BuildModule(Component):
                             message = format(level, message)
                         items.append({'level': level, 'message': message})
                     steps[-1]['log'] = items
+
+                store = ReportStore(self.env)
+                reports = []
+                for report in store.retrieve_reports(build, step):
+                    reports.append({'type': report.attr['type']})
+                steps[-1]['reports'] = reports
+
         hdf['steps'] = steps
 
         return hdf

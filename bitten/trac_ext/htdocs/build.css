@@ -16,6 +16,16 @@
 #content.build #builds td.failed { background: #d99; }
 #content.build #builds td.in-progress { background: #ff9; }
 
-#content.build .log { overflow: auto; white-space: pre; }
+#content.build .reports {
+ background: #d7d7d7;
+ float: right;
+ font-size: 90%;
+ margin: .5em 0 .5em 1em;
+ padding: .5em;
+}
+#content.build .reports h3 { margin: 0; }
+#content.build .reports ul { margin: 0; padding: 0; list-style: none; }
+
+#content.build .log { clear: right; overflow: auto; white-space: pre; }
 #content.build .log .warning { color: #660; font-weight: bold; }
 #content.build .log .error { color: #900; font-weight: bold; }
