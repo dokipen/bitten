@@ -40,7 +40,7 @@ class BuildModuleTestCase(unittest.TestCase):
         assert module.match_request(req)
         module.process_request(req)
 
-        self.assertEqual('overview', req.hdf['build.mode'])
+        self.assertEqual('overview', req.hdf['page.mode'])
         self.assertEqual('0', req.hdf.get('build.can_create', '0'))
 
     def test_overview_admin(self):
@@ -53,7 +53,7 @@ class BuildModuleTestCase(unittest.TestCase):
         assert module.match_request(req)
         module.process_request(req)
 
-        self.assertEqual('1', req.hdf.get('build.can_create'))
+        self.assertEqual('1', req.hdf.get('config.can_create'))
 
     def test_view_config(self):
         config = BuildConfig(self.env)
@@ -69,7 +69,7 @@ class BuildModuleTestCase(unittest.TestCase):
         assert module.match_request(req)
         module.process_request(req)
 
-        self.assertEqual('view_config', req.hdf['build.mode'])
+        self.assertEqual('view_config', req.hdf['page.mode'])
         self.assertEqual('0', req.hdf.get('build.config.can_modify', '0'))
 
     def test_view_config_admin(self):
@@ -86,7 +86,7 @@ class BuildModuleTestCase(unittest.TestCase):
         assert module.match_request(req)
         module.process_request(req)
 
-        self.assertEqual('1', req.hdf.get('build.config.can_modify'))
+        self.assertEqual('1', req.hdf.get('config.can_modify'))
 
     def test_new_config(self):
         PermissionSystem(self.env).grant_permission('joe', 'BUILD_ADMIN')
@@ -98,7 +98,7 @@ class BuildModuleTestCase(unittest.TestCase):
         assert module.match_request(req)
         module.process_request(req)
 
-        self.assertEqual('edit_config', req.hdf['build.mode'])
+        self.assertEqual('edit_config', req.hdf['page.mode'])
 
     def test_new_config_submit(self):
         PermissionSystem(self.env).grant_permission('joe', 'BUILD_ADMIN')
@@ -159,7 +159,7 @@ class BuildModuleTestCase(unittest.TestCase):
         assert module.match_request(req)
         module.process_request(req)
 
-        self.assertEqual('edit_config', req.hdf['build.mode'])
+        self.assertEqual('edit_config', req.hdf['page.mode'])
 
     def test_edit_config_submit(self):
         config = BuildConfig(self.env)
@@ -229,7 +229,7 @@ class BuildModuleTestCase(unittest.TestCase):
         assert module.match_request(req)
         module.process_request(req)
 
-        self.assertEqual('edit_platform', req.hdf['build.mode'])
+        self.assertEqual('edit_platform', req.hdf['page.mode'])
 
     def test_new_platform_submit(self):
         config = BuildConfig(self.env)
@@ -291,7 +291,7 @@ class BuildModuleTestCase(unittest.TestCase):
         assert module.match_request(req)
         module.process_request(req)
 
-        self.assertEqual('edit_platform', req.hdf['build.mode'])
+        self.assertEqual('edit_platform', req.hdf['page.mode'])
 
     def test_edit_platform_submit(self):
         config = BuildConfig(self.env)
