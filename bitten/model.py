@@ -307,8 +307,13 @@ class Build(object):
 
         assert self.status == self.PENDING, 'Only pending builds can be deleted'
 
+        for step in BuildStep.select(self.env, build=self.id):
+            step.delete(db=db)
+
         cursor = db.cursor()
+        cursor.execute("DELETE FROM bitten_slave WHERE build=%s", (self.id,))
         cursor.execute("DELETE FROM bitten_build WHERE id=%s", (self.id,))
+
         if handle_ta:
             db.commit()
 
@@ -455,6 +460,9 @@ class BuildStep(object):
         else:
             handle_ta = False
 
+        for log in BuildLog.select(self.env, build=self.build, step=self.name):
+            log.delete(db=db)
+
         cursor = db.cursor()
         cursor.execute("DELETE FROM bitten_step WHERE build=%s AND name=%s",
                        (self.build, self.name))
@@ -558,9 +566,9 @@ class BuildLog(object):
             handle_ta = False
 
         cursor = db.cursor()
-        cursor.execute("DELETE FROM bitten_log WHERE id=%s", (self.id,))
         cursor.execute("DELETE FROM bitten_log_message WHERE log=%s",
                        (self.id,))
+        cursor.execute("DELETE FROM bitten_log WHERE id=%s", (self.id,))
 
         if handle_ta:
             db.commit()

@@ -123,11 +123,6 @@ class Master(beep.Listener):
             build.status = Build.PENDING
             build.update(db=db)
         for build in Build.select(self.env, status=Build.PENDING, db=db):
-            for step in BuildStep.select(self.env, build=build.id, db=db):
-                for log in BuildLog.select(self.env, build=build.id,
-                                           step=step.name, db=db):
-                    log.delete(db=db)
-                step.delete(db=db)
             build.delete(db=db)
         db.commit()
 
@@ -337,7 +332,8 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
                  self.name, build.id, build.config, build.rev)
 
     def _build_step_completed(self, db, build, elem):
-        log.debug('Slave completed step "%s"', elem.attr['id'])
+        log.debug('Slave completed step "%s" with status %s', elem.attr['id'],
+                  elem.attr['result'])
         step = BuildStep(self.env, build=build.id, name=elem.attr['id'],
                          description=elem.attr.get('description'))
         step.started = int(_parse_iso_datetime(elem.attr['time']))
@@ -365,8 +361,9 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
             store.store_report(build, step, report)
 
     def _build_completed(self, db, build, elem):
-        log.info('Slave %s completed build %d ("%s" as of [%s])', self.name,
-                 build.id, build.config, build.rev)
+        log.info('Slave %s completed build %d ("%s" as of [%s]) with status %s',
+                 self.name, build.id, build.config, build.rev,
+                 elem.attr['result'])
         build.stopped = int(_parse_iso_datetime(elem.attr['time']))
         if elem.attr['result'] == 'failure':
             build.status = Build.FAILURE

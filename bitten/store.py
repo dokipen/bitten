@@ -27,7 +27,7 @@ from bitten.util import xmlio
 log = logging.getLogger('bitten.store')
 
 
-class IReportStore(Interface):
+class IReportStoreBackend(Interface):
 
     def store_report(build, step, xml):
         """Store the given report."""
@@ -38,22 +38,25 @@ class IReportStore(Interface):
 
 class ReportStore(Component):
 
-    backends = ExtensionPoint(IReportStore)
-
-    def _get_backend(self):
-        configured = self.config.get('bitten', 'report_store', 'BDBXMLStore')
-        for backend in self.backends:
-            if backend.__class__.__name__ == configured:
-                return backend
-        raise TracError, 'No report store backend available'
-    backend = property(fget=lambda self: self._get_backend())
+    backends = ExtensionPoint(IReportStoreBackend)
 
     def store_report(self, build, step, xml):
         assert xml.name == 'report' and 'type' in xml.attr
-        self.backend.store_report(build, step, xml)
+        backend = self._get_configured_backend()
+        log.debug('Storing report of type "%s" in %s', xml.attr['type'],
+                  backend.__class__.__name__)
+        backend.store_report(build, step, xml)
 
     def retrieve_reports(self, build, step, type=None):
-        return self.backend.retrieve_reports(build, step, type)
+        backend = self._get_configured_backend()
+        return backend.retrieve_reports(build, step, type)
+
+    def _get_configured_backend(self):
+        configured = self.config.get('bitten', 'report_store', 'BDBXMLBackend')
+        for backend in self.backends:
+            if backend.__class__.__name__ == configured:
+                return backend
+        raise TracError, 'Report store backend not available'
 
 
 try:
@@ -62,8 +65,8 @@ except ImportError:
     dbxml = None
 
 
-class BDBXMLStore(Component):
-    implements(IReportStore)
+class BDBXMLBackend(Component):
+    implements(IReportStoreBackend)
 
     indexes = [
         ('build', 'node-metadata-equality-decimal'),
@@ -127,7 +130,7 @@ class BDBXMLStore(Component):
         query += "]"
         results = mgr.query(query, ctxt)
         for value in results:
-            yield BDBXMLStore.XmlValueWrapper(value)
+            yield BDBXMLBackend.XmlValueWrapper(value)
 
     def _open_container(self, mgr, create=False):
         if create and not os.path.exists(self.path):

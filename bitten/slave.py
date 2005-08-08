@@ -156,8 +156,10 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
                     for type, function, output in step.execute(recipe.ctxt):
                         xmlio.SubElement(xml, type, type=function)[output]
                     xml.attr['duration'] = (datetime.utcnow() - started).seconds
+                    log.info('Build step %s completed successfully', step.id)
                     self.channel.send_ans(msgno, beep.Payload(xml))
                 except (BuildError, InvalidRecipeError), e:
+                    log.warning('Build step %s failed: %s', step.id, e)
                     duration = datetime.utcnow() - started
                     failed = True
                     xml = xmlio.Element('step', id=step.id, result='failure',
@@ -166,7 +168,10 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
                                         duration=duration.seconds)[e]
                     self.channel.send_ans(msgno, beep.Payload(xml))
 
-            log.info('Build completed')
+            if failed:
+                log.warning('Build failed')
+            else:
+                log.info('Build completed successfully')
             xml = xmlio.Element('completed', time=datetime.utcnow().isoformat(),
                                 result=['success', 'failure'][failed])
             self.channel.send_ans(msgno, beep.Payload(xml))

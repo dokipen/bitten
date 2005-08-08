@@ -24,11 +24,11 @@ import tempfile
 import unittest
 
 from trac.test import EnvironmentStub, Mock
-from bitten.store import BDBXMLStore
+from bitten.store import BDBXMLBackend
 from bitten.util import xmlio
 
 
-class BDBXMLStoreTestCase(unittest.TestCase):
+class BDBXMLBackendTestCase(unittest.TestCase):
 
     def setUp(self):
         self.env = EnvironmentStub()
@@ -39,7 +39,7 @@ class BDBXMLStoreTestCase(unittest.TestCase):
         shutil.rmtree(self.env.path)
 
     def test_store_report(self):
-        store = BDBXMLStore(self.env)
+        store = BDBXMLBackend(self.env)
         build = Mock(id=42)
         step = Mock(name='foo')
         xml = xmlio.Element('report', type='test')[xmlio.Element('dummy')]
@@ -63,4 +63,4 @@ class BDBXMLStoreTestCase(unittest.TestCase):
 
 
 def suite():
-    return unittest.makeSuite(BDBXMLStoreTestCase, 'test')
+    return unittest.makeSuite(BDBXMLBackendTestCase, 'test')
