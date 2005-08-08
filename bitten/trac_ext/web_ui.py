@@ -307,13 +307,13 @@ class BuildModule(Component):
             description = config.description
             if description:
                 description = wiki_to_html(description, self.env, req)
-            req.hdf['build.configs.%d' % idx] = {
+            req.hdf['configs.%d' % idx] = {
                 'name': config.name, 'label': config.label or config.name,
                 'path': config.path, 'description': description,
-                'href': self.env.href.build(config.name)
+                'href': self.env.href.build(config.name),
             }
-        req.hdf['build.mode'] = 'overview'
-        req.hdf['build.can_create'] = req.perm.has_permission('BUILD_CREATE')
+        req.hdf['page.mode'] = 'overview'
+        req.hdf['config.can_create'] = req.perm.has_permission('BUILD_CREATE')
 
     def _render_config(self, req, config_name):
         config = BuildConfig.fetch(self.env, config_name)
@@ -323,25 +323,24 @@ class BuildModule(Component):
         description = config.description
         if description:
             description = wiki_to_html(description, self.env, req)
-        req.hdf['build.config'] = {
+        req.hdf['config'] = {
             'name': config.name, 'label': config.label, 'path': config.path,
             'active': config.active, 'description': description,
             'browser_href': self.env.href.browser(config.path),
             'can_modify': req.perm.has_permission('BUILD_MODIFY')
         }
-        req.hdf['build.mode'] = 'view_config'
+        req.hdf['page.mode'] = 'view_config'
 
         platforms = TargetPlatform.select(self.env, config=config_name)
-        req.hdf['build.platforms'] = [
+        req.hdf['config.platforms'] = [
             {'name': platform.name, 'id': platform.id} for platform in platforms
         ]
 
         repos = self.env.get_repository(req.authname)
         try:
             root = repos.get_node(config.path)
-            num = 0
             for idx, (path, rev, chg) in enumerate(root.get_history()):
-                prefix = 'build.builds.%d' % rev
+                prefix = 'config.builds.%d' % rev
                 req.hdf[prefix + '.href'] = self.env.href.changeset(rev)
                 for build in Build.select(self.env, config=config.name, rev=rev):
                     if build.status == Build.PENDING:
@@ -356,7 +355,7 @@ class BuildModule(Component):
         config = BuildConfig.fetch(self.env, config_name)
         if config:
             req.perm.assert_permission('BUILD_MODIFY')
-            req.hdf['build.config'] = {
+            req.hdf['config'] = {
                 'name': config.name, 'label': config.label, 'path': config.path,
                 'active': config.active, 'description': config.description,
                 'exists': config.exists
@@ -366,7 +365,7 @@ class BuildModule(Component):
                                % escape(config.label or config.name)
             for idx, platform in enumerate(TargetPlatform.select(self.env,
                                                                  config_name)):
-                req.hdf['build.platforms.%d' % idx] = {
+                req.hdf['config.platforms.%d' % idx] = {
                     'id': platform.id, 'name': platform.name,
                     'href': self.env.href.build(config_name, action='edit',
                                                 platform=platform.id)
@@ -374,7 +373,7 @@ class BuildModule(Component):
         else:
             req.perm.assert_permission('BUILD_CREATE')
             req.hdf['title'] = 'Create Build Configuration'
-        req.hdf['build.mode'] = 'edit_config'
+        req.hdf['page.mode'] = 'edit_config'
 
     def _render_platform_form(self, req, platform):
         req.perm.assert_permission('BUILD_MODIFY')
@@ -383,12 +382,12 @@ class BuildModule(Component):
                                % escape(platform.name)
         else:
             req.hdf['title'] = 'Add Target Platform'
-        req.hdf['build.platform'] = {
+        req.hdf['platform'] = {
             'name': platform.name, 'id': platform.id, 'exists': platform.exists,
             'rules': [{'property': propname, 'pattern': pattern}
                       for propname, pattern in platform.rules] or [('', '')]
         }
-        req.hdf['build.mode'] = 'edit_platform'
+        req.hdf['page.mode'] = 'edit_platform'
 
     def _render_build(self, req, build_id):
         build = Build.fetch(self.env, build_id)
@@ -400,7 +399,7 @@ class BuildModule(Component):
         req.hdf['title'] = 'Build %s - %s' % (build_id,
                                               status2title[build.status])
         req.hdf['build'] = self._build_to_hdf(req, build, include_output=True)
-        req.hdf['build.mode'] = 'view_build'
+        req.hdf['page.mode'] = 'view_build'
 
         config = BuildConfig.fetch(self.env, build.config)
         req.hdf['build.config'] = {
@@ -435,7 +434,8 @@ class BuildModule(Component):
         for step in BuildStep.select(self.env, build=build.id, db=db):
             steps.append({
                 'name': step.name, 'description': step.description,
-                'duration': pretty_timedelta(step.started, step.stopped)
+                'duration': pretty_timedelta(step.started, step.stopped),
+                'failed': step.status == BuildStep.FAILURE
             })
             if include_output:
                 for log in BuildLog.select(self.env, build=build.id,
