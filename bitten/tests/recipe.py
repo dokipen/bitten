@@ -33,6 +33,7 @@ class RecipeTestCase(unittest.TestCase):
         self.recipe_xml = open(os.path.join(self.temp_dir, 'recipe.xml'), 'w')
 
     def tearDown(self):
+        self.recipe_xml.close()
         os.unlink(os.path.join(self.temp_dir, 'recipe.xml'))
 
     def test_description(self):

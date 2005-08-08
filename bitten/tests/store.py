@@ -20,6 +20,7 @@
 
 import os
 import shutil
+import sys
 import tempfile
 import unittest
 
@@ -63,4 +64,9 @@ class BDBXMLBackendTestCase(unittest.TestCase):
 
 
 def suite():
-    return unittest.makeSuite(BDBXMLBackendTestCase, 'test')
+    try:
+        import dbxml
+        return unittest.makeSuite(BDBXMLBackendTestCase, 'test')
+    except ImportError:
+        print>>sys.stderr, 'Skipping unit tests for BDB XML backend'
+    return unittest.TestSuite()
