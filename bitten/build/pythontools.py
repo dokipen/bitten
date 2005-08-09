@@ -19,6 +19,7 @@
 # Author: Christopher Lenz <cmlenz@gmx.de>
 
 import logging
+import os
 import re
 
 from bitten.build import BuildError
@@ -84,6 +85,49 @@ def trace(ctxt, summary=None, coverdir=None, include=None, exclude=None):
     assert summary, 'Missing required attribute "summary"'
     assert coverdir, 'Missing required attribute "coverdir"'
 
+    summary_line_re = re.compile(r'^\s*(?P<lines>\d+)\s+(?P<cov>\d+)%\s+'
+                                 r'(?P<module>.*?)\s+\((?P<filename>.*?)\)')
+    coverage_line_re = re.compile(r'\s*(?:(?P<hits>\d+): )?(?P<line>.*)')
+
+    try:
+        summary_file = open(ctxt.resolve(summary), 'r')
+        try:
+            coverage = xmlio.Fragment()
+            for summary_line in summary_file:
+                match = summary_line_re.search(summary_line)
+                if match:
+                    filename = match.group(4)
+                    modname = match.group(3)
+                    cov = int(match.group(2))
+                    if filename.startswith(ctxt.basedir):
+                        module = xmlio.Element('coverage', file=filename,
+                                               module=modname, percentage=cov)
+                        coverage_path = ctxt.resolve(coverdir,
+                                                     modname + '.cover')
+                        if not os.path.exists(coverage_path):
+                            log.warning('No coverage file for module %s at %s',
+                                        modname, coverage_path)
+                            continue
+                        coverage_file = open(coverage_path, 'r')
+                        try:
+                            for num, coverage_line in enumerate(coverage_file):
+                                match = coverage_line_re.search(coverage_line)
+                                if match:
+                                    hits = match.group(1)
+                                    if hits:
+                                        line = xmlio.Element('line', line=num,
+                                                             hits=int(hits))
+                                        module.append(line)
+                        finally:
+                            coverage_file.close()
+                        coverage.append(module)
+            ctxt.report(coverage)
+        finally:
+            summary_file.close()
+    except IOError, e:
+        raise BuildError, 'Error opening unittest results file (%s)' % e
+
+
 def unittest(ctxt, file=None):
     """Extract data from a unittest results file in XML format."""
     assert file, 'Missing required attribute "file"'
@@ -93,6 +137,9 @@ def unittest(ctxt, file=None):
         try:
             results = xmlio.Fragment()
             for child in xmlio.parse(fd).children():
+                filename = child.attr.get('file')
+                if filename and filename.startswith(ctxt.basedir):
+                    child.attr['file'] = filename[len(ctxt.basedir) + 1:]
                 results.append(child)
             ctxt.report(results)
         finally:

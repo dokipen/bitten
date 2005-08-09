@@ -44,5 +44,9 @@ class RecipeTestCase(unittest.TestCase):
         recipe = Recipe(basedir=self.temp_dir)
         self.assertEqual('test', recipe.description)
 
+
 def suite():
     return unittest.makeSuite(RecipeTestCase, 'test')
+
+if __name__ == '__main__':
+    unittest.main(defaultTest='suite')

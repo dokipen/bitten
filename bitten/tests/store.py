@@ -70,3 +70,6 @@ def suite():
     except ImportError:
         print>>sys.stderr, 'Skipping unit tests for BDB XML backend'
     return unittest.TestSuite()
+
+if __name__ == '__main__':
+    unittest.main(defaultTest='suite')

@@ -18,21 +18,14 @@
 #
 # Author: Christopher Lenz <cmlenz@gmx.de>
 
+import doctest
 import unittest
 
-from bitten.tests import model, recipe, store
-from bitten.build import tests as build
-from bitten.util import tests as util
-from bitten.trac_ext import tests as trac_ext
+from bitten.build.tests import pythontools
 
 def suite():
     suite = unittest.TestSuite()
-    suite.addTest(model.suite())
-    suite.addTest(recipe.suite())
-    suite.addTest(store.suite())
-    suite.addTest(build.suite())
-    suite.addTest(trac_ext.suite())
-    suite.addTest(util.suite())
+    suite.addTest(pythontools.suite())
     return suite
 
 if __name__ == '__main__':
