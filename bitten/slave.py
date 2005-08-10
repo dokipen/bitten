@@ -18,6 +18,7 @@
 #
 # Author: Christopher Lenz <cmlenz@gmx.de>
 
+from ConfigParser import ConfigParser
 from datetime import datetime
 import logging
 import os
@@ -36,9 +37,10 @@ log = logging.getLogger('bitten.slave')
 class Slave(beep.Initiator):
     """Build slave."""
 
-    def __init__(self, ip, port, name=None):
+    def __init__(self, ip, port, name=None, config=None):
         beep.Initiator.__init__(self, ip, port)
         self.name = name
+        self.config = config
 
     def greeting_received(self, profiles):
         if OrchestrationProfileHandler.URI not in profiles:
@@ -73,10 +75,32 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
                                                          version)
         if self.session.name is not None:
             node = self.session.name
+
+        packages = []
+        if self.session.config is not None:
+            log.debug('Merging configuration from %s', self.session.config)
+            config = ConfigParser()
+            config.read(self.session.config)
+            for section in config.sections():
+                if section == 'machine':
+                    machine = config.get(section, 'name', machine)
+                    processor = config.get(section, 'processor', processor)
+                elif section == 'os':
+                    system = config.get(section, 'name', system)
+                    family = config.get(section, 'family', family)
+                    release = config.get(section, 'version', release)
+                else: # a package
+                    attrs = {}
+                    for option in config.options(section):
+                        attrs[option] = config.get(section, option)
+                    packages.append(xmlio.Element('package', name=section,
+                                                  **attrs))
+
         log.info('Registering with build master as %s', node)
         xml = xmlio.Element('register', name=node)[
             xmlio.Element('platform', processor=processor)[machine],
-            xmlio.Element('os', family=os.name, version=release)[system]
+            xmlio.Element('os', family=os.name, version=release)[system],
+            xmlio.Fragment()[packages]
         ]
         self.channel.send_msg(beep.Payload(xml), handle_reply)
 
@@ -199,6 +223,8 @@ def main():
                           version='%%prog %s' % VERSION)
     parser.add_option('-n', '--name', action='store', dest='name',
                       help='name of this slave (defaults to host name)')
+    parser.add_option('-c', '--config', action='store', dest='config',
+                      metavar='FILE', help='path to configuration file')
     parser.add_option('--debug', action='store_const', dest='loglevel',
                       const=logging.DEBUG, help='enable debugging output')
     parser.add_option('-v', '--verbose', action='store_const', dest='loglevel',
@@ -228,7 +254,7 @@ def main():
     handler.setFormatter(formatter)
     log.addHandler(handler)
 
-    slave = Slave(host, port, options.name)
+    slave = Slave(host, port, options.name, options.config)
     try:
         slave.run()
     except KeyboardInterrupt:

@@ -226,6 +226,7 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
 
         if elem.name == 'register':
             self.name = elem.attr['name']
+            self.info[Build.IP_ADDRESS] = self.session.addr[0]
             for child in elem.children():
                 if child.name == 'platform':
                     self.info[Build.MACHINE] = child.gettext()
@@ -234,7 +235,11 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
                     self.info[Build.OS_NAME] = child.gettext()
                     self.info[Build.OS_FAMILY] = child.attr.get('family')
                     self.info[Build.OS_VERSION] = child.attr.get('version')
-            self.info[Build.IP_ADDRESS] = self.session.addr[0]
+                elif child.name == 'package':
+                    for name, value in child.attr.items():
+                        if name == 'name':
+                            continue
+                        self.info[child.attr['name'] + '.' + name] = value
 
             if not self.master.register(self):
                 xml = xmlio.Element('error', code=550)[
