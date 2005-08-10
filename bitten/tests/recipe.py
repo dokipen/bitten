@@ -36,13 +36,29 @@ class RecipeTestCase(unittest.TestCase):
         self.recipe_xml.close()
         os.unlink(os.path.join(self.temp_dir, 'recipe.xml'))
 
-    def test_description(self):
+    def test_empty_recipe(self):
         self.recipe_xml.write('<?xml version="1.0"?>'
                               '<build description="test">'
                               '</build>')
         self.recipe_xml.close()
         recipe = Recipe(basedir=self.temp_dir)
         self.assertEqual('test', recipe.description)
+        self.assertEqual(self.temp_dir, recipe.ctxt.basedir)
+        steps = list(recipe)
+        self.assertEqual(0, len(steps))
+
+    def test_single_step(self):
+        self.recipe_xml.write('<?xml version="1.0"?>'
+                              '<build>'
+                              ' <step id="foo" description="Bar"></step>'
+                              '</build>')
+        self.recipe_xml.close()
+        recipe = Recipe(basedir=self.temp_dir)
+        steps = list(recipe)
+        self.assertEqual(1, len(steps))
+        self.assertEqual('foo', steps[0].id)
+        self.assertEqual('Bar', steps[0].description)
+        self.assertEqual('fail', steps[0].onerror)
 
 
 def suite():
