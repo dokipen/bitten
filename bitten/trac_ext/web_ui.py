@@ -78,7 +78,7 @@ class BuildModule(Component):
     # IRequestHandler methods
 
     def match_request(self, req):
-        match = re.match(r'/build(?:/([\w.-]+))?(?:/([\d]+))?', req.path_info)
+        match = re.match(r'/build(?:/([\w.-]+))?(?:/([\d]+))?$', req.path_info)
         if match:
             if match.group(1):
                 req.args['config'] = match.group(1)
@@ -455,7 +455,10 @@ class BuildModule(Component):
                 store = ReportStore(self.env)
                 reports = []
                 for report in store.retrieve_reports(build, step):
-                    reports.append({'type': report.attr['type']})
+                    report_type = report.attr['type']
+                    report_href = self.env.href.buildreport(build.id, step.name,
+                                                            report_type)
+                    reports.append({'type': report_type, 'href': report_href})
                 steps[-1]['reports'] = reports
 
         hdf['steps'] = steps
@@ -492,3 +495,67 @@ class SourceFileLinkFormatter(Component):
                 message = pattern.sub(_replace, message)
             return message
         return _formatter
+
+
+class BuildReportView(Component):
+    """Temporary web interface that simply displays the XML source of a report
+    using the Trac `Mimeview` component."""
+
+    implements(INavigationContributor, IRequestHandler)
+
+    template_cs = """<?cs include:"header.cs" ?>
+ <div id="ctxtnav" class="nav"></div>
+ <div id="content" class="build">
+  <h1>Build <a href="<?cs var:build.href ?>"><?cs var:build.id ?></a>: <?cs
+    var:report.type ?></h1>
+  <?cs var:report.preview ?>
+ </div>
+<?cs include:"footer.cs" ?>"""
+
+    # INavigationContributor methods
+
+    def get_active_navigation_item(self, req):
+        return 'build'
+
+    def get_navigation_items(self, req):
+        return []
+
+    # IRequestHandler methods
+
+    def match_request(self, req):
+        match = re.match(r'/buildreport/(?P<build>[\d]+)/(?P<step>[\w]+)'
+                         r'/(?P<type>[\w]+)', req.path_info)
+        if match:
+            for name in match.groupdict():
+                req.args[name] = match.group(name)
+            return True
+
+    def process_request(self, req):
+        req.perm.assert_permission('BUILD_VIEW')
+
+        build = Build.fetch(self.env, int(req.args.get('build')))
+        if not build:
+            raise TracError, 'Build %d does not exist' % req.args.get('build')
+        step = BuildStep.fetch(self.env, build.id, req.args.get('step'))
+        if not step:
+            raise TracError, 'Build step %s does not exist' \
+                             % req.args.get('step')
+        report_type = req.args.get('type')
+
+        req.hdf['build'] = {'id': build.id,
+                            'href': self.env.href.build(build.config, build.id)}
+
+        store = ReportStore(self.env)
+        reports = []
+        for report in store.retrieve_reports(build, step, report_type):
+            req.hdf['title'] = 'Build %d: %s' % (build.id, report_type)
+
+            from trac.mimeview import Mimeview
+            preview = Mimeview(self.env).render(req, 'application/xml',
+                                                report._node.toprettyxml('  '))
+            req.hdf['report'] = {'type': report_type, 'preview': preview}
+            break
+
+        add_stylesheet(req, 'css/code.css')
+        template = req.hdf.parse(self.template_cs)
+        return template, None

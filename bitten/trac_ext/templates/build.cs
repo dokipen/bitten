@@ -167,7 +167,8 @@
    <?cs if:len(step.reports) ?>
     <div class="reports"><h3>Generated Reports</h3><ul>
      <?cs each:report = step.reports ?>
-      <li class="<?cs var:report.type ?>"><?cs var:report.type ?></li>
+      <li class="<?cs var:report.type ?>"><a href="<?cs var:report.href ?>"><?cs
+        var:report.type ?></a></li>
      <?cs /each ?>
     </ul></div>
    <?cs /if ?>
