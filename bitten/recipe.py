@@ -19,7 +19,7 @@
 # Author: Christopher Lenz <cmlenz@gmx.de>
 
 import logging
-import os.path
+import os
 import time
 
 from bitten.build import BuildError
@@ -41,7 +41,7 @@ class Context(object):
     current_function = None
 
     def __init__(self, basedir):
-        self.basedir = basedir
+        self.basedir = os.path.realpath(basedir)
         self.output = []
 
     def log(self, xml_elem):

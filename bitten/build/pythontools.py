@@ -65,7 +65,7 @@ def pylint(ctxt, file=None):
                 match = msg_re.search(line)
                 if match:
                     type = msg_types.get(match.group('type'))
-                    filename = match.group('file')
+                    filename = os.path.realpath(match.group('file'))
                     if filename.startswith(ctxt.basedir):
                         filename = filename[len(ctxt.basedir) + 1:]
                     lineno = int(match.group('line'))
@@ -96,7 +96,7 @@ def trace(ctxt, summary=None, coverdir=None, include=None, exclude=None):
             for summary_line in summary_file:
                 match = summary_line_re.search(summary_line)
                 if match:
-                    filename = match.group(4)
+                    filename = os.path.realpath(match.group(4))
                     modname = match.group(3)
                     cov = int(match.group(2))
                     if filename.startswith(ctxt.basedir):
@@ -138,8 +138,10 @@ def unittest(ctxt, file=None):
             results = xmlio.Fragment()
             for child in xmlio.parse(fd).children():
                 filename = child.attr.get('file')
-                if filename and filename.startswith(ctxt.basedir):
-                    child.attr['file'] = filename[len(ctxt.basedir) + 1:]
+                if filename:
+                    filename = os.path.realpath(filename)
+                    if filename.startswith(ctxt.basedir):
+                        child.attr['file'] = filename[len(ctxt.basedir) + 1:]
                 results.append(child)
             ctxt.report(results)
         finally:
