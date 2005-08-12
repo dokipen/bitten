@@ -126,7 +126,7 @@ def trace(ctxt, summary=None, coverdir=None, include=None, exclude=None):
         finally:
             summary_file.close()
     except IOError, e:
-        log.warning('Error opening unittest results file (%s)', e)
+        log.warning('Error opening coverage summary file (%s)', e)
 
 
 def unittest(ctxt, file=None):
@@ -149,3 +149,5 @@ def unittest(ctxt, file=None):
             fd.close()
     except IOError, e:
         log.warning('Error opening unittest results file (%s)', e)
+    except xmlio.ParseError, e:
+        log.warning('Error parsing unittest results file (%s)', e)

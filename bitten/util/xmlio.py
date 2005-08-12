@@ -176,13 +176,21 @@ class SubElement(Element):
         parent_.append(self)
 
 
+class ParseError(Exception):
+    """Exception thrown when there's an error parsing an XML document."""
+
+
 def parse(text):
     from xml.dom import minidom
-    if isinstance(text, (str, unicode)):
-        dom = minidom.parseString(text)
-    else:
-        dom = minidom.parse(text)
-    return ParsedElement(dom.documentElement)
+    from xml.parsers import expat
+    try:
+        if isinstance(text, (str, unicode)):
+            dom = minidom.parseString(text)
+        else:
+            dom = minidom.parse(text)
+        return ParsedElement(dom.documentElement)
+    except expat.error, e:
+        raise ParseError, e
 
 
 class ParsedElement(object):
