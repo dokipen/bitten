@@ -49,4 +49,4 @@ def make(ctxt, target=None, file=None, jobs=None, keep_going=False):
             xmlio.SubElement(log_elem, 'message', level='error')[err]
     ctxt.log(log_elem)
     if cmdline.returncode != 0:
-        raise BuildError, 'make failed (%s)' % cmdline.returncode
+        ctxt.error('make failed (%s)' % cmdline.returncode)

@@ -47,7 +47,7 @@ def distutils(ctxt, command='build'):
             xmlio.SubElement(log_elem, 'message', level=level)[err]
     ctxt.log(log_elem)
     if cmdline.returncode != 0:
-        raise BuildError, 'distutils failed (%s)' % cmdline.returncode
+        ctxt.error('distutils failed (%s)' % cmdline.returncode)
 
 def pylint(ctxt, file=None):
     """Extract data from a `pylint` run written to a file."""
@@ -78,7 +78,7 @@ def pylint(ctxt, file=None):
         finally:
             fd.close()
     except IOError, e:
-        raise BuildError, 'Error opening pylint results file (%s)' % e
+        log.warning('Error opening pylint results file (%s)', e)
 
 def trace(ctxt, summary=None, coverdir=None, include=None, exclude=None):
     """Extract data from a `trace.py` run."""
@@ -125,7 +125,7 @@ def trace(ctxt, summary=None, coverdir=None, include=None, exclude=None):
         finally:
             summary_file.close()
     except IOError, e:
-        raise BuildError, 'Error opening unittest results file (%s)' % e
+        log.warning('Error opening unittest results file (%s)', e)
 
 
 def unittest(ctxt, file=None):
@@ -147,4 +147,4 @@ def unittest(ctxt, file=None):
         finally:
             fd.close()
     except IOError, e:
-        raise BuildError, 'Error opening unittest results file (%s)' % e
+        log.warning('Error opening unittest results file (%s)', e)

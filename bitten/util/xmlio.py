@@ -205,7 +205,7 @@ class ParsedElement(object):
         return self.children()
 
     def gettext(self):
-        return ''.join([c.nodeValue for c in self._node.childNodes])
+        return ''.join([c.nodeValue or '' for c in self._node.childNodes])
 
     def write(self, out, newlines=False):
         """Serializes the element and writes the XML to the given output

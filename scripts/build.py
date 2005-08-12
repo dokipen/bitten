@@ -54,7 +54,8 @@ def main():
             print
             print '-->', step.description or step.id
             for type, function, output in step.execute(recipe.ctxt):
-                pass
+                if type == Recipe.ERROR:
+                    log.error('Failure in step "%s": %s', step.id, output)
             if step.id in steps_to_run:
                 steps_to_run[step.id] = True
 

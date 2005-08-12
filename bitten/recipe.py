@@ -44,6 +44,9 @@ class Context(object):
         self.basedir = os.path.realpath(basedir)
         self.output = []
 
+    def error(self, message):
+        self.output.append((Recipe.ERROR, self.current_function, message))
+
     def log(self, xml_elem):
         self.output.append((Recipe.LOG, self.current_function, xml_elem))
 
@@ -80,19 +83,22 @@ class Step(object):
     def execute(self, ctxt):
         ctxt.current_step = self
         try:
-            try:
-                for function, args in self:
-                    ctxt.current_function = function.__name__
-                    function(ctxt, **args)
-                    ctxt.current_function = None
-            except BuildError, e:
-                if self.onerror == 'fail':
-                    raise BuildError, e
-                log.warning('Ignoring error in step %s (%s)', self.id, e)
+            for function, args in self:
+                ctxt.current_function = function.__name__
+                function(ctxt, **args)
+                ctxt.current_function = None
         finally:
             ctxt.current_step = None
+        errors = []
         while ctxt.output:
-            yield ctxt.output.pop()
+            type, function, output = ctxt.output.pop()
+            yield type, function, output
+            if type == Recipe.ERROR:
+                errors.append((function, output))
+        if errors:
+            if self.onerror == 'fail':
+                raise BuildError, 'Build step %s failed' % self.id
+            log.warning('Ignoring error in step %s (%s)', self.id, e)
 
     def _args(self, elem):
         return dict([(name.replace('-', '_'), value) for name, value
@@ -116,8 +122,10 @@ class Recipe(object):
     """A build recipe.
     
     Iterate over this object to get the individual build steps in the order they
-    have been defined in the recipe file."""
+    have been defined in the recipe file.
+    """
 
+    ERROR = 'error'
     LOG = 'log'
     REPORT = 'report'
 
