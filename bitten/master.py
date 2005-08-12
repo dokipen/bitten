@@ -41,11 +41,12 @@ DEFAULT_CHECK_INTERVAL = 120 # 2 minutes
 
 class Master(beep.Listener):
 
-    def __init__(self, env_path, ip, port,
+    def __init__(self, env_path, ip, port, adjust_timestamps=False,
                  check_interval=DEFAULT_CHECK_INTERVAL):
         beep.Listener.__init__(self, ip, port)
         self.profiles[OrchestrationProfileHandler.URI] = OrchestrationProfileHandler
         self.env = Environment(env_path)
+        self.adjust_timestamps = adjust_timestamps
         self.check_interval = check_interval
 
         self.slaves = {}
@@ -289,6 +290,13 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
 
     def send_snapshot(self, build, type, encoding):
 
+        timestamp_delta = 0
+        if self.master.adjust_timestamps:
+            d = datetime.now() - timedelta(seconds=self.master.check_interval) \
+                - datetime.fromtimestamp(build.rev_time)
+            log.info('Warping timestamps by %s' % d)
+            timestamp_delta = d.days * 86400 + d.seconds
+
         def handle_reply(cmd, msgno, ansno, payload):
             if cmd == 'ERR':
                 assert payload.content_type == beep.BEEP_XML
@@ -303,17 +311,17 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
                 db = self.env.get_db_cnx()
                 elem = xmlio.parse(payload.body)
                 if elem.name == 'started':
-                    self._build_started(db, build, elem)
+                    self._build_started(db, build, elem, timestamp_delta)
                 elif elem.name == 'step':
-                    self._build_step_completed(db, build, elem)
+                    self._build_step_completed(db, build, elem, timestamp_delta)
                 elif elem.name == 'completed':
-                    self._build_completed(db, build, elem)
+                    self._build_completed(db, build, elem, timestamp_delta)
                 elif elem.name == 'aborted':
-                    self._build_aborted(db, build, elem)
+                    self._build_aborted(db, build, elem, timestamp_delta)
                 elif elem.name == 'error':
                     build.status = Build.FAILURE
                 build.update(db=db)
-                db.commit()                    
+                db.commit()
 
         snapshot_format = {
             ('application/tar', 'bzip2'): 'bzip2',
@@ -328,21 +336,26 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
                                content_encoding=encoding)
         self.channel.send_msg(message, handle_reply=handle_reply)
 
-    def _build_started(self, db, build, elem):
+    def _build_started(self, db, build, elem, timestamp_delta=None):
         build.slave = self.name
         build.slave_info.update(self.info)
         build.started = int(_parse_iso_datetime(elem.attr['time']))
+        if timestamp_delta:
+            build.started -= timestamp_delta
         build.status = Build.IN_PROGRESS
         log.info('Slave %s started build %d ("%s" as of [%s])',
                  self.name, build.id, build.config, build.rev)
 
-    def _build_step_completed(self, db, build, elem):
+    def _build_step_completed(self, db, build, elem, timestamp_delta=None):
         log.debug('Slave completed step "%s" with status %s', elem.attr['id'],
                   elem.attr['result'])
         step = BuildStep(self.env, build=build.id, name=elem.attr['id'],
                          description=elem.attr.get('description'))
         step.started = int(_parse_iso_datetime(elem.attr['time']))
         step.stopped = step.started + int(elem.attr['duration'])
+        if timestamp_delta:
+            step.started -= timestamp_delta
+            step.stopped -= timestamp_delta
         if elem.attr['result'] == 'failure':
             log.warning('Step failed: %s', elem.gettext())
             step.status = BuildStep.FAILURE
@@ -365,17 +378,19 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
         for report in elem.children('report'):
             store.store_report(build, step, report)
 
-    def _build_completed(self, db, build, elem):
+    def _build_completed(self, db, build, elem, timestamp_delta=None):
         log.info('Slave %s completed build %d ("%s" as of [%s]) with status %s',
                  self.name, build.id, build.config, build.rev,
                  elem.attr['result'])
         build.stopped = int(_parse_iso_datetime(elem.attr['time']))
+        if timestamp_delta:
+            build.stopped -= timestamp_delta
         if elem.attr['result'] == 'failure':
             build.status = Build.FAILURE
         else:
             build.status = Build.SUCCESS
 
-    def _build_aborted(self, db, build, elem):
+    def _build_aborted(self, db, build, elem, timestamp_delta=None):
         log.info('Slave "%s" aborted build %d ("%s" as of [%s])',
                  self.name, build.id, build.config, build.rev)
         build.slave = None
@@ -418,6 +433,10 @@ def main():
     parser.add_option('-i', '--interval', dest='interval', metavar='SECONDS',
                       default=DEFAULT_CHECK_INTERVAL, type='int',
                       help='poll interval for changeset detection')
+    parser.add_option('--timewarp', action='store_const', dest='timewarp',
+                      const=True,
+                      help='adjust timestamps of builds to be neat the '
+                           'timestamps of the corresponding changesets')
     parser.add_option('--debug', action='store_const', dest='loglevel',
                       const=logging.DEBUG, help='enable debugging output')
     parser.add_option('-v', '--verbose', action='store_const', dest='loglevel',
@@ -464,7 +483,8 @@ def main():
             log.warning('Reverse host name lookup failed (%s)', e)
             host = ip
 
-    master = Master(env_path, host, port, check_interval=options.interval)
+    master = Master(env_path, host, port, adjust_timestamps=options.timewarp,
+                    check_interval=options.interval)
     try:
         master.run(timeout=5.0)
     except KeyboardInterrupt:
