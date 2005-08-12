@@ -19,7 +19,6 @@
 # Author: Christopher Lenz <cmlenz@gmx.de>
 
 import os
-import os.path
 import tempfile
 import unittest
 
@@ -29,7 +28,7 @@ from bitten.recipe import Recipe
 class RecipeTestCase(unittest.TestCase):
 
     def setUp(self):
-        self.temp_dir = tempfile.gettempdir()
+        self.temp_dir = os.path.realpath(tempfile.gettempdir())
         self.recipe_xml = open(os.path.join(self.temp_dir, 'recipe.xml'), 'w')
 
     def tearDown(self):

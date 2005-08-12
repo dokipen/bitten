@@ -19,7 +19,6 @@
 # Author: Christopher Lenz <cmlenz@gmx.de>
 
 import os
-import os.path
 import shutil
 import tempfile
 import unittest
@@ -31,7 +30,7 @@ from bitten.recipe import Context, Recipe
 class TraceTestCase(unittest.TestCase):
 
     def setUp(self):
-        self.temp_dir = tempfile.gettempdir()
+        self.temp_dir = os.path.realpath(tempfile.gettempdir())
         self.ctxt = Context(self.temp_dir)
         self.summary = open(os.path.join(self.temp_dir, 'test-coverage.txt'),
                             'w')
@@ -74,10 +73,6 @@ class UnittestTestCase(unittest.TestCase):
 
     def test_missing_file_param(self):
         self.assertRaises(AssertionError, pythontools.unittest, self.ctxt)
-
-    def test_invalid_file_param(self):
-        self.assertRaises(BuildError,
-                          pythontools.unittest, self.ctxt, file='foobar')
 
     def test_empty_results(self):
         self.results_xml.write('<?xml version="1.0"?>'
