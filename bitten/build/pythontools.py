@@ -100,6 +100,7 @@ def trace(ctxt, summary=None, coverdir=None, include=None, exclude=None):
                     modname = match.group(3)
                     cov = int(match.group(2))
                     if filename.startswith(ctxt.basedir):
+                        filename = filename[len(ctxt.basedir) + 1:]
                         module = xmlio.Element('coverage', file=filename,
                                                module=modname, percentage=cov)
                         coverage_path = ctxt.resolve(coverdir,

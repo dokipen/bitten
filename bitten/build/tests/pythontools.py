@@ -88,9 +88,10 @@ class UnittestTestCase(unittest.TestCase):
         self.results_xml.write('<?xml version="1.0"?>'
                               '<unittest-results>'
                               '<test duration="0.12" status="success"'
-                              '      file="bar_test.py"'
+                              '      file="%s"'
                               '      name="test_foo (pkg.BarTestCase)"/>'
-                              '</unittest-results>')
+                              '</unittest-results>'
+                              % os.path.join(self.ctxt.basedir, 'bar_test.py'))
         self.results_xml.close()
         pythontools.unittest(self.ctxt, self.results_xml.name)
         type, function, xml = self.ctxt.output.pop()
