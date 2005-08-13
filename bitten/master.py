@@ -357,13 +357,12 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
             step.started -= timestamp_delta
             step.stopped -= timestamp_delta
         if elem.attr['result'] == 'failure':
-            log.warning('Step failed: %s', elem.gettext())
+            log.warning('Step failed')
             step.status = BuildStep.FAILURE
         else:
             step.status = BuildStep.SUCCESS
         step.insert(db=db)
 
-        # TODO: Store reports, too
         level_map = {'debug': BuildLog.DEBUG, 'info': BuildLog.INFO,
                      'warning': BuildLog.WARNING, 'error': BuildLog.ERROR}
         for log_elem in elem.children('log'):
