@@ -28,9 +28,11 @@ from distutils import util
 from bitten import __version__ as VERSION
 from bitten.util.testrunner import unittest
 
-setup(name='bitten', version=VERSION, author="Christopher Lenz",
-      author_email="cmlenz@gmx.de", url="http://bitten.cmlenz.net/",
-      packages=find_packages(exclude=["*.tests*"]),
+setup(name='bitten', version=VERSION, author='Christopher Lenz',
+      author_email='cmlenz@gmx.de', url='http://bitten.cmlenz.net/',
+      description='Framework for collecting software metrics via continuous '
+                  'integration',
+      packages=find_packages(exclude=['ez_setup', '*.tests*']),
       package_data={'bitten.trac_ext': ['templates/*.cs', 'htdocs/*.*']},
       scripts=['scripts/bitten', 'scripts/bittend'],
       test_suite='bitten.tests.suite', zip_safe=True,
