@@ -549,13 +549,22 @@ class BuildReportView(Component):
         reports = []
         for report in store.retrieve_reports(build, step, report_type):
             req.hdf['title'] = 'Build %d: %s' % (build.id, report_type)
-
-            from trac.mimeview import Mimeview
-            preview = Mimeview(self.env).render(req, 'application/xml',
-                                                report._node.toprettyxml('  '))
-            req.hdf['report'] = {'type': report_type, 'preview': preview}
+            xml = report._node.toprettyxml('  ')
+            if req.args.get('format') == 'xml':
+                req.send_response(200)
+                req.send_header('Content-Type', 'text/xml;charset=utf-8')
+                req.end_headers()
+                req.write(xml)
+                return
+            else:
+                from trac.mimeview import Mimeview
+                preview = Mimeview(self.env).render(req, 'application/xml', xml)
+                req.hdf['report'] = {'type': report_type, 'preview': preview}
             break
 
+        xml_href = self.env.href.buildreport(build.id, step.name, report_type,
+                                             format='xml')
+        add_link(req, 'alternate', xml_href, 'XML', 'text/xml')
         add_stylesheet(req, 'css/code.css')
         template = req.hdf.parse(self.template_cs)
         return template, None
