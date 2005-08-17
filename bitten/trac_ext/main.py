@@ -18,7 +18,7 @@
 #
 # Author: Christopher Lenz <cmlenz@gmx.de>
 
-import os.path
+import os
 
 from trac.core import *
 from trac.env import IEnvironmentSetupParticipant

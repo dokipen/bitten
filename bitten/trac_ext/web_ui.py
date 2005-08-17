@@ -18,9 +18,7 @@
 #
 # Author: Christopher Lenz <cmlenz@gmx.de>
 
-import os.path
 import re
-import sys
 from time import localtime, strftime
 
 import pkg_resources
@@ -29,7 +27,7 @@ from trac.Timeline import ITimelineEventProvider
 from trac.util import escape, pretty_timedelta
 from trac.web.chrome import INavigationContributor, ITemplateProvider, \
                             add_link, add_stylesheet
-from trac.web.main import IRequestHandler
+from trac.web import IRequestHandler
 from trac.wiki import wiki_to_html
 from bitten.model import BuildConfig, TargetPlatform, Build, BuildStep, BuildLog
 from bitten.store import ReportStore

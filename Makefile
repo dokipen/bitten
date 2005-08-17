@@ -4,4 +4,6 @@ PYTHONPATH = .
 all: pylint
 
 pylint:
-	PYTHONPATH=$(PYTHONPATH) pylint --parseable=y --disable-msg=$(PYLINT_MSGS) --ignore=tests bitten > build/pylint-results.txt
+	PYTHONPATH=$(PYTHONPATH) pylint --parseable=yes --include-ids=yes \
+	--disable-msg=$(PYLINT_MSGS) --ignore=tests \
+	bitten > build/pylint-results.txt

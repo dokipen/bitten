@@ -21,9 +21,7 @@
 
 import ez_setup
 ez_setup.use_setuptools()
-
 from setuptools import setup, find_packages
-from distutils import util
 
 from bitten import __version__ as VERSION
 from bitten.util.testrunner import unittest
