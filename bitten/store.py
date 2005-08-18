@@ -140,3 +140,63 @@ class BDBXMLBackend(Component):
                 container.addIndex('', name, index, ctxt)
             return container
         return mgr.openContainer(self.path)
+
+
+class FSBackend(Component):
+    implements(IReportStoreBackend)
+
+
+    class FileWrapper(xmlio.ParsedElement):
+
+        _metadata = None
+
+        def __init__(self, path):
+            self.path = path
+            from xml.dom import minidom
+            fd = file(path, 'r')
+            try:
+                dom = minidom.parse(fd)
+            finally:
+                fd.close()
+            xmlio.ParsedElement.__init__(self, dom.documentElement)
+
+        def _get_metadata(self):
+            if self._metadata is None:
+                step_dir = os.path.dirname(self.path)
+                build_dir = os.path.dirname(step_dir)
+                self._metadata = {
+                    'build': os.path.basename(build_dir),
+                    'step': os.path.basename(step_dir)
+                }
+            return self._metadata
+        metadata = property(fget=lambda self: self._get_metadata())
+
+
+    def __init__(self):
+        self.path = os.path.join(self.env.path, 'reports')
+
+    def _get_path(self, build, step, type=None):
+        if type:
+            return os.path.join(self.path, build.id, step.name, type) + '.xml'
+        else:
+            return os.path.join(self.path, build.id, step.name)
+
+    def store_report(self, build, step, xml):
+        if not os.path.exists(self.path):
+            os.mkdir(self.path)
+        dirname = os.path.join(self.path, str(build.id), step.name)
+        if not os.path.exists(dirname):
+            os.makedirs(dirname)
+        filename = os.path.join(dirname, xml.attr['type'] + '.xml')
+        fd = file(filename, 'w')
+        try:
+            xml.write(fd)
+        finally:
+            fd.close()
+
+    def retrieve_reports(self, build, step, type=None):
+        dirname = os.path.join(self.path, str(build.id), step.name)
+        if os.path.exists(dirname):
+            for filename in os.listdir(dirname):
+                if type is None or filename == type + '.xml':
+                    yield FSBackend.FileWrapper(os.path.join(dirname, filename))
