@@ -47,7 +47,8 @@ class BuildSystem(Component):
                        "VALUES ('bitten_version',%s)", (schema_version,))
 
         # Create the directory for storing snapshot archives
-        tarballs_dir = os.path.join(self.env.path, 'snapshots')
+        snapshots_dir = os.path.join(self.env.path, 'snapshots')
+        os.mkdir(snapshots_dir)
 
         db.commit()
 
