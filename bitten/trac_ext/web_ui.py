@@ -370,11 +370,6 @@ class BuildController(Component):
 
     log_formatters = ExtensionPoint(ILogFormatter)
 
-    _level_label = {BuildLog.DEBUG: 'debug',
-                    BuildLog.INFO: 'info',
-                    BuildLog.WARNING: 'warning',
-                    BuildLog.ERROR: 'error'}
-
     # INavigationContributor methods
 
     def get_active_navigation_item(self, req):
