@@ -7,10 +7,10 @@ from trac.web.clearsilver import HDFWrapper
 from trac.web.main import Request, RequestDone
 from bitten.model import BuildConfig, TargetPlatform, Build, schema
 from bitten.trac_ext.main import BuildSystem
-from bitten.trac_ext.web_ui import BuildModule
+from bitten.trac_ext.web_ui import BuildConfigController
 
 
-class BuildModuleTestCase(unittest.TestCase):
+class BuildConfigControllerTestCase(unittest.TestCase):
 
     def setUp(self):
         self.env = EnvironmentStub()
@@ -36,7 +36,7 @@ class BuildModuleTestCase(unittest.TestCase):
                    perm=PermissionCache(self.env, 'joe'))
         req.hdf['htdocs_location'] = '/htdocs'
 
-        module = BuildModule(self.env)
+        module = BuildConfigController(self.env)
         assert module.match_request(req)
         module.process_request(req)
 
@@ -49,7 +49,7 @@ class BuildModuleTestCase(unittest.TestCase):
                    perm=PermissionCache(self.env, 'joe'))
         req.hdf['htdocs_location'] = '/htdocs'
 
-        module = BuildModule(self.env)
+        module = BuildConfigController(self.env)
         assert module.match_request(req)
         module.process_request(req)
 
@@ -65,7 +65,7 @@ class BuildModuleTestCase(unittest.TestCase):
                    perm=PermissionCache(self.env, 'joe'))
         req.hdf['htdocs_location'] = '/htdocs'
 
-        module = BuildModule(self.env)
+        module = BuildConfigController(self.env)
         assert module.match_request(req)
         module.process_request(req)
 
@@ -82,7 +82,7 @@ class BuildModuleTestCase(unittest.TestCase):
                    perm=PermissionCache(self.env, 'joe'))
         req.hdf['htdocs_location'] = '/htdocs'
 
-        module = BuildModule(self.env)
+        module = BuildConfigController(self.env)
         assert module.match_request(req)
         module.process_request(req)
 
@@ -94,7 +94,7 @@ class BuildModuleTestCase(unittest.TestCase):
                    hdf=HDFWrapper(), perm=PermissionCache(self.env, 'joe'))
         req.hdf['htdocs_location'] = '/htdocs'
 
-        module = BuildModule(self.env)
+        module = BuildConfigController(self.env)
         assert module.match_request(req)
         module.process_request(req)
 
@@ -114,7 +114,7 @@ class BuildModuleTestCase(unittest.TestCase):
                          'description': 'Bla bla'})
         req.hdf['htdocs_location'] = '/htdocs'
 
-        module = BuildModule(self.env)
+        module = BuildConfigController(self.env)
         assert module.match_request(req)
         self.assertRaises(RequestDone, module.process_request, req)
         self.assertEqual('/trac.cgi/build/test', redirected_to[0])
@@ -138,7 +138,7 @@ class BuildModuleTestCase(unittest.TestCase):
                    args={'action': 'new', 'cancel': '1', 'name': 'test'})
         req.hdf['htdocs_location'] = '/htdocs'
 
-        module = BuildModule(self.env)
+        module = BuildConfigController(self.env)
         assert module.match_request(req)
         self.assertRaises(RequestDone, module.process_request, req)
         self.assertEqual('/trac.cgi/build', redirected_to[0])
@@ -155,7 +155,7 @@ class BuildModuleTestCase(unittest.TestCase):
                    hdf=HDFWrapper(), perm=PermissionCache(self.env, 'joe'))
         req.hdf['htdocs_location'] = '/htdocs'
 
-        module = BuildModule(self.env)
+        module = BuildConfigController(self.env)
         assert module.match_request(req)
         module.process_request(req)
 
@@ -179,7 +179,7 @@ class BuildModuleTestCase(unittest.TestCase):
                          'description': 'Bla bla'})
         req.hdf['htdocs_location'] = '/htdocs'
 
-        module = BuildModule(self.env)
+        module = BuildConfigController(self.env)
         assert module.match_request(req)
         self.assertRaises(RequestDone, module.process_request, req)
         self.assertEqual('/trac.cgi/build/foo', redirected_to[0])
@@ -209,7 +209,7 @@ class BuildModuleTestCase(unittest.TestCase):
                    args={'action': 'edit', 'cancel': '1'})
         req.hdf['htdocs_location'] = '/htdocs'
 
-        module = BuildModule(self.env)
+        module = BuildConfigController(self.env)
         assert module.match_request(req)
         self.assertRaises(RequestDone, module.process_request, req)
         self.assertEqual('/trac.cgi/build/test', redirected_to[0])
@@ -225,7 +225,7 @@ class BuildModuleTestCase(unittest.TestCase):
                    hdf=HDFWrapper(), perm=PermissionCache(self.env, 'joe'))
         req.hdf['htdocs_location'] = '/htdocs'
 
-        module = BuildModule(self.env)
+        module = BuildConfigController(self.env)
         assert module.match_request(req)
         module.process_request(req)
 
@@ -246,7 +246,7 @@ class BuildModuleTestCase(unittest.TestCase):
                    hdf=HDFWrapper(), perm=PermissionCache(self.env, 'joe'))
         req.hdf['htdocs_location'] = '/htdocs'
 
-        module = BuildModule(self.env)
+        module = BuildConfigController(self.env)
         assert module.match_request(req)
         self.assertRaises(RequestDone, module.process_request, req)
         self.assertEqual('/trac.cgi/build/test?action=edit', redirected_to[0])
@@ -266,7 +266,7 @@ class BuildModuleTestCase(unittest.TestCase):
                    hdf=HDFWrapper(), perm=PermissionCache(self.env, 'joe'))
         req.hdf['htdocs_location'] = '/htdocs'
 
-        module = BuildModule(self.env)
+        module = BuildConfigController(self.env)
         assert module.match_request(req)
         self.assertRaises(RequestDone, module.process_request, req)
         self.assertEqual('/trac.cgi/build/test?action=edit', redirected_to[0])
@@ -287,7 +287,7 @@ class BuildModuleTestCase(unittest.TestCase):
                    hdf=HDFWrapper(), perm=PermissionCache(self.env, 'joe'))
         req.hdf['htdocs_location'] = '/htdocs'
 
-        module = BuildModule(self.env)
+        module = BuildConfigController(self.env)
         assert module.match_request(req)
         module.process_request(req)
 
@@ -315,7 +315,7 @@ class BuildModuleTestCase(unittest.TestCase):
                    perm=PermissionCache(self.env, 'joe'))
         req.hdf['htdocs_location'] = '/htdocs'
 
-        module = BuildModule(self.env)
+        module = BuildConfigController(self.env)
         assert module.match_request(req)
         self.assertRaises(RequestDone, module.process_request, req)
         self.assertEqual('/trac.cgi/build/test?action=edit', redirected_to[0])
@@ -342,14 +342,14 @@ class BuildModuleTestCase(unittest.TestCase):
                    perm=PermissionCache(self.env, 'joe'))
         req.hdf['htdocs_location'] = '/htdocs'
 
-        module = BuildModule(self.env)
+        module = BuildConfigController(self.env)
         assert module.match_request(req)
         self.assertRaises(RequestDone, module.process_request, req)
         self.assertEqual('/trac.cgi/build/test?action=edit', redirected_to[0])
 
 
 def suite():
-    return unittest.makeSuite(BuildModuleTestCase, 'test')
+    return unittest.makeSuite(BuildConfigControllerTestCase, 'test')
 
 if __name__ == '__main__':
     unittest.main(defaultTest='suite')

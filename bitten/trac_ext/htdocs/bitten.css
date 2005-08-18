@@ -1,7 +1,7 @@
 /* Timeline styles */
 #content.timeline dt.successbuild, #content.timeline dt.successbuild a,
 #content.timeline dt.failedbuild, #content.timeline dt.failedbuild a {
- background-image: url(build.png) !important
+ background-image: url(bitten_build.png) !important
 }
 
 #content.build form.config td.active { vertical-align: bottom; }

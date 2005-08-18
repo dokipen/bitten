@@ -31,35 +31,54 @@ from trac.web import IRequestHandler
 from trac.wiki import wiki_to_html
 from bitten.model import BuildConfig, TargetPlatform, Build, BuildStep, BuildLog
 from bitten.store import ReportStore
+from bitten.trac_ext.api import ILogFormatter
+
+_status_label = {Build.IN_PROGRESS: 'in progress',
+                 Build.SUCCESS: 'completed',
+                 Build.FAILURE: 'failed'}
+
+def _build_to_hdf(env, req, build):
+    hdf = {'id': build.id, 'name': build.slave, 'rev': build.rev,
+           'status': _status_label[build.status],
+           'cls': _status_label[build.status].replace(' ', '-'),
+           'href': env.href.build(build.config, build.id),
+           'chgset_href': env.href.changeset(build.rev)}
+    if build.started:
+        hdf['started'] = strftime('%x %X', localtime(build.started))
+        hdf['started_delta'] = pretty_timedelta(build.started)
+    if build.stopped:
+        hdf['stopped'] = strftime('%x %X', localtime(build.stopped))
+        hdf['stopped_delta'] = pretty_timedelta(build.stopped)
+        hdf['duration'] = pretty_timedelta(build.stopped, build.started)
+    hdf['slave'] = {
+        'name': build.slave,
+        'ip_address': build.slave_info.get(Build.IP_ADDRESS),
+        'os': build.slave_info.get(Build.OS_NAME),
+        'os.family': build.slave_info.get(Build.OS_FAMILY),
+        'os.version': build.slave_info.get(Build.OS_VERSION),
+        'machine': build.slave_info.get(Build.MACHINE),
+        'processor': build.slave_info.get(Build.PROCESSOR)
+    }
+    return hdf
+
+class BittenChrome(Component):
+    """Provides the Bitten templates and static resources."""
+
+    implements(ITemplateProvider)
+
+    # ITemplatesProvider methods
+
+    def get_htdocs_dir(self):
+        return pkg_resources.resource_filename(__name__, 'htdocs')
+
+    def get_templates_dir(self):
+        return pkg_resources.resource_filename(__name__, 'templates')
 
 
-class ILogFormatter(Interface):
-    """Extension point interface for components that format build log
-    messages."""
+class BuildConfigController(Component):
+    """Implements the web interface for build configurations."""
 
-    def get_formatter(req, build, step, type):
-        """Return a function that gets called for every log message.
-        
-        The function must take two positional arguments, `level` and `message`,
-        and return the formatted message.
-        """
-
-
-class BuildModule(Component):
-    """Implements the Bitten web interface."""
-
-    implements(INavigationContributor, IRequestHandler, ITimelineEventProvider,
-               ITemplateProvider)
-
-    log_formatters = ExtensionPoint(ILogFormatter)
-
-    _status_label = {Build.IN_PROGRESS: 'in progress',
-                     Build.SUCCESS: 'completed',
-                     Build.FAILURE: 'failed'}
-    _level_label = {BuildLog.DEBUG: 'debug',
-                    BuildLog.INFO: 'info',
-                    BuildLog.WARNING: 'warning',
-                    BuildLog.ERROR: 'error'}
+    implements(INavigationContributor, IRequestHandler)
 
     # INavigationContributor methods
 
@@ -76,12 +95,10 @@ class BuildModule(Component):
     # IRequestHandler methods
 
     def match_request(self, req):
-        match = re.match(r'/build(?:/([\w.-]+))?(?:/([\d]+))?$', req.path_info)
+        match = re.match(r'/build(?:/([\w.-]+))?$', req.path_info)
         if match:
             if match.group(1):
                 req.args['config'] = match.group(1)
-                if match.group(2):
-                    req.args['id'] = match.group(2)
             return True
 
     def process_request(self, req):
@@ -89,7 +106,6 @@ class BuildModule(Component):
 
         action = req.args.get('action')
         config = req.args.get('config')
-        id = req.args.get('id')
 
         if req.method == 'POST':
             if config:
@@ -112,9 +128,7 @@ class BuildModule(Component):
                 if action == 'new':
                     self._do_create_config(req)
         else:
-            if id:
-                self._render_build(req, id)
-            elif config:
+            if config:
                 if action == 'edit':
                     platform_id = req.args.get('platform')
                     if platform_id:
@@ -134,46 +148,8 @@ class BuildModule(Component):
                 else:
                     self._render_overview(req)
 
-        add_stylesheet(req, 'build.css')
-        return 'build.cs', None
-
-    # ITemplatesProvider methods
-
-    def get_htdocs_dir(self):
-        return pkg_resources.resource_filename(__name__, 'htdocs')
-
-    def get_templates_dir(self):
-        return pkg_resources.resource_filename(__name__, 'templates')
-
-    # ITimelineEventProvider methods
-
-    def get_timeline_filters(self, req):
-        if req.perm.has_permission('BUILD_VIEW'):
-            yield ('build', 'Builds')
-
-    def get_timeline_events(self, req, start, stop, filters):
-        if 'build' in filters:
-            add_stylesheet(req, 'build.css')
-            db = self.env.get_db_cnx()
-            cursor = db.cursor()
-            cursor.execute("SELECT b.id,b.config,c.label,b.rev,p.name,b.slave,"
-                           "b.stopped,b.status FROM bitten_build AS b"
-                           "  INNER JOIN bitten_config AS c ON (c.name=b.config)"
-                           "  INNER JOIN bitten_platform AS p ON (p.id=b.platform) "
-                           "WHERE b.stopped>=%s AND b.stopped<=%s "
-                           "AND b.status IN (%s, %s) ORDER BY b.stopped",
-                           (start, stop, Build.SUCCESS, Build.FAILURE))
-            event_kinds = {Build.SUCCESS: 'successbuild',
-                           Build.FAILURE: 'failedbuild'}
-            for id, config, label, rev, platform, slave, stopped, status in cursor:
-                title = 'Build of <em>%s [%s]</em> by %s (%s) %s' \
-                        % (escape(label), escape(rev), escape(slave),
-                           escape(platform), self._status_label[status])
-                if req.args.get('format') == 'rss':
-                    href = self.env.abs_href.build(config, id)
-                else:
-                    href = self.env.href.build(config, id)
-                yield event_kinds[status], href, title, stopped, None, ''
+        add_stylesheet(req, 'bitten.css')
+        return 'bitten_config.cs', None
 
     # Internal methods
 
@@ -343,7 +319,7 @@ class BuildModule(Component):
                 for build in Build.select(self.env, config=config.name, rev=rev):
                     if build.status == Build.PENDING:
                         continue
-                    req.hdf['%s.%s' % (prefix, build.platform)] = self._build_to_hdf(req, build)
+                    req.hdf['%s.%s' % (prefix, build.platform)] = _build_to_hdf(self.env, req, build)
                 if idx > 4:
                     break
         except TracError, e:
@@ -387,47 +363,59 @@ class BuildModule(Component):
         }
         req.hdf['page.mode'] = 'edit_platform'
 
-    def _render_build(self, req, build_id):
-        build = Build.fetch(self.env, build_id)
+
+class BuildController(Component):
+    """Renders the build page."""
+    implements(INavigationContributor, IRequestHandler, ITimelineEventProvider)
+
+    log_formatters = ExtensionPoint(ILogFormatter)
+
+    _level_label = {BuildLog.DEBUG: 'debug',
+                    BuildLog.INFO: 'info',
+                    BuildLog.WARNING: 'warning',
+                    BuildLog.ERROR: 'error'}
+
+    # INavigationContributor methods
+
+    def get_active_navigation_item(self, req):
+        return 'build'
+
+    def get_navigation_items(self, req):
+        return []
+
+    # IRequestHandler methods
+
+    def match_request(self, req):
+        match = re.match(r'/build/([\w.-]+)/([\d]+)', req.path_info)
+        if match:
+            if match.group(1):
+                req.args['config'] = match.group(1)
+                if match.group(2):
+                    req.args['id'] = match.group(2)
+            return True
+
+    def process_request(self, req):
+        req.perm.assert_permission('BUILD_VIEW')
+
+        db = self.env.get_db_cnx()
+        build_id = int(req.args.get('id'))
+        build = Build.fetch(self.env, build_id, db=db)
         assert build, 'Build %s does not exist' % build_id
+
         add_link(req, 'up', self.env.href.build(build.config),
                  'Build Configuration')
         status2title = {Build.SUCCESS: 'Success', Build.FAILURE: 'Failure',
                         Build.IN_PROGRESS: 'In Progress'}
         req.hdf['title'] = 'Build %s - %s' % (build_id,
                                               status2title[build.status])
-        req.hdf['build'] = self._build_to_hdf(req, build, include_output=True)
         req.hdf['page.mode'] = 'view_build'
-
-        config = BuildConfig.fetch(self.env, build.config)
+        config = BuildConfig.fetch(self.env, build.config, db=db)
         req.hdf['build.config'] = {
             'name': config.label,
             'href': self.env.href.build(config.name)
         }
 
-    def _build_to_hdf(self, req, build, include_output=False):
-        hdf = {'id': build.id, 'name': build.slave, 'rev': build.rev,
-               'status': self._status_label[build.status],
-               'cls': self._status_label[build.status].replace(' ', '-'),
-               'href': self.env.href.build(build.config, build.id),
-               'chgset_href': self.env.href.changeset(build.rev)}
-        if build.started:
-            hdf['started'] = strftime('%x %X', localtime(build.started))
-            hdf['started_delta'] = pretty_timedelta(build.started)
-        if build.stopped:
-            hdf['stopped'] = strftime('%x %X', localtime(build.stopped))
-            hdf['stopped_delta'] = pretty_timedelta(build.stopped)
-            hdf['duration'] = pretty_timedelta(build.stopped, build.started)
-        hdf['slave'] = {
-            'name': build.slave,
-            'ip_address': build.slave_info.get(Build.IP_ADDRESS),
-            'os': build.slave_info.get(Build.OS_NAME),
-            'os.family': build.slave_info.get(Build.OS_FAMILY),
-            'os.version': build.slave_info.get(Build.OS_VERSION),
-            'machine': build.slave_info.get(Build.MACHINE),
-            'processor': build.slave_info.get(Build.PROCESSOR)
-        }
-        db = self.env.get_db_cnx()
+        req.hdf['build'] = _build_to_hdf(self.env, req, build)
         steps = []
         for step in BuildStep.select(self.env, build=build.id, db=db):
             steps.append({
@@ -435,33 +423,62 @@ class BuildModule(Component):
                 'duration': pretty_timedelta(step.started, step.stopped),
                 'failed': step.status == BuildStep.FAILURE
             })
-            if include_output:
-                for log in BuildLog.select(self.env, build=build.id,
-                                           step=step.name, db=db):
-                    formatters = []
-                    items = []
-                    for formatter in self.log_formatters:
-                        formatters.append(formatter.get_formatter(req, build,
-                                                                  step,
-                                                                  log.type))
-                    for level, message in log.messages:
-                        for format in formatters:
-                            message = format(level, message)
-                        items.append({'level': level, 'message': message})
-                    steps[-1]['log'] = items
+            for log in BuildLog.select(self.env, build=build.id,
+                                       step=step.name, db=db):
+                formatters = []
+                items = []
+                for formatter in self.log_formatters:
+                    formatters.append(formatter.get_formatter(req, build,
+                                                              step,
+                                                              log.type))
+                for level, message in log.messages:
+                    for format in formatters:
+                        message = format(level, message)
+                    items.append({'level': level, 'message': message})
+                steps[-1]['log'] = items
 
-                store = ReportStore(self.env)
-                reports = []
-                for report in store.retrieve_reports(build, step):
-                    report_type = report.attr['type']
-                    report_href = self.env.href.buildreport(build.id, step.name,
-                                                            report_type)
-                    reports.append({'type': report_type, 'href': report_href})
-                steps[-1]['reports'] = reports
+            store = ReportStore(self.env)
+            reports = []
+            for report in store.retrieve_reports(build, step):
+                report_type = report.attr['type']
+                report_href = self.env.href.buildreport(build.id, step.name,
+                                                        report_type)
+                reports.append({'type': report_type, 'href': report_href})
+            steps[-1]['reports'] = reports
+        req.hdf['build.steps'] = steps
 
-        hdf['steps'] = steps
+        add_stylesheet(req, 'bitten.css')
+        return 'bitten_build.cs', None
 
-        return hdf
+    # ITimelineEventProvider methods
+
+    def get_timeline_filters(self, req):
+        if req.perm.has_permission('BUILD_VIEW'):
+            yield ('build', 'Builds')
+
+    def get_timeline_events(self, req, start, stop, filters):
+        if 'build' in filters:
+            add_stylesheet(req, 'bitten.css')
+            db = self.env.get_db_cnx()
+            cursor = db.cursor()
+            cursor.execute("SELECT b.id,b.config,c.label,b.rev,p.name,b.slave,"
+                           "b.stopped,b.status FROM bitten_build AS b"
+                           "  INNER JOIN bitten_config AS c ON (c.name=b.config)"
+                           "  INNER JOIN bitten_platform AS p ON (p.id=b.platform) "
+                           "WHERE b.stopped>=%s AND b.stopped<=%s "
+                           "AND b.status IN (%s, %s) ORDER BY b.stopped",
+                           (start, stop, Build.SUCCESS, Build.FAILURE))
+            event_kinds = {Build.SUCCESS: 'successbuild',
+                           Build.FAILURE: 'failedbuild'}
+            for id, config, label, rev, platform, slave, stopped, status in cursor:
+                title = 'Build of <em>%s [%s]</em> by %s (%s) %s' \
+                        % (escape(label), escape(rev), escape(slave),
+                           escape(platform), _status_label[status])
+                if req.args.get('format') == 'rss':
+                    href = self.env.abs_href.build(config, id)
+                else:
+                    href = self.env.href.build(config, id)
+                yield event_kinds[status], href, title, stopped, None, ''
 
 
 class SourceFileLinkFormatter(Component):
@@ -495,7 +512,7 @@ class SourceFileLinkFormatter(Component):
         return _formatter
 
 
-class BuildReportView(Component):
+class BuildReportController(Component):
     """Temporary web interface that simply displays the XML source of a report
     using the Trac `Mimeview` component."""
 
