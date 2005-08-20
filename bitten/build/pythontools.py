@@ -138,12 +138,18 @@ def unittest(ctxt, file=None):
         try:
             results = xmlio.Fragment()
             for child in xmlio.parse(fd).children():
-                filename = child.attr.get('file')
-                if filename:
-                    filename = os.path.realpath(filename)
-                    if filename.startswith(ctxt.basedir):
-                        child.attr['file'] = filename[len(ctxt.basedir) + 1:]
-                results.append(child)
+                test = xmlio.Element('test')
+                for name, value in child.attr.items():
+                    if name == 'file':
+                        value = os.path.realpath(value)
+                        if value.startswith(ctxt.basedir):
+                            value = value[len(ctxt.basedir) + 1:]
+                        else:
+                            continue
+                    test.attr[name] = value
+                for grandchild in child.children():
+                    test.append(grandchild)
+                results.append(test)
             ctxt.report(results)
         finally:
             fd.close()

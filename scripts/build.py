@@ -32,6 +32,9 @@ def main():
 
     parser = OptionParser(usage='usage: %prog [options] [step1] [step2] ...',
                           version='%%prog %s' % VERSION)
+    parser.add_option('--print-reports', action='store_const',
+                      dest='print_reports', const=True,
+                      help='print generated reports')
     parser.add_option('-v', '--verbose', action='store_const', dest='loglevel',
                       const=logging.DEBUG, help='print as much as possible')
     parser.add_option('-q', '--quiet', action='store_const', dest='loglevel',
@@ -56,6 +59,8 @@ def main():
             for type, function, output in step.execute(recipe.ctxt):
                 if type == Recipe.ERROR:
                     log.error('Failure in step "%s": %s', step.id, output)
+                elif type == Recipe.REPORT and options.print_reports:
+                    output.write(sys.stdout, newlines=True)
             if step.id in steps_to_run:
                 steps_to_run[step.id] = True
 

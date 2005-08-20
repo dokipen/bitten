@@ -87,9 +87,22 @@ class XMLTestRunner(TextTestRunner):
                 status = 'failure'
                 tb = [f[1] for f in result.failures if f[0] is testcase][0]
 
-            test_elem = SubElement(root, 'test', file=filename, name=testcase,
-                                   status=status, duration=timetaken)
-            description = testcase.shortDescription()
+            name = str(testcase)
+            fixture = None
+            description = testcase.shortDescription() or ''
+            if description.startswith('doctest of '):
+                name = 'doctest'
+                fixture = description[11:]
+                description = None
+            else:
+                match = re.match('(\w+)\s+\(([\w.]+)\)', name)
+                if match:
+                    name = match.group(1)
+                    fixture = match.group(2)
+
+            test_elem = SubElement(root, 'test', file=filename, name=name,
+                                   fixture=fixture, status=status,
+                                   duration=timetaken)
             if description:
                 SubElement(test_elem, 'description')[description]
             if stdout:

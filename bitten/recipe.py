@@ -91,7 +91,7 @@ class Step(object):
             ctxt.current_step = None
         errors = []
         while ctxt.output:
-            type, function, output = ctxt.output.pop()
+            type, function, output = ctxt.output.pop(0)
             yield type, function, output
             if type == Recipe.ERROR:
                 errors.append((function, output))
