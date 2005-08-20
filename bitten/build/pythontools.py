@@ -53,27 +53,30 @@ def pylint(ctxt, file=None):
     """Extract data from a `pylint` run written to a file."""
     assert file, 'Missing required attribute "file"'
     msg_re = re.compile(r'^(?P<file>.+):(?P<line>\d+): '
-                         r'\[(?P<type>[A-Z])(?:, (?P<tag>[\w\.]+))?\] '
-                         r'(?P<msg>.*)$')
-    msg_types = dict(W='warning', E='error', C='convention', R='refactor')
+                        r'\[(?P<type>[A-Z]\d*)(?:, (?P<tag>[\w\.]+))?\] '
+                        r'(?P<msg>.*)$')
+    msg_categories = dict(W='warning', E='error', C='convention', R='refactor')
 
     problems = xmlio.Element('problems')
     try:
         fd = open(ctxt.resolve(file), 'r')
+        print 'Reading Pylint results file', fd.name
         try:
             for line in fd:
                 match = msg_re.search(line)
                 if match:
-                    type = msg_types.get(match.group('type'))
+                    msg_type = match.group('type')
+                    category = msg_categories.get(msg_type[0])
+                    if len(msg_type) == 1:
+                        msg_type = None
                     filename = os.path.realpath(match.group('file'))
                     if filename.startswith(ctxt.basedir):
                         filename = filename[len(ctxt.basedir) + 1:]
                     lineno = int(match.group('line'))
                     tag = match.group('tag')
-                    xmlio.SubElement(problems, 'problem', type=type, tag=tag,
-                                     file=filename, line=lineno)[
-                        match.group('msg') or ''
-                    ]
+                    xmlio.SubElement(problems, 'problem', category=category,
+                                     type=msg_type, tag=tag, file=filename,
+                                     line=lineno)[match.group('msg') or '']
             ctxt.report(problems)
         finally:
             fd.close()
