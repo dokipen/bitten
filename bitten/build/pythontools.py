@@ -21,8 +21,9 @@
 import logging
 import os
 import re
+import shlex
 
-from bitten.build import BuildError
+from bitten.recipe import Recipe
 from bitten.util import xmlio
 from bitten.util.cmdline import Commandline
 
@@ -32,11 +33,12 @@ def distutils(ctxt, command='build'):
     """Execute a `distutils` command."""
     cmdline = Commandline('python', ['setup.py', command], cwd=ctxt.basedir)
     log_elem = xmlio.Fragment()
-    for out, err in cmdline.execute(timeout=100.0):
-        if out:
-            log.info(out)
+    for out, err in cmdline.execute():
+        if out is not None:
+            if out:
+                log.info(out)
             xmlio.SubElement(log_elem, 'message', level='info')[out]
-        if err:
+        if err is not None:
             level = 'error'
             if err.startswith('warning: '):
                 err = err[9:]
@@ -44,14 +46,67 @@ def distutils(ctxt, command='build'):
                 log.warning(err)
             else:
                 log.error(err)
-            xmlio.SubElement(log_elem, 'message', level=level)[err]
+            if err:
+                xmlio.SubElement(log_elem, 'message', level=level)[err]
     ctxt.log(log_elem)
     if cmdline.returncode != 0:
         ctxt.error('distutils failed (%s)' % cmdline.returncode)
 
-def pylint(ctxt, file=None):
+def exec_(ctxt, file_=None, module=None, output=None, args=None):
+    """Execute a python script."""
+    assert file_ or module, 'Either "file" or "module" attribute required'
+
+    if module:
+        # Script specified as module name, need to resolve that to a file
+        mod = __import__(module, globals(), locals(), [])
+        components = module.split('.')
+        for comp in components[1:]:
+            mod = getattr(mod, comp)
+        file_ = mod.__file__
+
+    if args:
+        args = shlex.split(args)
+    else:
+        args = []
+
+    output_file = None
+    if output:
+        output = ctxt.resolve(output)
+        output_file = file(output, 'w')
+
+    try:
+        cmdline = Commandline('python', [file_] + args, cwd=ctxt.basedir)
+        log_elem = xmlio.Fragment()
+        for out, err in cmdline.execute():
+            if out is not None:
+                log.info(out)
+                if output_file:
+                    output_file.write(out + os.linesep)
+                if out:
+                    xmlio.SubElement(log_elem, 'message', level='info')[out]
+            if err is not None:
+                level = 'error'
+                if err.startswith('warning: '):
+                    err = err[9:]
+                    level = 'warning'
+                    log.warning(err)
+                else:
+                    log.error(err)
+                if output_file:
+                    output_file.write(err + os.linesep)
+                if err:
+                    xmlio.SubElement(log_elem, 'message', level=level)[err]
+        ctxt.log(log_elem)
+    finally:
+        if output_file:
+            output_file.close()
+
+    if cmdline.returncode != 0:
+        ctxt.error('distutils failed (%s)' % cmdline.returncode)
+
+def pylint(ctxt, file_=None):
     """Extract data from a `pylint` run written to a file."""
-    assert file, 'Missing required attribute "file"'
+    assert file_, 'Missing required attribute "file"'
     msg_re = re.compile(r'^(?P<file>.+):(?P<line>\d+): '
                         r'\[(?P<type>[A-Z]\d*)(?:, (?P<tag>[\w\.]+))?\] '
                         r'(?P<msg>.*)$')
@@ -59,8 +114,7 @@ def pylint(ctxt, file=None):
 
     problems = xmlio.Element('problems')
     try:
-        fd = open(ctxt.resolve(file), 'r')
-        print 'Reading Pylint results file', fd.name
+        fd = open(ctxt.resolve(file_), 'r')
         try:
             for line in fd:
                 match = msg_re.search(line)
@@ -131,13 +185,12 @@ def trace(ctxt, summary=None, coverdir=None, include=None, exclude=None):
     except IOError, e:
         log.warning('Error opening coverage summary file (%s)', e)
 
-
-def unittest(ctxt, file=None):
+def unittest(ctxt, file_=None):
     """Extract data from a unittest results file in XML format."""
-    assert file, 'Missing required attribute "file"'
+    assert file_, 'Missing required attribute "file"'
 
     try:
-        fd = open(ctxt.resolve(file), 'r')
+        fd = open(ctxt.resolve(file_), 'r')
         try:
             results = xmlio.Fragment()
             for child in xmlio.parse(fd).children():

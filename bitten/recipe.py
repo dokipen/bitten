@@ -18,6 +18,7 @@
 #
 # Author: Christopher Lenz <cmlenz@gmx.de>
 
+import keyword
 import logging
 import os
 import time
@@ -98,24 +99,31 @@ class Step(object):
         if errors:
             if self.onerror == 'fail':
                 raise BuildError, 'Build step %s failed' % self.id
-            log.warning('Ignoring error in step %s (%s)', self.id, e)
+            log.warning('Ignoring errors in step %s (%s)', self.id,
+                        ', '.join([error[1] for error in errors]))
 
     def _args(self, elem):
-        return dict([(name.replace('-', '_'), value) for name, value
+        return dict([(self._translate_name(name), value) for name, value
                      in elem.attr.items()])
 
     def _function(self, elem):
         if not elem.namespace.startswith('bitten:'):
             # Ignore elements in foreign namespaces
             return None
-        func_name = elem.name.replace('-', '_')
+        func_name = self._translate_name(elem.name)
         try:
             module = __import__(elem.namespace[7:], globals(), locals(),
                                 func_name)
-            func = getattr(module, elem.name)
+            func = getattr(module, func_name)
             return func
         except (ImportError, AttributeError), e:
             raise InvalidRecipeError, 'Cannot load "%s" (%s)' % (elem.name, e)
+
+    def _translate_name(self, name):
+        name = name.replace('-', '_')
+        if keyword.iskeyword(name) or name in __builtins__:
+            name = name + '_'
+        return name
 
 
 class Recipe(object):

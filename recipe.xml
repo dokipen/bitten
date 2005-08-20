@@ -19,7 +19,11 @@
 
     <step id="lint" title="Run Pylint" onerror="ignore"
           description="Run Pylint to check for bad style and potential errors">
-        <c:make target="pylint"/>
+        <python:exec module="logilab.pylint.lint"
+            output="build/pylint-results.txt"
+            args="--parseable=yes --include-ids=yes
+                  --disable-msg=C0101,E0201,E0213,W0103,W0704,R0921,R0923
+                  --ignore=tests bitten"/>
         <reports>
             <python:pylint file="build/pylint-results.txt"/>
         </reports>

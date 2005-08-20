@@ -26,11 +26,11 @@ from bitten.util.cmdline import Commandline
 
 log = logging.getLogger('bitten.build.ctools')
 
-def make(ctxt, target=None, file=None, jobs=None, keep_going=False):
+def make(ctxt, target=None, file_=None, jobs=None, keep_going=False):
     """Execute a Makefile target."""
     args = ['--directory', ctxt.basedir]
-    if file:
-        args += ['--file', ctxt.resolve(file)]
+    if file_:
+        args += ['--file', ctxt.resolve(file_)]
     if jobs:
         args += ['--jobs', int(jobs)]
     if keep_going:
@@ -40,13 +40,15 @@ def make(ctxt, target=None, file=None, jobs=None, keep_going=False):
 
     log_elem = xmlio.Fragment()
     cmdline = Commandline('make', args)
-    for out, err in cmdline.execute(timeout=100.0):
-        if out:
+    for out, err in cmdline.execute():
+        if out is not None:
             log.info(out)
-            xmlio.SubElement(log_elem, 'message', level='info')[out]
-        if err:
+            if out:
+                xmlio.SubElement(log_elem, 'message', level='info')[out]
+        if err is not None:
             log.error(err)
-            xmlio.SubElement(log_elem, 'message', level='error')[err]
+            if err:
+                xmlio.SubElement(log_elem, 'message', level='error')[err]
     ctxt.log(log_elem)
     if cmdline.returncode != 0:
         ctxt.error('make failed (%s)' % cmdline.returncode)
