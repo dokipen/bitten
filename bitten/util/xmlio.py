@@ -40,7 +40,7 @@ class Fragment(object):
     
     __slots__ = ['children']
 
-    def __init__(self, *args, **attr):
+    def __init__(self):
         """Create an XML fragment."""
         self.children = []
 

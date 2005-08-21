@@ -156,7 +156,7 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
                 for filename in files:
                     os.chmod(os.path.join(root, filename), 0400)
 
-            self.execute_build(msgno, Recipe(basedir=path, xml_elem=recipe_xml))
+            self.execute_build(msgno, Recipe(recipe_xml, path))
 
     def execute_build(self, msgno, recipe):
         global log

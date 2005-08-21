@@ -137,17 +137,10 @@ class Recipe(object):
     LOG = 'log'
     REPORT = 'report'
 
-    def __init__(self, filename='recipe.xml', basedir=os.getcwd(),
-                 xml_elem=None):
+    def __init__(self, xml, basedir=os.getcwd()):
+        assert isinstance(xml, xmlio.ParsedElement)
         self.ctxt = Context(basedir)
-        if filename:
-            fd = file(self.ctxt.resolve(filename), 'r')
-            try:
-                self._root = xmlio.parse(fd)
-            finally:
-                fd.close()
-        elif xml_elem:
-            self._root = xml_elem
+        self._root = xml
         self.description = self._root.attr.get('description')
 
     def __iter__(self):
