@@ -20,7 +20,6 @@
 
 import logging
 
-from bitten.build import BuildError
 from bitten.util import xmlio
 from bitten.util.cmdline import Commandline
 
@@ -43,12 +42,11 @@ def make(ctxt, target=None, file_=None, jobs=None, keep_going=False):
     for out, err in cmdline.execute():
         if out is not None:
             log.info(out)
-            if out:
-                xmlio.SubElement(log_elem, 'message', level='info')[out]
+            xmlio.SubElement(log_elem, 'message', level='info')[out]
         if err is not None:
             log.error(err)
-            if err:
-                xmlio.SubElement(log_elem, 'message', level='error')[err]
+            xmlio.SubElement(log_elem, 'message', level='error')[err]
     ctxt.log(log_elem)
+
     if cmdline.returncode != 0:
         ctxt.error('make failed (%s)' % cmdline.returncode)

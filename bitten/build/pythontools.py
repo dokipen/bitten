@@ -21,9 +21,7 @@
 import logging
 import os
 import re
-import shlex
 
-from bitten.recipe import Recipe
 from bitten.util import xmlio
 from bitten.util.cmdline import Commandline
 
@@ -35,8 +33,7 @@ def distutils(ctxt, command='build'):
     log_elem = xmlio.Fragment()
     for out, err in cmdline.execute():
         if out is not None:
-            if out:
-                log.info(out)
+            log.info(out)
             xmlio.SubElement(log_elem, 'message', level='info')[out]
         if err is not None:
             level = 'error'
@@ -46,8 +43,7 @@ def distutils(ctxt, command='build'):
                 log.warning(err)
             else:
                 log.error(err)
-            if err:
-                xmlio.SubElement(log_elem, 'message', level=level)[err]
+            xmlio.SubElement(log_elem, 'message', level=level)[err]
     ctxt.log(log_elem)
     if cmdline.returncode != 0:
         ctxt.error('distutils failed (%s)' % cmdline.returncode)
@@ -65,44 +61,12 @@ def exec_(ctxt, file_=None, module=None, output=None, args=None):
         file_ = mod.__file__
 
     if args:
-        args = shlex.split(args)
+        args = file_ + ' ' + args
     else:
-        args = []
+        args = file_
 
-    output_file = None
-    if output:
-        output = ctxt.resolve(output)
-        output_file = file(output, 'w')
-
-    try:
-        cmdline = Commandline('python', [file_] + args, cwd=ctxt.basedir)
-        log_elem = xmlio.Fragment()
-        for out, err in cmdline.execute():
-            if out is not None:
-                log.info(out)
-                if output_file:
-                    output_file.write(out + os.linesep)
-                if out:
-                    xmlio.SubElement(log_elem, 'message', level='info')[out]
-            if err is not None:
-                level = 'error'
-                if err.startswith('warning: '):
-                    err = err[9:]
-                    level = 'warning'
-                    log.warning(err)
-                else:
-                    log.error(err)
-                if output_file:
-                    output_file.write(err + os.linesep)
-                if err:
-                    xmlio.SubElement(log_elem, 'message', level=level)[err]
-        ctxt.log(log_elem)
-    finally:
-        if output_file:
-            output_file.close()
-
-    if cmdline.returncode != 0:
-        ctxt.error('distutils failed (%s)' % cmdline.returncode)
+    from bitten.build import shtools
+    shtools.exec_(ctxt, file_='python', output=output, args=args)
 
 def pylint(ctxt, file_=None):
     """Extract data from a `pylint` run written to a file."""
