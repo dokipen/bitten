@@ -42,6 +42,21 @@ def add_log_table(env, db):
                    "started,stopped) SELECT build,name,description,status,"
                    "started,stopped FROM old_step")
 
+def add_recipe_to_config(env, db):
+    from bitten.model import BuildConfig
+    cursor = db.cursor()
+
+    cursor.execute("CREATE TEMP TABLE old_config AS "
+                   "SELECT * FROM bitten_config")
+    cursor.execute("DROP TABLE bitten_config")
+    for table in BuildConfig._schema:
+        for stmt in db.to_sql(table):
+            cursor.execute(stmt)
+    cursor.execute("INSERT INTO bitten_config (name,path,active,recipe,min_rev,"
+                   "max_rev,label,description) SELECT name,path,0,'',NULL,"
+                   "NULL,label,description FROM old_config")
+
 map = {
-    2: [add_log_table]
+    2: [add_log_table],
+    3: [add_recipe_to_config]
 }

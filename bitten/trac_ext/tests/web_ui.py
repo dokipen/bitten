@@ -109,9 +109,8 @@ class BuildConfigControllerTestCase(unittest.TestCase):
         req = Mock(Request, method='POST', path_info='/build',
                    redirect=redirect, hdf=HDFWrapper(),
                    perm=PermissionCache(self.env, 'joe'),
-                   args={'action': 'new', 'name': 'test', 'active': 'on',
-                         'label': 'Test', 'path': 'test/trunk',
-                         'description': 'Bla bla'})
+                   args={'action': 'new', 'name': 'test', 'path': 'test/trunk',
+                         'label': 'Test', 'description': 'Bla bla'})
         req.hdf['htdocs_location'] = '/htdocs'
 
         module = BuildConfigController(self.env)
@@ -119,12 +118,12 @@ class BuildConfigControllerTestCase(unittest.TestCase):
         self.assertRaises(RequestDone, module.process_request, req)
         self.assertEqual('/trac.cgi/build/test', redirected_to[0])
 
-        build = BuildConfig.fetch(self.env, 'test')
-        assert build.exists
-        assert build.active
-        self.assertEqual('Test', build.label)
-        self.assertEqual('test/trunk', build.path)
-        self.assertEqual('Bla bla', build.description)
+        config = BuildConfig.fetch(self.env, 'test')
+        assert config.exists
+        assert not config.active
+        self.assertEqual('Test', config.label)
+        self.assertEqual('test/trunk', config.path)
+        self.assertEqual('Bla bla', config.description)
 
     def test_new_config_cancel(self):
         PermissionSystem(self.env).grant_permission('joe', 'BUILD_ADMIN')
@@ -174,9 +173,8 @@ class BuildConfigControllerTestCase(unittest.TestCase):
         req = Mock(Request, method='POST', path_info='/build/test',
                    redirect=redirect, hdf=HDFWrapper(),
                    perm=PermissionCache(self.env, 'joe'),
-                   args={'action': 'edit', 'name': 'foo', 'active': 'on',
-                         'label': 'Test', 'path': 'test/trunk',
-                         'description': 'Bla bla'})
+                   args={'action': 'edit', 'name': 'foo', 'path': 'test/trunk',
+                         'label': 'Test',  'description': 'Bla bla'})
         req.hdf['htdocs_location'] = '/htdocs'
 
         module = BuildConfigController(self.env)
@@ -186,12 +184,11 @@ class BuildConfigControllerTestCase(unittest.TestCase):
 
         self.assertEqual(None, BuildConfig.fetch(self.env, 'test'))
 
-        build = BuildConfig.fetch(self.env, 'foo')
-        assert build.exists
-        assert build.active
-        self.assertEqual('Test', build.label)
-        self.assertEqual('test/trunk', build.path)
-        self.assertEqual('Bla bla', build.description)
+        config = BuildConfig.fetch(self.env, 'foo')
+        assert config.exists
+        self.assertEqual('Test', config.label)
+        self.assertEqual('test/trunk', config.path)
+        self.assertEqual('Bla bla', config.description)
 
     def test_edit_config_cancel(self):
         config = BuildConfig(self.env)

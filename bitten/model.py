@@ -26,19 +26,23 @@ class BuildConfig(object):
 
     _schema = [
         Table('bitten_config', key='name')[
-            Column('name'), Column('path'), Column('label'),
-            Column('active', type='int'), Column('description')
+            Column('name'), Column('path'), Column('active', type='int'),
+            Column('recipe'), Column('min_rev'), Column('max_rev'),
+            Column('label'), Column('description')
         ]
     ]
 
-    def __init__(self, env, name=None, path=None, label=None, active=False,
-                 description=None):
+    def __init__(self, env, name=None, path=None, active=False, recipe=None,
+                 min_rev=None, max_rev=None, label=None, description=None):
         self.env = env
         self._old_name = None
         self.name = name
         self.path = path or ''
-        self.label = label or ''
         self.active = bool(active)
+        self.recipe = recipe or ''
+        self.min_rev = min_rev or None
+        self.max_rev = max_rev or None
+        self.label = label or ''
         self.description = description or ''
 
     exists = property(fget=lambda self: self._old_name is not None)
@@ -53,14 +57,16 @@ class BuildConfig(object):
             handle_ta = False
 
         cursor = db.cursor()
-        cursor.execute("INSERT INTO bitten_config "
-                       "(name,path,label,active,description) "
-                       "VALUES (%s,%s,%s,%s,%s)",
-                       (self.name, self.path, self.label or '',
-                        int(self.active or 0), self.description or ''))
+        cursor.execute("INSERT INTO bitten_config (name,path,active,"
+                       "recipe,min_rev,max_rev,label,description) "
+                       "VALUES (%s,%s,%s,%s,%s,%s,%s,%s)",
+                       (self.name, self.path, int(self.active or 0),
+                        self.recipe or '', self.min_rev, self.max_rev,
+                        self.label or '', self.description or ''))
 
         if handle_ta:
             db.commit()
+        self._old_name = self.name
 
     def update(self, db=None):
         assert self.exists, 'Cannot update a non-existing configuration'
@@ -72,21 +78,24 @@ class BuildConfig(object):
             handle_ta = False
 
         cursor = db.cursor()
-        cursor.execute("UPDATE bitten_config SET name=%s,path=%s,label=%s,"
-                       "active=%s,description=%s WHERE name=%s",
-                       (self.name, self.path, self.label, int(self.active or 0),
-                        self.description, self._old_name))
+        cursor.execute("UPDATE bitten_config SET name=%s,path=%s,active=%s,"
+                       "recipe=%s,min_rev=%s,max_rev=%s,label=%s,"
+                       "description=%s WHERE name=%s",
+                       (self.name, self.path, int(self.active or 0),
+                        self.recipe, self.min_rev, self.max_rev,
+                        self.label, self.description, self._old_name))
 
         if handle_ta:
             db.commit()
+        self._old_name = self.name
 
     def fetch(cls, env, name, db=None):
         if not db:
             db = env.get_db_cnx()
 
         cursor = db.cursor()
-        cursor.execute("SELECT path,label,active,description "
-                       "FROM bitten_config WHERE name=%s", (name,))
+        cursor.execute("SELECT path,active,recipe,min_rev,max_rev,label,"
+                       "description FROM bitten_config WHERE name=%s", (name,))
         row = cursor.fetchone()
         if not row:
             return None
@@ -94,9 +103,12 @@ class BuildConfig(object):
         config = BuildConfig(env)
         config.name = config._old_name = name
         config.path = row[0] or ''
-        config.label = row[1] or ''
-        config.active = row[2] and True or False
-        config.description = row[3] or ''
+        config.active = row[1] and True or False
+        config.recipe = row[2] or ''
+        config.min_rev = row[3] or ''
+        config.max_rev = row[4] or ''
+        config.label = row[5] or ''
+        config.description = row[6] or ''
         return config
 
     fetch = classmethod(fetch)
@@ -104,18 +116,21 @@ class BuildConfig(object):
     def select(cls, env, include_inactive=False, db=None):
         if not db:
             db = env.get_db_cnx()
-        where = ''
+
         cursor = db.cursor()
         if include_inactive:
-            cursor.execute("SELECT name,path,label,active,description "
-                           "FROM bitten_config ORDER BY name")
+            cursor.execute("SELECT name,path,active,recipe,min_rev,max_rev,"
+                           "label,description FROM bitten_config ORDER BY name")
         else:
-            cursor.execute("SELECT name,path,label,active,description "
-                           "FROM bitten_config WHERE active=1 "
-                           "ORDER BY name")
-        for name, path, label, active, description in cursor:
+            cursor.execute("SELECT name,path,active,recipe,min_rev,max_rev,"
+                           "label,description FROM bitten_config "
+                           "WHERE active=1 ORDER BY name")
+        for name, path, active, recipe, min_rev, max_rev, label, description \
+                in cursor:
             config = BuildConfig(env, name=name, path=path or '',
-                                 label=label or '', active=bool(active),
+                                 active=bool(active), recipe=recipe or '',
+                                 min_rev=min_rev or None,
+                                 max_rev=max_rev or None, label=label or '',
                                  description=description or '')
             config._old_name = name
             yield config
@@ -643,4 +658,4 @@ class BuildLog(object):
 
 schema = BuildConfig._schema + TargetPlatform._schema + Build._schema + \
          BuildStep._schema + BuildLog._schema
-schema_version = 2
+schema_version = 3

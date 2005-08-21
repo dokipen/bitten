@@ -113,7 +113,7 @@ class Step(object):
         func_name = self._translate_name(elem.name)
         try:
             module = __import__(elem.namespace[7:], globals(), locals(),
-                                func_name)
+                                [func_name])
             func = getattr(module, func_name)
             return func
         except (ImportError, AttributeError), e:
@@ -137,13 +137,17 @@ class Recipe(object):
     LOG = 'log'
     REPORT = 'report'
 
-    def __init__(self, filename='recipe.xml', basedir=os.getcwd()):
+    def __init__(self, filename='recipe.xml', basedir=os.getcwd(),
+                 xml_elem=None):
         self.ctxt = Context(basedir)
-        fd = file(self.ctxt.resolve(filename), 'r')
-        try:
-            self._root = xmlio.parse(fd)
-        finally:
-            fd.close()
+        if filename:
+            fd = file(self.ctxt.resolve(filename), 'r')
+            try:
+                self._root = xmlio.parse(fd)
+            finally:
+                fd.close()
+        elif xml_elem:
+            self._root = xml_elem
         self.description = self._root.attr.get('description')
 
     def __iter__(self):

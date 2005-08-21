@@ -285,11 +285,11 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
                 return
             self.send_snapshot(build, type, encoding)
 
-        xml = xmlio.Element('build', recipe='recipe.xml')
-        self.channel.send_msg(beep.Payload(xml), handle_reply=handle_reply)
+        config = BuildConfig.fetch(self.env, build.config)
+        self.channel.send_msg(beep.Payload(config.recipe),
+                              handle_reply=handle_reply)
 
     def send_snapshot(self, build, type, encoding):
-
         timestamp_delta = 0
         if self.master.adjust_timestamps:
             d = datetime.now() - timedelta(seconds=self.master.check_interval) \

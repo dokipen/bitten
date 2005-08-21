@@ -19,21 +19,13 @@
 
   elif:page.mode == 'edit_config' ?>
    <form class="config" method="post" action="">
-    <table><tr>
+    <table summary=""><tr>
      <td class="name"><label>Name:<br />
       <input type="text" name="name" value="<?cs var:config.name ?>" />
      </label></td>
      <td class="label"><label>Label (for display):<br />
       <input type="text" name="label" size="32" value="<?cs
         var:config.label ?>" />
-     </label></td>
-    </tr><tr>
-     <td class="active"><label><input type="checkbox" name="active"<?cs
-       if:config.active ?> checked="checked"<?cs /if ?> /> Active
-     </label></td>
-     <td class="path"><label>Repository path:<br />
-      <input type="text" name="path" size="48" value="<?cs
-        var:config.path ?>" />
      </label></td>
     </tr><tr>
      <td colspan="2"><fieldset class="iefix">
@@ -45,6 +37,19 @@
         var:htdocs_location ?>js/wikitoolbar.js"></script>
      </fieldset></td>
     </tr></table>
+    <fieldset id="recipe">
+     <legend>Build Recipe</legend>
+     <textarea id="recipe" name="recipe" rows="8" cols="78"><?cs
+       var:config.recipe ?></textarea>
+    </fieldset>
+    <fieldset id="repos">
+     <legend>Repository Mapping</legend>
+     <table summary=""><tr>
+      <th><label for="path">Path:</label></th>
+      <td><input type="text" name="path" size="48" value="<?cs
+        var:config.path ?>" /></td>
+     </tr></table>
+    </fieldset>
     <div class="buttons">
      <input type="hidden" name="action" value="<?cs
        if:config.exists ?>edit<?cs else ?>new<?cs /if ?>" />
@@ -54,37 +59,53 @@
     </div>
    </form><?cs
    if:config.exists ?><div class="platforms">
-    <form class="platforms" method="post" action="">
-     <h2>Target Platforms</h2><?cs
-      if:len(config.platforms) ?><ul><?cs
-       each:platform = config.platforms ?>
-        <li><input type="checkbox" name="delete_platform" value="<?cs
-         var:platform.id ?>"> <a href="<?cs
-         var:platform.href ?>"><?cs var:platform.name ?></a>
-        </li><?cs
-       /each ?></ul><?cs
-      /if ?>
-     <div class="buttons">
-      <input type="submit" name="new" value="Add target platform" />
-      <input type="submit" name="delete" value="Delete selected platforms" />
-     </div>
-    </form>
-   </div><?cs
+     <form class="platforms" method="post" action="">
+      <h2>Target Platforms</h2><?cs
+       if:len(config.platforms) ?><ul><?cs
+        each:platform = config.platforms ?>
+         <li><input type="checkbox" name="delete_platform" value="<?cs
+          var:platform.id ?>"> <a href="<?cs
+          var:platform.href ?>"><?cs var:platform.name ?></a>
+         </li><?cs
+        /each ?></ul><?cs
+       /if ?>
+      <div class="buttons">
+       <input type="submit" name="new" value="Add target platform" />
+       <input type="submit" name="delete" value="Delete selected platforms" />
+      </div>
+     </form>
+    </div><?cs
    /if ?><?cs
 
-  elif:page.mode == 'view_config' ?><ul>
-   <li>Active: <?cs if:config.active ?>yes<?cs else ?>no<?cs /if ?></li>
-   <li>Path: <?cs if:config.path ?><a href="<?cs
+  elif:page.mode == 'view_config' ?><?cs
+   if:config.can_modify ?><form id="prefs" method="post" class="activation"><?cs
+    if:!config.active ?><div class="help">This build configuration is currently
+     inactive.<br /> No builds will be initiated for this configuration<br />
+     until it is activated.</div><?cs
+    else ?><div class="help">This configuration is currently active.</div><?cs
+    /if ?>
+    <div class="buttons">
+     <input type="hidden" name="action" value="edit" /><?cs
+     if:config.active ?>
+      <input type="submit" name="deactivate" value="Deactivate" /><?cs
+     else ?>
+      <input type="submit" name="activate" value="Activate" /><?cs
+     /if ?>
+    </div></form><?cs
+   /if ?>
+   <ul><li>Path: <?cs if:config.path ?><a href="<?cs
      var:config.browser_href ?>"><?cs
      var:config.path ?></a></li><?cs /if ?></ul><?cs
    if:config.description ?><div class="description"><?cs
      var:config.description ?></div><?cs
    /if ?><?cs
-   if:config.can_modify ?><div class="buttons">
-    <form method="get" action=""><div>
-     <input type="hidden" name="action" value="edit" />
-     <input type="submit" value="Edit configuration" />
-    </div></form><?cs
+   if:config.can_modify ?>
+    <div class="buttons">
+     <form method="get" action=""><div>
+      <input type="hidden" name="action" value="edit" />
+      <input type="submit" value="Edit configuration" />
+     </div></form>
+    </div><?cs
    /if ?><?cs
    if:len(config.platforms) ?>
     <table class="listing" id="builds"><thead><tr><th>Changeset</th><?cs

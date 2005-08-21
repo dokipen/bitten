@@ -4,7 +4,10 @@
  background-image: url(bitten_build.png) !important
 }
 
-#content.build form.config td.active { vertical-align: bottom; }
+#content.build #prefs { line-height: 1.4em; }
+
+#content.build form.config th { text-align: left; }
+#content.build form.config fieldset { margin-bottom: 1em; }
 #content.build form.platforms ul { list-style: none; padding-left: 1em; }
 
 #content.build #builds { margin-top: 2em; }

@@ -160,10 +160,18 @@ class BuildConfigController(Component):
         if 'cancel' in req.args:
             req.redirect(self.env.href.build())
 
-        config = BuildConfig(self.env, name=req.args.get('name'),
+        config_name = req.args.get('name')
+
+        assert not BuildConfig.fetch(self.env, config_name), \
+            'A build configuration with the name "%s" already exists' \
+            % config_name
+
+        config = BuildConfig(self.env, name=config_name,
                              path=req.args.get('path', ''),
+                             recipe=req.args.get('recipe', ''),
+                             min_rev=req.args.get('min_rev', ''),
+                             max_rev=req.args.get('max_rev', ''),
                              label=req.args.get('label', ''),
-                             active=req.args.has_key('active'),
                              description=req.args.get('description'))
         config.insert()
 
@@ -178,13 +186,24 @@ class BuildConfigController(Component):
 
         config = BuildConfig.fetch(self.env, config_name)
         assert config, 'Build configuration "%s" does not exist' % config_name
-        config.name = req.args.get('name')
-        config.active = req.args.has_key('active')
-        config.label = req.args.get('label', '')
-        config.path = req.args.get('path', '')
-        config.description = req.args.get('description', '')
-        config.update()
 
+        if 'activate' in req.args:
+            config.active = True
+
+        elif 'deactivate' in req.args:
+            config.active = False
+
+        else:
+            # TODO: Validate recipe, repository path, etc
+            config.name = req.args.get('name')
+            config.path = req.args.get('path', '')
+            config.recipe = req.args.get('recipe', '')
+            config.min_rev = req.args.get('min_rev')
+            config.max_rev = req.args.get('max_rev')
+            config.label = req.args.get('label', '')
+            config.description = req.args.get('description', '')
+
+        config.update()
         req.redirect(self.env.href.build(config.name))
 
     def _do_create_platform(self, req, config_name):
@@ -330,9 +349,11 @@ class BuildConfigController(Component):
         if config:
             req.perm.assert_permission('BUILD_MODIFY')
             req.hdf['config'] = {
-                'name': config.name, 'label': config.label, 'path': config.path,
-                'active': config.active, 'description': config.description,
-                'exists': config.exists
+                'name': config.name, 'exists': config.exists,
+                'path': config.path, 'active': config.active,
+                'recipe': config.recipe, 'min_rev': config.min_rev,
+                'max_rev': config.max_rev, 'label': config.label,
+                'description': config.description
             }
 
             req.hdf['title'] = 'Edit Build Configuration "%s"' \

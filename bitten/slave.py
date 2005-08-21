@@ -58,7 +58,6 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
 
     def handle_connect(self):
         """Register with the build master."""
-        self.recipe_path = None
 
         def handle_reply(cmd, msgno, ansno, payload):
             if cmd == 'ERR':
@@ -105,12 +104,12 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
         self.channel.send_msg(beep.Payload(xml), handle_reply)
 
     def handle_msg(self, msgno, payload):
+        recipe_xml = None
         if payload.content_type == beep.BEEP_XML:
             elem = xmlio.parse(payload.body)
             if elem.name == 'build':
+                recipe_xml = elem
                 # Received a build request
-                self.recipe_path = elem.attr['recipe']
-
                 xml = xmlio.Element('proceed')[
                     xmlio.Element('accept', type='application/tar',
                                   encoding='bzip2'),
@@ -157,15 +156,12 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
                 for filename in files:
                     os.chmod(os.path.join(root, filename), 0400)
 
-            self.execute_build(msgno, path, self.recipe_path)
+            self.execute_build(msgno, Recipe(basedir=path, xml_elem=recipe_xml))
 
-    def execute_build(self, msgno, basedir, recipe_path):
+    def execute_build(self, msgno, recipe):
         global log
-        log.info('Building in directory %s using recipe %s', basedir,
-                 recipe_path)
+        log.info('Building in directory %s', recipe.ctxt.basedir)
         try:
-            recipe = Recipe(recipe_path, basedir)
-
             xml = xmlio.Element('started', time=datetime.utcnow().isoformat())
             self.channel.send_ans(msgno, beep.Payload(xml))
 
