@@ -199,8 +199,8 @@ class Master(beep.Listener):
                      build.config, handler.name)
             for step in BuildStep.select(self.env, build=build.id):
                 step.delete(db=db)
-            for log in BuildLog.select(self.env, build=build.id):
-                log.delete(db=db)
+            for build_log in BuildLog.select(self.env, build=build.id):
+                build_log.delete(db=db)
             build.slave = None
             build.slave_info = {}
             build.status = Build.PENDING
