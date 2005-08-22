@@ -61,7 +61,7 @@ def main():
         for step in recipe:
             if not steps_to_run or step.id in steps_to_run:
                 print
-                print '-->', step.description or step.id
+                print '-->', step.id
                 for type, function, output in step.execute(recipe.ctxt):
                     if type == Recipe.ERROR:
                         log.error('Failure in step "%s": %s', step.id, output)
@@ -76,6 +76,8 @@ if __name__ == '__main__':
     try:
         main()
     except BuildError, e:
+        print
         print>>sys.stderr, 'FAILED: %s' % e
         sys.exit(-1)
+    print
     print 'SUCCESS'

@@ -54,11 +54,15 @@ def exec_(ctxt, file_=None, module=None, output=None, args=None):
 
     if module:
         # Script specified as module name, need to resolve that to a file
-        mod = __import__(module, globals(), locals(), [])
-        components = module.split('.')
-        for comp in components[1:]:
-            mod = getattr(mod, comp)
-        file_ = mod.__file__
+        try:
+            mod = __import__(module, globals(), locals(), [])
+            components = module.split('.')
+            for comp in components[1:]:
+                mod = getattr(mod, comp)
+            file_ = mod.__file__.replace('\\', '/')
+        except ImportError, e:
+            ctxt.error('Cannot execute Python module %s: %s' % (module, e))
+            return
 
     if args:
         args = file_ + ' ' + args

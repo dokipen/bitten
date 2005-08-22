@@ -30,22 +30,23 @@ from bitten.recipe import Context, Recipe
 class TraceTestCase(unittest.TestCase):
 
     def setUp(self):
-        self.temp_dir = os.path.realpath(tempfile.gettempdir())
-        self.ctxt = Context(self.temp_dir)
-        self.summary = open(os.path.join(self.temp_dir, 'test-coverage.txt'),
+        self.basedir = os.path.realpath(tempfile.mkdtemp())
+        self.ctxt = Context(self.basedir)
+        self.summary = open(os.path.join(self.basedir, 'test-coverage.txt'),
                             'w')
-        self.coverdir = os.path.join(self.temp_dir, 'coverage')
+        self.coverdir = os.path.join(self.basedir, 'coverage')
         os.mkdir(self.coverdir)
 
     def tearDown(self):
-        shutil.rmtree(self.coverdir)
-        os.unlink(self.summary.name)
+        shutil.rmtree(self.basedir)
 
     def test_missing_param_summary(self):
+        self.summary.close()
         self.assertRaises(AssertionError, pythontools.trace, self.ctxt,
                           coverdir='coverage')
 
     def test_missing_param_coverdir(self):
+        self.summary.close()
         self.assertRaises(AssertionError, pythontools.trace, self.ctxt,
                           summary='test-coverage.txt')
 
@@ -63,15 +64,16 @@ class TraceTestCase(unittest.TestCase):
 class UnittestTestCase(unittest.TestCase):
 
     def setUp(self):
-        self.temp_dir = tempfile.gettempdir()
-        self.ctxt = Context(self.temp_dir)
-        self.results_xml = open(os.path.join(self.temp_dir, 'test-results.xml'),
+        self.basedir = os.path.realpath(tempfile.mkdtemp())
+        self.ctxt = Context(self.basedir)
+        self.results_xml = open(os.path.join(self.basedir, 'test-results.xml'),
                                 'w')
 
     def tearDown(self):
-        os.unlink(os.path.join(self.temp_dir, 'test-results.xml'))
+        shutil.rmtree(self.basedir)
 
     def test_missing_file_param(self):
+        self.results_xml.close()
         self.assertRaises(AssertionError, pythontools.unittest, self.ctxt)
 
     def test_empty_results(self):
