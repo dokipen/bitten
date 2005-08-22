@@ -88,7 +88,7 @@ class Commandline(object):
             out_name = tempfile.mktemp()
             err_name = tempfile.mktemp()
             cmd = "( %s ) > %s 2> %s" % (' '.join(args), out_name, err_name)
-            self.returncode = os.system(cmd) >> 8
+            self.returncode = os.system(cmd)
             log.debug('Exited with code %s', self.returncode)
 
             out_file = file(out_name, 'r')
