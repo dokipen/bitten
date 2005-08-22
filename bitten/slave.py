@@ -69,6 +69,7 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
                 raise beep.TerminateSession, 'Registration failed!'
             log.info('Registration successful')
 
+        family = os.name
         system, node, release, version, machine, processor = platform.uname()
         system, release, version = platform.system_alias(system, release,
                                                          version)
