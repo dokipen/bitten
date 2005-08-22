@@ -19,6 +19,7 @@
 # Author: Christopher Lenz <cmlenz@gmx.de>
 
 import os
+import shutil
 import tempfile
 import unittest
 
@@ -29,13 +30,16 @@ from bitten.util import xmlio
 class RecipeTestCase(unittest.TestCase):
 
     def setUp(self):
-        self.temp_dir = os.path.realpath(tempfile.gettempdir())
+        self.basedir = os.path.realpath(tempfile.mkdtemp())
+
+    def tearDown(self):
+        shutil.rmtree(self.basedir)
 
     def test_empty_recipe(self):
         xml = xmlio.parse('<build description="test"/>')
-        recipe = Recipe(xml, basedir=self.temp_dir)
+        recipe = Recipe(xml, basedir=self.basedir)
         self.assertEqual('test', recipe.description)
-        self.assertEqual(self.temp_dir, recipe.ctxt.basedir)
+        self.assertEqual(self.basedir, recipe.ctxt.basedir)
         steps = list(recipe)
         self.assertEqual(0, len(steps))
 
@@ -43,7 +47,7 @@ class RecipeTestCase(unittest.TestCase):
         xml = xmlio.parse('<build>'
                           ' <step id="foo" description="Bar"></step>'
                           '</build>')
-        recipe = Recipe(xml, basedir=self.temp_dir)
+        recipe = Recipe(xml, basedir=self.basedir)
         steps = list(recipe)
         self.assertEqual(1, len(steps))
         self.assertEqual('foo', steps[0].id)
