@@ -45,7 +45,7 @@ class Commandline(object):
         """
         self.executable = executable
         self.arguments = [str(arg) for arg in args]
-        self.input = input
+        self.stdin = stdin
         self.cwd = cwd
         if self.cwd:
             assert os.path.isdir(self.cwd)
@@ -115,21 +115,23 @@ class Commandline(object):
             log.debug('Executing %s', [self.executable] + self.arguments)
             pipe = popen2.Popen3([self.executable] + self.arguments,
                                  capturestderr=True)
-            if self.input:
-                if isinstance(self.input, basestring):
-                    pipe.tochild.write(self.input)
+            if self.stdin:
+                if isinstance(self.stdin, basestring):
+                    pipe.tochild.write(self.stdin)
                 else:
-                    shutil.copyfileobj(self.input, pipe.tochild)
+                    shutil.copyfileobj(self.stdin, pipe.tochild)
             pipe.tochild.close()
 
             def make_non_blocking(fd):
-                fl = fcntl.fcntl(fd, fcntl.F_GETFL)
+                fn = fd.fileno()
+                fl = fcntl.fcntl(fn, fcntl.F_GETFL)
                 try:
-                    fcntl.fcntl(fd, fcntl.F_SETFL, fl | os.O_NDELAY)
+                    fcntl.fcntl(fn, fcntl.F_SETFL, fl | os.O_NDELAY)
                 except AttributeError:
-                    fcntl.fcntl(fd, fcntl.F_SETFL, fl | os.FNDELAY)
+                    fcntl.fcntl(fn, fcntl.F_SETFL, fl | os.FNDELAY)
+                return fd
 
-            out_file, err_file = [make_non_blocking(fd.fileno()) for fd
+            out_file, err_file = [make_non_blocking(fd) for fd
                                   in (pipe.fromchild, pipe.childerr)]
             out_data, err_data = [], []
             out_eof = err_eof = False
