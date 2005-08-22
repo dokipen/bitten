@@ -20,7 +20,8 @@
 
 import logging
 import os
-import os.path
+import shlex
+import shutil
 import time
 
 log = logging.getLogger('bitten.cmdline')
@@ -34,7 +35,7 @@ class Commandline(object):
     """Simple helper for executing subprocesses."""
     # TODO: Use 'subprocess' module if available (Python >= 2.4)
 
-    def __init__(self, executable, args, cwd=None):
+    def __init__(self, executable, args, input=None, cwd=None):
         """Initialize the Commandline object.
         
         @param executable The name of the program to execute
@@ -44,10 +45,31 @@ class Commandline(object):
         """
         self.executable = executable
         self.arguments = [str(arg) for arg in args]
+        self.input = input
         self.cwd = cwd
         if self.cwd:
             assert os.path.isdir(self.cwd)
         self.returncode = None
+
+        # TODO: On windows, map file name extension to application
+        if os.name == 'nt':
+            pass
+
+        # Shebang support for Posix systems
+        if os.path.isfile(self.executable):
+            executable_file = file(self.executable, 'r')
+            try:
+                for line in executable_file:
+                    if line.startswith('#!'):
+                        parts = shlex.split(line[2:])
+                        if len(parts) > 1:
+                            self.arguments[:0] = parts[1:] + [self.executable]
+                        else:
+                            self.arguments[:0] = [self.executable]
+                        self.executable = parts[0]
+                    break
+            finally:
+                executable_file.close()
 
     if os.name == 'nt': # windows
 
@@ -59,6 +81,7 @@ class Commandline(object):
             log.debug('Executing %s', args)
 
             if self.cwd:
+                old_cwd = os.getcwd()
                 os.chdir(self.cwd)
 
             import tempfile
@@ -78,16 +101,25 @@ class Commandline(object):
                 yield out_line and out_line.rstrip(), \
                       err_line and err_line.rstrip()
 
+            if self.cwd:
+                os.chdir(old_cwd)
+
     else: # posix
 
         def execute(self, timeout=None):
             import fcntl, popen2, select
             if self.cwd:
+                old_cwd = os.getcwd()
                 os.chdir(self.cwd)
 
             log.debug('Executing %s', [self.executable] + self.arguments)
             pipe = popen2.Popen3([self.executable] + self.arguments,
                                  capturestderr=True)
+            if self.input:
+                if isinstance(self.input, basestring):
+                    pipe.tochild.write(self.input)
+                else:
+                    shutil.copyfileobj(self.input, pipe.tochild)
             pipe.tochild.close()
 
             def make_non_blocking(fd):
@@ -125,7 +157,11 @@ class Commandline(object):
                     yield out_line, err_line
                 time.sleep(.1)
             self.returncode = pipe.wait()
-            log.debug('Exited with code %s', self.returncode)
+            log.debug('%s exited with code %s', self.executable,
+                      self.returncode)
+
+            if self.cwd:
+                os.chdir(old_cwd)
 
     def _combine(self, *iterables):
         iterables = [iter(iterable) for iterable in iterables]

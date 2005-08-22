@@ -64,13 +64,9 @@ def exec_(ctxt, file_=None, module=None, output=None, args=None):
             ctxt.error('Cannot execute Python module %s: %s' % (module, e))
             return
 
-    if args:
-        args = file_ + ' ' + args
-    else:
-        args = file_
-
     from bitten.build import shtools
-    shtools.exec_(ctxt, file_='python', output=output, args=args)
+    shtools.exec_(ctxt, executable='python', file_=file_, output=output,
+                  args=args)
 
 def pylint(ctxt, file_=None):
     """Extract data from a `pylint` run written to a file."""
