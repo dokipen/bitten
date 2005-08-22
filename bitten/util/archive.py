@@ -18,8 +18,7 @@
 #
 # Author: Christopher Lenz <cmlenz@gmx.de>
 
-import logging
-import os.path
+import os
 import tarfile
 import time
 import zipfile
@@ -29,17 +28,18 @@ _formats = {'gzip': ('.tar.gz', 'gz'), 'bzip2': ('.tar.bz2', 'bz2'),
 
 def index(env, prefix):
     """Generator that yields `(rev, format, path)` tuples for every archive in
-    the environment snapshots directory that match the specified prefix."""
+    the environment snapshots directory that match the specified prefix.
+    """
     filedir = os.path.join(env.path, 'snapshots')
     for filename in [f for f in os.listdir(filedir) if f.startswith(prefix)]:
         rest = filename[len(prefix):]
 
         # Determine format based of file extension
         format = None
-        for fmt, (ext, comp) in _formats.items():
-            if rest.endswith(ext):
-                rest = rest[:-len(ext)]
-                format = fmt
+        for name, (extension, _) in _formats.items():
+            if rest.endswith(extension):
+                rest = rest[:-len(extension)]
+                format = name
         if not format:
             continue
 
@@ -104,7 +104,7 @@ def pack(env, repos=None, path=None, rev=None, prefix=None, format='gzip',
 def unpack(filename, dest_path, format=None):
     """Extract the contents of a snapshot archive."""
     if not format:
-        for name, (extension, compression) in _formats.items():
+        for name, (extension, _) in _formats.items():
             if filename.endswith(extension):
                 format = name
                 break
@@ -114,16 +114,17 @@ def unpack(filename, dest_path, format=None):
 
     names = []
     if format in ('bzip2', 'gzip'):
-        tar = tarfile.open(filename)
-        for tarinfo in tar:
+        tar_file = tarfile.open(filename)
+        for tarinfo in tar_file:
             names.append(tarinfo.name)
-            tar.extract(tarinfo, dest_path)
+            tar_file.extract(tarinfo, dest_path)
     elif format == 'zip':
-        zip = zipfile.ZipFile(filename, 'r')
-        for name in zip.namelist():
+        zip_file = zipfile.ZipFile(filename, 'r')
+        for name in zip_file.namelist():
             names.append(name)
+            path = os.path.join(dest_path, name)
             if name.endswith('/'):
-                os.makedirs(os.path.join(path, name))
+                os.makedirs(path)
             else:
-                file(os.path.join(path, name), 'wb').write(zip.read(name))
+                file(path, 'wb').write(zip_file.read(name))
     return os.path.commonprefix(names)

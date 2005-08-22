@@ -21,7 +21,6 @@
 import keyword
 import logging
 import os
-import time
 
 from bitten.build import BuildError
 from bitten.util import xmlio

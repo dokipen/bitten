@@ -24,7 +24,6 @@ import logging
 import os
 import platform
 import shutil
-import sys
 import tempfile
 
 from bitten.build import BuildError
@@ -87,7 +86,7 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
                     processor = config.get(section, 'processor', processor)
                 elif section == 'os':
                     system = config.get(section, 'name', system)
-                    family = config.get(section, 'family', family)
+                    family = config.get(section, 'family', os.name)
                     release = config.get(section, 'version', release)
                 else: # a package
                     attrs = {}
@@ -99,7 +98,7 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
         log.info('Registering with build master as %s', node)
         xml = xmlio.Element('register', name=node)[
             xmlio.Element('platform', processor=processor)[machine],
-            xmlio.Element('os', family=os.name, version=release)[system],
+            xmlio.Element('os', family=family, version=release)[system],
             xmlio.Fragment()[packages]
         ]
         self.channel.send_msg(beep.Payload(xml), handle_reply)
@@ -255,13 +254,13 @@ def main():
     else:
         port = 7633
 
-    log = logging.getLogger('bitten')
-    log.setLevel(options.loglevel)
+    logger = logging.getLogger('bitten')
+    logger.setLevel(options.loglevel)
     handler = logging.StreamHandler()
     handler.setLevel(options.loglevel)
     formatter = logging.Formatter('[%(levelname)-8s] %(message)s')
     handler.setFormatter(formatter)
-    log.addHandler(handler)
+    logger.addHandler(handler)
 
     slave = Slave(host, port, options.name, options.config)
     try:

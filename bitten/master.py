@@ -127,8 +127,8 @@ class Master(beep.Listener):
             build.started = 0
             for step in BuildStep.select(self.env, build=build.id):
                 step.delete(db=db)
-            for log in BuildLog.select(self.env, build=build.id):
-                log.delete(db=db)
+            for build_log in BuildLog.select(self.env, build=build.id):
+                build_log.delete(db=db)
             build.update(db=db)
         db.commit()
 
@@ -162,12 +162,12 @@ class Master(beep.Listener):
                 if not platform.id in self.slaves:
                     self.slaves[platform.id] = set()
                 match = True
-                for property, pattern in ifilter(None, platform.rules):
+                for propname, pattern in ifilter(None, platform.rules):
                     try:
-                        if not re.match(pattern, handler.info.get(property)):
+                        if not re.match(pattern, handler.info.get(propname)):
                             match = False
                             break
-                    except re.error, e:
+                    except re.error:
                         log.error('Invalid platform matching pattern "%s"',
                                   pattern, exc_info=True)
                         match = False
@@ -318,13 +318,13 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
                 db = self.env.get_db_cnx()
                 elem = xmlio.parse(payload.body)
                 if elem.name == 'started':
-                    self._build_started(db, build, elem, timestamp_delta)
+                    self._build_started(build, elem, timestamp_delta)
                 elif elem.name == 'step':
                     self._build_step_completed(db, build, elem, timestamp_delta)
                 elif elem.name == 'completed':
-                    self._build_completed(db, build, elem, timestamp_delta)
+                    self._build_completed(build, elem, timestamp_delta)
                 elif elem.name == 'aborted':
-                    self._build_aborted(db, build, elem, timestamp_delta)
+                    self._build_aborted(db, build)
                 elif elem.name == 'error':
                     build.status = Build.FAILURE
                 build.update(db=db)
@@ -343,7 +343,7 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
                                content_encoding=encoding)
         self.channel.send_msg(message, handle_reply=handle_reply)
 
-    def _build_started(self, db, build, elem, timestamp_delta=None):
+    def _build_started(self, build, elem, timestamp_delta=None):
         build.slave = self.name
         build.slave_info.update(self.info)
         build.started = int(_parse_iso_datetime(elem.attr['time']))
@@ -370,8 +370,6 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
             step.status = BuildStep.SUCCESS
         step.insert(db=db)
 
-        level_map = {'debug': BuildLog.DEBUG, 'info': BuildLog.INFO,
-                     'warning': BuildLog.WARNING, 'error': BuildLog.ERROR}
         for log_elem in elem.children('log'):
             build_log = BuildLog(self.env, build=build.id, step=step.name,
                                  type=log_elem.attr.get('type'))
@@ -384,7 +382,7 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
         for report in elem.children('report'):
             store.store_report(build, step, report)
 
-    def _build_completed(self, db, build, elem, timestamp_delta=None):
+    def _build_completed(self, build, elem, timestamp_delta=None):
         log.info('Slave %s completed build %d ("%s" as of [%s]) with status %s',
                  self.name, build.id, build.config, build.rev,
                  elem.attr['result'])
@@ -396,7 +394,7 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
         else:
             build.status = Build.SUCCESS
 
-    def _build_aborted(self, db, build, elem, timestamp_delta=None):
+    def _build_aborted(self, db, build):
         log.info('Slave "%s" aborted build %d ("%s" as of [%s])',
                  self.name, build.id, build.config, build.rev)
         build.slave = None
@@ -457,8 +455,8 @@ def main():
     env_path = args[0]
 
     # Configure logging
-    log = logging.getLogger('bitten')
-    log.setLevel(options.loglevel)
+    logger = logging.getLogger('bitten')
+    logger.setLevel(options.loglevel)
     handler = logging.StreamHandler()
     if options.logfile:
         handler.setLevel(logging.WARNING)
@@ -466,14 +464,14 @@ def main():
         handler.setLevel(options.loglevel)
     formatter = logging.Formatter('%(message)s')
     handler.setFormatter(formatter)
-    log.addHandler(handler)
+    logger.addHandler(handler)
     if options.logfile:
         handler = logging.FileHandler(options.logfile)
         handler.setLevel(options.loglevel)
         formatter = logging.Formatter('%(asctime)s [%(name)s] %(levelname)s: '
                                       '%(message)s')
         handler.setFormatter(formatter)
-        log.addHandler(handler)
+        logger.addHandler(handler)
 
     port = options.port
     if not (1 <= port <= 65535):

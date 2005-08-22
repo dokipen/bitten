@@ -18,26 +18,35 @@
 #
 # Author: Christopher Lenz <cmlenz@gmx.de>
 
+"""Utility code for easy input and output of XML.
+
+The current implementation uses `xml.dom.minidom` under the hood for parsing.
+"""
+
 import os
 try:
     from cStringIO import StringIO
 except ImportError:
     from StringIO import StringIO
 
-
 __all__ = ['Element', 'parse']
 
 def _escape_text(text):
+    """Escape special characters in the provided text so that it can be safely
+    included in XML text nodes.
+    """
     return str(text).replace('&', '&amp;').replace('<', '&lt;') \
                     .replace('>', '&gt;')
 
 def _escape_attr(attr):
+    """Escape special characters in the provided text so that it can be safely
+    included in XML attribute values.
+    """
     return _escape_text(attr).replace('"', '&#34;')
 
 
 class Fragment(object):
     """A collection of XML elements."""
-    
     __slots__ = ['children']
 
     def __init__(self):
@@ -161,16 +170,17 @@ class Element(Fragment):
 
 
 class SubElement(Element):
-
+    """Element that is appended as a new child to another element on
+    construction.
+    """
     __slots__ = []
 
     def __init__(self, parent_, name_, **attr):
         """Create an XML element using the specified tag name.
         
-        The first positional argument is the instance of the parent element that
-        this subelement should be appended to; the second positional argument is
-        the name of the tag. All keyword arguments are handled as attributes of
-        the element.
+        The first argument is the instance of the parent element that this
+        subelement should be appended to; the second argument is the name of the
+        tag. All keyword arguments are added as attributes of the element.
         """
         Element.__init__(self, name_, **attr)
         parent_.append(self)
@@ -180,20 +190,28 @@ class ParseError(Exception):
     """Exception thrown when there's an error parsing an XML document."""
 
 
-def parse(text):
+def parse(text_or_file):
+    """Parse an XML document provided as string or file-like object.
+    
+    Returns an instance of `ParsedElement` that can be used to traverse the
+    parsed document.
+    """
     from xml.dom import minidom
     from xml.parsers import expat
     try:
-        if isinstance(text, (str, unicode)):
-            dom = minidom.parseString(text)
+        if isinstance(text_or_file, (str, unicode)):
+            dom = minidom.parseString(text_or_file)
         else:
-            dom = minidom.parse(text)
+            dom = minidom.parse(text_or_file)
         return ParsedElement(dom.documentElement)
     except expat.error, e:
         raise ParseError, e
 
 
 class ParsedElement(object):
+    """Representation of an XML element that was parsed from a string or
+    file.
+    """
     __slots__ = ['_node', 'attr']
 
     def __init__(self, node):
@@ -205,6 +223,11 @@ class ParsedElement(object):
     namespace = property(fget=lambda self: self._node.namespaceURI)
 
     def children(self, name=None):
+        """Iterate over the child elements of this element.
+
+        If the parameter `name` is provided, only include elements with a
+        matching local name. Otherwise, include all elements.
+        """
         for child in [c for c in self._node.childNodes if c.nodeType == 1]:
             if name in (None, child.tagName):
                 yield ParsedElement(child)
@@ -213,6 +236,11 @@ class ParsedElement(object):
         return self.children()
 
     def gettext(self):
+        """Return the text content of this element.
+        
+        This concatenates the values of all text nodes that are immediate
+        children of this element.
+        """
         return ''.join([c.nodeValue or '' for c in self._node.childNodes])
 
     def write(self, out, newlines=False):

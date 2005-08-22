@@ -35,7 +35,7 @@ class Commandline(object):
     """Simple helper for executing subprocesses."""
     # TODO: Use 'subprocess' module if available (Python >= 2.4)
 
-    def __init__(self, executable, args, input=None, cwd=None):
+    def __init__(self, executable, args, stdin=None, cwd=None):
         """Initialize the Commandline object.
         
         @param executable The name of the program to execute
@@ -129,12 +129,13 @@ class Commandline(object):
                 except AttributeError:
                     fcntl.fcntl(fd, fcntl.F_SETFL, fl | os.FNDELAY)
 
-            out_file, err_file = pipe.fromchild, pipe.childerr
-            map(make_non_blocking, [out_file.fileno(), err_file.fileno()])
+            out_file, err_file = [make_non_blocking(fd.fileno()) for fd
+                                  in (pipe.fromchild, pipe.childerr)]
             out_data, err_data = [], []
             out_eof = err_eof = False
             while not out_eof or not err_eof:
-                to_check = [out_file] * (not out_eof) + [err_file] * (not err_eof)
+                to_check = [out_file] * (not out_eof) + \
+                           [err_file] * (not err_eof)
                 ready = select.select(to_check, [], [], timeout)
                 if not ready[0]:
                     raise TimeoutError, 'Command %s timed out' % self.executable

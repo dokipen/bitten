@@ -34,6 +34,11 @@ class BuildConfig(object):
 
     def __init__(self, env, name=None, path=None, active=False, recipe=None,
                  min_rev=None, max_rev=None, label=None, description=None):
+        """Initialize a new build configuration with the specified attributes.
+
+        To actually create this configuration in the database, the `insert`
+        method needs to be called.
+        """
         self.env = env
         self._old_name = None
         self.name = name
@@ -48,6 +53,7 @@ class BuildConfig(object):
     exists = property(fget=lambda self: self._old_name is not None)
 
     def insert(self, db=None):
+        """Insert a new configuration into the database."""
         assert not self.exists, 'Cannot insert existing configuration'
         assert self.name, 'Configuration requires a name'
         if not db:
@@ -69,6 +75,7 @@ class BuildConfig(object):
         self._old_name = self.name
 
     def update(self, db=None):
+        """Save changes to an existing build configuration."""
         assert self.exists, 'Cannot update a non-existing configuration'
         assert self.name, 'Configuration requires a name'
         if not db:
@@ -90,6 +97,9 @@ class BuildConfig(object):
         self._old_name = self.name
 
     def fetch(cls, env, name, db=None):
+        """Retrieve an existing build configuration from the database by
+        name.
+        """
         if not db:
             db = env.get_db_cnx()
 
@@ -114,6 +124,9 @@ class BuildConfig(object):
     fetch = classmethod(fetch)
 
     def select(cls, env, include_inactive=False, db=None):
+        """Retrieve existing build configurations from the database that match
+        the specified criteria.
+        """
         if not db:
             db = env.get_db_cnx()
 
@@ -151,7 +164,12 @@ class TargetPlatform(object):
         ]
     ]
 
-    def __init__(self, env, id=None, config=None, name=None, db=None):
+    def __init__(self, env, id=None, config=None, name=None):
+        """Initialize a new target platform with the specified attributes.
+
+        To actually create this platform in the database, the `insert` method
+        needs to be called.
+        """
         self.env = env
         self.id = id
         self.config = config
@@ -161,6 +179,7 @@ class TargetPlatform(object):
     exists = property(fget=lambda self: self.id is not None)
 
     def delete(self, db=None):
+        """Remove the target platform from the database."""
         if not db:
             db = self.env.get_db_cnx()
             handle_ta = True
@@ -174,6 +193,7 @@ class TargetPlatform(object):
             db.commit()
 
     def insert(self, db=None):
+        """Insert a new target platform into the database."""
         if not db:
             db = self.env.get_db_cnx()
             handle_ta = True
@@ -199,6 +219,7 @@ class TargetPlatform(object):
             db.commit()
 
     def update(self, db=None):
+        """Save changes to an existing target platform."""
         assert self.exists, 'Cannot update a non-existing platform'
         assert self.config, 'Target platform needs to be associated with a ' \
                             'configuration'
@@ -223,6 +244,7 @@ class TargetPlatform(object):
             db.commit()
 
     def fetch(cls, env, id, db=None):
+        """Retrieve an existing target platform from the database by ID."""
         if not db:
             db = env.get_db_cnx()
 
@@ -243,6 +265,9 @@ class TargetPlatform(object):
     fetch = classmethod(fetch)
 
     def select(cls, env, config=None, db=None):
+        """Retrieve existing target platforms from the database that match the
+        specified criteria.
+        """
         if not db:
             db = env.get_db_cnx()
 
@@ -297,6 +322,11 @@ class Build(object):
     def __init__(self, env, id=None, config=None, rev=None, platform=None,
                  slave=None, started=0, stopped=0, rev_time=0,
                  status=PENDING):
+        """Initialize a new build with the specified attributes.
+
+        To actually create this build in the database, the `insert` method needs
+        to be called.
+        """
         self.env = env
         self.slave_info = {}
         self.id = id
@@ -314,6 +344,7 @@ class Build(object):
     successful = property(fget=lambda self: self.status == Build.SUCCESS)
 
     def delete(self, db=None):
+        """Remove the build from the database."""
         if not db:
             db = self.env.get_db_cnx()
             handle_ta = True
@@ -333,6 +364,7 @@ class Build(object):
             db.commit()
 
     def insert(self, db=None):
+        """Insert a new build into the database."""
         if not db:
             db = self.env.get_db_cnx()
             handle_ta = True
@@ -362,6 +394,7 @@ class Build(object):
             db.commit()
 
     def update(self, db=None):
+        """Save changes to an existing build."""
         if not db:
             db = self.env.get_db_cnx()
             handle_ta = True
@@ -388,6 +421,7 @@ class Build(object):
             db.commit()
 
     def fetch(cls, env, id, db=None):
+        """Retrieve an existing build from the database by ID."""
         if not db:
             db = env.get_db_cnx()
 
@@ -412,6 +446,9 @@ class Build(object):
 
     def select(cls, env, config=None, rev=None, platform=None, slave=None,
                status=None, db=None):
+        """Retrieve existing builds from the database that match the specified
+        criteria.
+        """
         if not db:
             db = env.get_db_cnx()
 
@@ -457,6 +494,11 @@ class BuildStep(object):
 
     def __init__(self, env, build=None, name=None, description=None,
                  status=None, started=None, stopped=None):
+        """Initialize a new build step with the specified attributes.
+
+        To actually create this build step in the database, the `insert` method
+        needs to be called.
+        """
         self.env = env
         self.build = build
         self.name = name
@@ -469,6 +511,7 @@ class BuildStep(object):
     successful = property(fget=lambda self: self.status == BuildStep.SUCCESS)
 
     def delete(self, db=None):
+        """Remove the build step from the database."""
         if not db:
             db = self.env.get_db_cnx()
             handle_ta = True
@@ -485,6 +528,7 @@ class BuildStep(object):
             db.commit()
 
     def insert(self, db=None):
+        """Insert a new build step into the database."""
         if not db:
             db = self.env.get_db_cnx()
             handle_ta = True
@@ -503,6 +547,8 @@ class BuildStep(object):
             db.commit()
 
     def fetch(cls, env, build, name, db=None):
+        """Retrieve an existing build from the database by build ID and step
+        name."""
         if not db:
             db = env.get_db_cnx()
 
@@ -519,6 +565,9 @@ class BuildStep(object):
     fetch = classmethod(fetch)
 
     def select(cls, env, build=None, name=None, db=None):
+        """Retrieve existing build steps from the database that match the
+        specified criteria.
+        """
         if not db:
             db = env.get_db_cnx()
 
@@ -563,6 +612,11 @@ class BuildLog(object):
     ERROR = 'E'
 
     def __init__(self, env, build=None, step=None, type=None):
+        """Initialize a new build log with the specified attributes.
+
+        To actually create this build log in the database, the `insert` method
+        needs to be called.
+        """
         self.env = env
         self.id = None
         self.build = build
@@ -573,6 +627,7 @@ class BuildLog(object):
     exists = property(fget=lambda self: self.id is not None)
 
     def delete(self, db=None):
+        """Remove the build log from the database."""
         assert self.exists, 'Cannot delete a non-existing build log'
         if not db:
             db = self.env.get_db_cnx()
@@ -590,6 +645,7 @@ class BuildLog(object):
         self.id = None
 
     def insert(self, db=None):
+        """Insert a new build log into the database."""
         if not db:
             db = self.env.get_db_cnx()
             handle_ta = True
@@ -612,6 +668,7 @@ class BuildLog(object):
         self.id = id
 
     def fetch(cls, env, id, db=None):
+        """Retrieve an existing build from the database by ID."""
         if not db:
             db = env.get_db_cnx()
 
@@ -632,6 +689,9 @@ class BuildLog(object):
     fetch = classmethod(fetch)
 
     def select(cls, env, build=None, step=None, type=None, db=None):
+        """Retrieve existing build logs from the database that match the
+        specified criteria.
+        """
         if not db:
             db = env.get_db_cnx()
 
