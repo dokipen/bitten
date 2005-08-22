@@ -118,13 +118,18 @@ class Master(beep.Listener):
                     return
 
     def _cleanup_orphaned_builds(self):
-        # Remove all pending or in-progress builds
+        # Reset all in-progress builds
         db = self.env.get_db_cnx()
         for build in Build.select(self.env, status=Build.IN_PROGRESS, db=db):
             build.status = Build.PENDING
+            build.slave = None
+            build.slave_info = {}
+            build.started = 0
+            for step in BuildStep.select(self.env, build=build.id):
+                step.delete(db=db)
+            for log in BuildLog.select(self.env, build=build.id):
+                log.delete(db=db)
             build.update(db=db)
-        for build in Build.select(self.env, status=Build.PENDING, db=db):
-            build.delete(db=db)
         db.commit()
 
     def _cleanup_snapshots(self, when):
@@ -194,6 +199,8 @@ class Master(beep.Listener):
                      build.config, handler.name)
             for step in BuildStep.select(self.env, build=build.id):
                 step.delete(db=db)
+            for log in BuildLog.select(self.env, build=build.id):
+                log.delete(db=db)
             build.slave = None
             build.slave_info = {}
             build.status = Build.PENDING
