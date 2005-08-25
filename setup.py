@@ -19,8 +19,6 @@
 #
 # Author: Christopher Lenz <cmlenz@gmx.de>
 
-import ez_setup
-ez_setup.use_setuptools()
 from setuptools import setup, find_packages
 
 from bitten import __version__ as VERSION
