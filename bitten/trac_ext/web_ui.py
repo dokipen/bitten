@@ -31,7 +31,8 @@ from trac.web import IRequestHandler
 from trac.wiki import wiki_to_html
 from bitten.model import BuildConfig, TargetPlatform, Build, BuildStep, BuildLog
 from bitten.store import ReportStore
-from bitten.trac_ext.api import ILogFormatter
+from bitten.trac_ext.api import ILogFormatter, IReportSummarizer
+from bitten.trac_ext.summarizers import *
 
 _status_label = {Build.IN_PROGRESS: 'in progress',
                  Build.SUCCESS: 'completed',
@@ -390,6 +391,7 @@ class BuildController(Component):
     implements(INavigationContributor, IRequestHandler, ITimelineEventProvider)
 
     log_formatters = ExtensionPoint(ILogFormatter)
+    report_summarizers = ExtensionPoint(IReportSummarizer)
 
     # INavigationContributor methods
 
@@ -437,30 +439,10 @@ class BuildController(Component):
             steps.append({
                 'name': step.name, 'description': step.description,
                 'duration': pretty_timedelta(step.started, step.stopped),
-                'failed': step.status == BuildStep.FAILURE
+                'failed': step.status == BuildStep.FAILURE,
+                'log': self._render_log(req, build, step),
+                'reports': self._render_reports(req, build, step)
             })
-            for log in BuildLog.select(self.env, build=build.id,
-                                       step=step.name, db=db):
-                formatters = []
-                items = []
-                for formatter in self.log_formatters:
-                    formatters.append(formatter.get_formatter(req, build,
-                                                              step,
-                                                              log.type))
-                for level, message in log.messages:
-                    for format in formatters:
-                        message = format(level, message)
-                    items.append({'level': level, 'message': message})
-                steps[-1]['log'] = items
-
-            store = ReportStore(self.env)
-            reports = []
-            for report in store.retrieve_reports(build, step):
-                report_type = report.attr['type']
-                report_href = self.env.href.buildreport(build.id, step.name,
-                                                        report_type)
-                reports.append({'type': report_type, 'href': report_href})
-            steps[-1]['reports'] = reports
         req.hdf['build.steps'] = steps
 
         add_stylesheet(req, 'bitten.css')
@@ -495,6 +477,44 @@ class BuildController(Component):
                 else:
                     href = self.env.href.build(config, id)
                 yield event_kinds[status], href, title, stopped, None, ''
+
+    # Internal methods
+
+    def _render_log(self, req, build, step):
+        items = []
+        for log in BuildLog.select(self.env, build=build.id, step=step.name):
+            formatters = []
+            for formatter in self.log_formatters:
+                formatters.append(formatter.get_formatter(req, build, step,
+                                                          log.type))
+            for level, message in log.messages:
+                for format in formatters:
+                    message = format(level, message)
+                items.append({'level': level, 'message': message})
+        return items
+
+    def _render_reports(self, req, build, step):
+        summarizers = {} # keyed by report type
+        for summarizer in self.report_summarizers:
+            types = summarizer.get_supported_report_types()
+            summarizers.update(dict([(type, summarizer) for type in types]))
+        self.log.debug("Report summarizers: %s", summarizers)
+
+        store = ReportStore(self.env)
+        reports = []
+        for report in store.retrieve_reports(build, step):
+            report_type = report.attr['type']
+            summarizer = summarizers.get(report_type)
+            if summarizer:
+                summary = summarizer.render_report_summary(req, build, step,
+                                                           report)
+            else:
+                summary = None
+            report_href = self.env.href.buildreport(build.id, step.name,
+                                                    report_type)
+            reports.append({'type': report_type, 'href': report_href,
+                            'summary': summary})
+        return reports
 
 
 class SourceFileLinkFormatter(Component):

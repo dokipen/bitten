@@ -19,16 +19,21 @@
 #content.build #builds td.failed { background: #d99; }
 #content.build #builds td.in-progress { background: #ff9; }
 
-#content.build .reports {
- background: #d7d7d7;
- float: right;
- font-size: 90%;
- margin: .5em 0 .5em 1em;
- padding: .5em;
-}
-#content.build .reports h3 { margin: 0; }
-#content.build .reports ul { margin: 0; padding: 0; list-style: none; }
+#content.build .tabs { list-style: none; float: left; width: 100%; margin: 0;
+ padding: 0; }
+#content.build .tabs li { cursor: pointer; float: left; }
+#content.build .tabs li a { background: #b9b9b9; color: #666; display: block;
+ margin: 2px 2px 0; padding: 3px 2em 0; }
+#content.build .tabs li a:hover { color: #333; text-decoration: none; }
+#content.build .tabs li.active a { background: #d7d7d7; border: 1px outset;
+ border-bottom: none; color: #333; font-weight: bold; margin-top: 0;
+ padding-bottom: 1px; }
+#content.build .tab-content { background: #fff; border: 1px outset;
+ clear: both; padding: 5px; }
+#content.build .tab-content table { margin: 0; }
 
-#content.build .log { clear: right; overflow: auto; white-space: pre; }
+#content.build .log { border: 1px inset; overflow: auto; max-height: 30em;
+ width: 100%; white-space: pre; }
+#content.build .log code { padding: 0 5px; }
 #content.build .log .warning { color: #660; font-weight: bold; }
 #content.build .log .error { color: #900; font-weight: bold; }

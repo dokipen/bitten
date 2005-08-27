@@ -31,3 +31,16 @@ class ILogFormatter(Interface):
         The function must take two positional arguments, `level` and `message`,
         and return the formatted message.
         """
+
+
+class IReportSummarizer(Interface):
+    """Extension point interface for components that render a summary of reports
+    of some kind."""
+
+    def get_supported_report_types():
+        """Return a list of strings identifying the types of reports this 
+        component supports."""
+
+    def render_report_summary(req, build, step, report):
+        """Render a summary for the given report and return the results HTML as
+        a string."""
