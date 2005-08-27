@@ -1,4 +1,6 @@
 <?cs include:"header.cs" ?>
+ <script type="text/javascript" src="<?cs
+   var:chrome.href ?>/bitten/tabset.js"></script>
  <div id="ctxtnav" class="nav"></div>
  <div id="content" class="build">
   <h1><?cs var:title ?></h1>
@@ -10,8 +12,6 @@
     var:build.slave.os ?> <?cs var:build.slave.os.version ?><?cs
     if:build.slave.machine ?> on <?cs var:build.slave.machine ?><?cs
     /if ?>)</p>
-  <script type="text/javascript" src="<?cs
-    var:htdocs_location ?>tabset.js"></script>
   <p class="time">Completed: <?cs var:build.started ?> (<?cs
     var:build.started_delta ?> ago)<br />Took: <?cs var:build.duration ?></p><?cs
   each:step = build.steps ?>

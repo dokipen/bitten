@@ -58,11 +58,11 @@ class BittenChrome(Component):
 
     # ITemplatesProvider methods
 
-    def get_htdocs_dir(self):
-        return pkg_resources.resource_filename(__name__, 'htdocs')
+    def get_htdocs_dirs(self):
+        return [('bitten', pkg_resources.resource_filename(__name__, 'htdocs'))]
 
-    def get_templates_dir(self):
-        return pkg_resources.resource_filename(__name__, 'templates')
+    def get_templates_dirs(self):
+        return [pkg_resources.resource_filename(__name__, 'templates')]
 
 
 class BuildConfigController(Component):
@@ -138,7 +138,7 @@ class BuildConfigController(Component):
                 else:
                     self._render_overview(req)
 
-        add_stylesheet(req, 'bitten.css')
+        add_stylesheet(req, 'bitten/bitten.css')
         return 'bitten_config.cs', None
 
     # Internal methods
@@ -434,7 +434,7 @@ class BuildController(Component):
             })
         req.hdf['build.steps'] = steps
 
-        add_stylesheet(req, 'bitten.css')
+        add_stylesheet(req, 'bitten/bitten.css')
         return 'bitten_build.cs', None
 
     # ITimelineEventProvider methods
@@ -445,7 +445,7 @@ class BuildController(Component):
 
     def get_timeline_events(self, req, start, stop, filters):
         if 'build' in filters:
-            add_stylesheet(req, 'bitten.css')
+            add_stylesheet(req, 'bitten/bitten.css')
             db = self.env.get_db_cnx()
             cursor = db.cursor()
             cursor.execute("SELECT b.id,b.config,c.label,b.rev,p.name,b.slave,"
@@ -605,6 +605,6 @@ class BuildReportController(Component):
         xml_href = self.env.href.buildreport(build.id, step.name, report_type,
                                              format='xml')
         add_link(req, 'alternate', xml_href, 'XML', 'text/xml')
-        add_stylesheet(req, 'css/code.css')
+        add_stylesheet(req, 'common/css/code.css')
         template = req.hdf.parse(self.template_cs)
         return template, None
