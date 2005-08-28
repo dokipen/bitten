@@ -42,7 +42,7 @@ class TraceTestCase(unittest.TestCase):
     def test_empty_summary(self):
         self.summary.write('line  cov%  module  (path)')
         self.summary.close()
-        pythontools.trace(self.ctxt, summary=self.summary.name,
+        pythontools.trace(self.ctxt, summary=self.summary.name, include='*.py',
                           coverdir=self.coverdir)
         type, function, xml = self.ctxt.output.pop()
         self.assertEqual(Recipe.REPORT, type)

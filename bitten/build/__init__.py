@@ -7,5 +7,4 @@
 # you should have received as part of this distribution. The terms
 # are also available at http://bitten.cmlenz.net/wiki/License.
 
-class BuildError(Exception):
-    pass
+from bitten.build.api import *

@@ -11,14 +11,14 @@ import logging
 import os
 import re
 
+from bitten.build import CommandLine, FileSet
 from bitten.util import xmlio
-from bitten.util.cmdline import Commandline
 
 log = logging.getLogger('bitten.build.pythontools')
 
 def distutils(ctxt, command='build'):
     """Execute a `distutils` command."""
-    cmdline = Commandline('python', ['setup.py', command], cwd=ctxt.basedir)
+    cmdline = CommandLine('python', ['setup.py', command], cwd=ctxt.basedir)
     log_elem = xmlio.Fragment()
     for out, err in cmdline.execute():
         if out is not None:
@@ -99,6 +99,11 @@ def trace(ctxt, summary=None, coverdir=None, include=None, exclude=None):
                                  r'(?P<module>.*?)\s+\((?P<filename>.*?)\)')
     coverage_line_re = re.compile(r'\s*(?:(?P<hits>\d+): )?(?P<line>.*)')
 
+    fileset = FileSet(ctxt.basedir, include, exclude)
+    missing_files = []
+    for file in fileset:
+        missing_files.append(file)
+
     try:
         summary_file = open(ctxt.resolve(summary), 'r')
         try:
@@ -111,6 +116,9 @@ def trace(ctxt, summary=None, coverdir=None, include=None, exclude=None):
                     cov = int(match.group(2))
                     if filename.startswith(ctxt.basedir):
                         filename = filename[len(ctxt.basedir) + 1:]
+                        if not filename in fileset:
+                            continue
+                        missing_files.remove(filename)
                         module = xmlio.Element('coverage', file=filename,
                                                module=modname, percentage=cov)
                         coverage_path = ctxt.resolve(coverdir,
@@ -132,6 +140,14 @@ def trace(ctxt, summary=None, coverdir=None, include=None, exclude=None):
                         finally:
                             coverage_file.close()
                         coverage.append(module)
+
+            for filename in missing_files:
+                module = xmlio.Element('coverage', file=filename, percentage=0)
+                # FIXME: Determine module name
+                # FIXME: For every non-comment, non-empty line in the file,
+                #        add a <line hits="0"> element
+                coverage.append(module)
+
             ctxt.report(coverage)
         finally:
             summary_file.close()

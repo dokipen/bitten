@@ -9,8 +9,8 @@
 
 import logging
 
+from bitten.build import CommandLine
 from bitten.util import xmlio
-from bitten.util.cmdline import Commandline
 
 log = logging.getLogger('bitten.build.ctools')
 
@@ -27,7 +27,7 @@ def make(ctxt, target=None, file_=None, jobs=None, keep_going=False):
         args.append(target)
 
     log_elem = xmlio.Fragment()
-    cmdline = Commandline('make', args)
+    cmdline = CommandLine('make', args)
     for out, err in cmdline.execute():
         if out is not None:
             log.info(out)

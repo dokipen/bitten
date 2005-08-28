@@ -8,24 +8,29 @@
 # are also available at http://bitten.cmlenz.net/wiki/License.
 
 import logging
+import fnmatch
 import os
 import shlex
 import shutil
 import time
 
-log = logging.getLogger('bitten.cmdline')
+log = logging.getLogger('bitten.build.api')
+
+
+class BuildError(Exception):
+    """Exception raised when a build fails."""
 
 
 class TimeoutError(Exception):
     """Exception raised when the execution of a command times out."""
 
 
-class Commandline(object):
+class CommandLine(object):
     """Simple helper for executing subprocesses."""
     # TODO: Use 'subprocess' module if available (Python >= 2.4)
 
     def __init__(self, executable, args, stdin=None, cwd=None):
-        """Initialize the Commandline object.
+        """Initialize the CommandLine object.
         
         @param executable The name of the program to execute
         @param args A list of arguments to pass to the executable
@@ -190,3 +195,55 @@ class Commandline(object):
         data[:] = [buf]
 
         return [line.rstrip() for line in extracted]
+
+
+class FileSet(object):
+    """Utility class for collecting a list of files in a directory that match
+    given name/path patterns."""
+
+    DEFAULT_EXCLUDES = ['CVS/*', '*/CVS/*', '.svn/*', '*/.svn/*',
+                        '.DS_Store', 'Thumbs.db']
+
+    def __init__(self, basedir, include=None, exclude=None):
+        self.files = []
+        self.basedir = basedir
+
+        self.include = []
+        if include is not None:
+            self.include = shlex.split(include)
+
+        self.exclude = self.DEFAULT_EXCLUDES
+        if exclude is not None:
+            self.exclude += shlex.split(exclude)
+
+        for dirpath, dirnames, filenames in os.walk(self.basedir):
+            dirpath = dirpath[len(self.basedir) + 1:]
+
+            for filename in filenames:
+                filepath = os.path.join(dirpath, filename)
+
+                if self.include:
+                    included = False
+                    for pattern in self.include:
+                        if fnmatch.fnmatchcase(filepath, pattern) or \
+                           fnmatch.fnmatchcase(filename, pattern):
+                            included = True
+                            break
+                    if not included:
+                        continue
+
+                excluded = False
+                for pattern in self.exclude:
+                    if fnmatch.fnmatchcase(filepath, pattern) or \
+                       fnmatch.fnmatchcase(filename, pattern):
+                        excluded = True
+                        break
+                if not excluded:
+                    self.files.append(filepath)
+
+    def __iter__(self):
+        for file in self.files:
+            yield file
+
+    def __contains__(self, file):
+        return file in self.files

@@ -11,8 +11,8 @@ import logging
 import os
 import shlex
 
+from bitten.build import CommandLine
 from bitten.util import xmlio
-from bitten.util.cmdline import Commandline
 
 log = logging.getLogger('bitten.build.shtools')
 
@@ -37,7 +37,7 @@ def exec_(ctxt, executable=None, file_=None, output=None, args=None):
         output_file = file(output, 'w')
 
     try:
-        cmdline = Commandline(executable, args, cwd=ctxt.basedir)
+        cmdline = CommandLine(executable, args, cwd=ctxt.basedir)
         log_elem = xmlio.Fragment()
         for out, err in cmdline.execute():
             if out is not None:
@@ -85,7 +85,7 @@ def pipe(ctxt, executable=None, file_=None, input_=None, output=None,
         output_file = file(output, 'w')
 
     try:
-        cmdline = Commandline(executable, args, stdin=input_file,
+        cmdline = CommandLine(executable, args, stdin=input_file,
                               cwd=ctxt.basedir)
         log_elem = xmlio.Fragment()
         for out, err in cmdline.execute():
