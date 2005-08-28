@@ -457,9 +457,9 @@ class BuildController(Component):
             event_kinds = {Build.SUCCESS: 'successbuild',
                            Build.FAILURE: 'failedbuild'}
             for id, config, label, rev, platform, slave, stopped, status in cursor:
-                title = 'Build of <em>%s [%s]</em> by %s (%s) %s' \
-                        % (escape(label), escape(rev), escape(slave),
-                           escape(platform), _status_label[status])
+                title = 'Build of <em>%s [%s]</em> on %s %s' \
+                        % (escape(label), escape(rev), escape(platform),
+                           _status_label[status])
                 if req.args.get('format') == 'rss':
                     href = self.env.abs_href.build(config, id)
                 else:
