@@ -21,7 +21,6 @@ from trac.wiki import wiki_to_html
 from bitten.model import BuildConfig, TargetPlatform, Build, BuildStep, BuildLog
 from bitten.store import ReportStore
 from bitten.trac_ext.api import ILogFormatter, IReportSummarizer
-from bitten.trac_ext.summarizers import *
 
 _status_label = {Build.IN_PROGRESS: 'in progress',
                  Build.SUCCESS: 'completed',
