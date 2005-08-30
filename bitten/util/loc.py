@@ -62,8 +62,8 @@ def count(source):
     """Parse the given file-like object.
     
     For every line, returns a `(lineno, type, line)` tuple, where `lineno`
-    is the line number starting at 1, `type` is one of `BLANK`, `CODE, `COMMENT`
-    or `DOC`, and `line` is the actual content of the line."""
+    is the line number (starting at 0), `type` is one of `BLANK`, `CODE,
+    `COMMENT` or `DOC`, and `line` is the actual content of the line."""
 
     quote3_finder = {'"': _dquote3_finder, "'": _squote3_finder}
     quote1_finder = {'"': _dquote1_finder, "'": _squote1_finder }
@@ -76,9 +76,9 @@ def count(source):
 
         if in_triple_quote:
             if in_doc:
-                yield lineno + 1, DOC, line
+                yield lineno, DOC, line
             else:
-                yield lineno + 1, CODE, line
+                yield lineno, CODE, line
             classified = True
             m = in_triple_quote.match(line)
             if m == None:
@@ -90,12 +90,12 @@ def count(source):
 
         if _is_blank(line):
             if not classified:
-                yield lineno + 1, BLANK, line
+                yield lineno, BLANK, line
             continue
 
         if _is_comment(line):
             if not classified:
-                yield lineno + 1, COMMENT, line
+                yield lineno, COMMENT, line
             continue
 
         # Now we have a code line, a doc start line, or crap left
@@ -103,10 +103,10 @@ def count(source):
         # (& only in) the last case, classified==1.
         if not classified:
             if _is_doc_candidate.match(line):
-                yield lineno + 1, DOC, line
+                yield lineno, DOC, line
                 in_doc = True
             else:
-                yield lineno + 1, CODE, line
+                yield lineno, CODE, line
 
         # The only reason to continue parsing is to make sure the
         # start of a multi-line triple quote isn't missed.

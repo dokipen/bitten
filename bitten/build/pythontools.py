@@ -10,6 +10,10 @@
 import logging
 import os
 import re
+try:
+    set
+except NameError:
+    from sets import Set as set
 
 from bitten.build import CommandLine, FileSet
 from bitten.util import loc, xmlio
@@ -102,7 +106,10 @@ def trace(ctxt, summary=None, coverdir=None, include=None, exclude=None):
     fileset = FileSet(ctxt.basedir, include, exclude)
     missing_files = []
     for filename in fileset:
+        if os.path.splitext(filename)[1] != '.py':
+            continue
         missing_files.append(filename)
+    covered_modules = set()
 
     try:
         summary_file = open(ctxt.resolve(summary), 'r')
@@ -119,6 +126,7 @@ def trace(ctxt, summary=None, coverdir=None, include=None, exclude=None):
                         if not filename in fileset:
                             continue
                         missing_files.remove(filename)
+                        covered_modules.add(modname)
                         module = xmlio.Element('coverage', file=filename,
                                                module=modname, percentage=cov)
                         coverage_path = ctxt.resolve(coverdir,
@@ -142,8 +150,11 @@ def trace(ctxt, summary=None, coverdir=None, include=None, exclude=None):
                         coverage.append(module)
 
             for filename in missing_files:
-                modulename = os.path.splitext(filename.replace(os.sep, '.'))[0]
-                module = xmlio.Element('coverage', module=modulename,
+                modname = os.path.splitext(filename.replace(os.sep, '.'))[0]
+                if modname in covered_modules:
+                    continue
+                covered_modules.add(modname)
+                module = xmlio.Element('coverage', module=modname,
                                        file=filename, percentage=0)
                 filepath = ctxt.resolve(filename)
                 fileobj = file(filepath, 'r')
