@@ -12,8 +12,6 @@ from trac.web.clearsilver import HDFWrapper
 from bitten.model import BuildConfig
 from bitten.trac_ext.api import IReportSummarizer
 
-__all__ = ['TestResultsSummarizer']
-
 
 class TestResultsSummarizer(Component):
     implements(IReportSummarizer)
@@ -68,11 +66,11 @@ class CodeCoverageSummarizer(Component):
 
     template = """<h3>Code Coverage</h3>
 <table class="listing coverage">
- <thead><tr><th>Unit</th><th>Percent</th></tr></thead>
+ <thead><tr><th>Unit</th><th>Lines of Code</th><th>Coverage</th></tr></thead>
  <tbody><?cs
  each:unit = units ?><tr><td><a href="<?cs
   var:unit.href ?>"><?cs var:unit.name ?></a></td><td><?cs
-  var:unit.percentage ?></td></tr><?cs
+  var:unit.loc ?></td><td><?cs var:unit.cov ?>%</td></tr><?cs
  /each ?></tbody>
 </table>
 """
@@ -89,8 +87,11 @@ class CodeCoverageSummarizer(Component):
                 file_href = self.env.href.browser(config.path, filename,
                                                   rev=build.rev)
             name = coverage.attr.get('module')
-            units[name] = {'name': name, 'href': file_href,
-                           'percentage': coverage.attr['percentage']}
+            loc = 0
+            for line in coverage.children('line'):
+                loc += 1
+            units[name] = {'name': name, 'href': file_href, 'loc': loc,
+                           'cov': coverage.attr['percentage']}
 
         hdf = HDFWrapper()
         names = units.keys()
