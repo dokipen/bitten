@@ -12,7 +12,7 @@ import os
 import re
 
 from bitten.build import CommandLine, FileSet
-from bitten.util import xmlio
+from bitten.util import loc, xmlio
 
 log = logging.getLogger('bitten.build.pythontools')
 
@@ -101,8 +101,8 @@ def trace(ctxt, summary=None, coverdir=None, include=None, exclude=None):
 
     fileset = FileSet(ctxt.basedir, include, exclude)
     missing_files = []
-    for file in fileset:
-        missing_files.append(file)
+    for filename in fileset:
+        missing_files.append(filename)
 
     try:
         summary_file = open(ctxt.resolve(summary), 'r')
@@ -142,10 +142,18 @@ def trace(ctxt, summary=None, coverdir=None, include=None, exclude=None):
                         coverage.append(module)
 
             for filename in missing_files:
-                module = xmlio.Element('coverage', file=filename, percentage=0)
-                # FIXME: Determine module name
-                # FIXME: For every non-comment, non-empty line in the file,
-                #        add a <line hits="0"> element
+                modulename = os.path.splitext(filename.replace(os.sep, '.'))[0]
+                module = xmlio.Element('coverage', module=modulename,
+                                       file=filename, percentage=0)
+                filepath = ctxt.resolve(filename)
+                fileobj = file(filepath, 'r')
+                try:
+                    for lineno, linetype, line in loc.count(fileobj):
+                        if linetype == loc.CODE:
+                            line = xmlio.Element('line', line=lineno, hits=0)
+                            module.append(line)
+                finally:
+                    fileobj.close()
                 coverage.append(module)
 
             ctxt.report(coverage)
