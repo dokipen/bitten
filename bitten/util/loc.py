@@ -143,12 +143,3 @@ def count(source):
                 if prev_line == line:
                     # Let's be quiet and hope only one line is affected.
                     line = ''
-
-
-if __name__ == '__main__':
-    import sys
-    source = file(sys.argv[1], 'r')
-    try:
-        print crunch(source)
-    finally:
-        source.close()
