@@ -21,7 +21,7 @@ class IReportStoreBackend(Interface):
     def store_report(build, step, xml):
         """Store the given report."""
 
-    def retrieve_reports(build, step, type=None):
+    def retrieve_reports(build, step=None, type=None):
         """Retrieve reports."""
 
 
@@ -36,7 +36,7 @@ class ReportStore(Component):
                   backend.__class__.__name__)
         backend.store_report(build, step, xml)
 
-    def retrieve_reports(self, build, step, type=None):
+    def retrieve_reports(self, build, step=None, type=None):
         backend = self._get_configured_backend()
         return backend.retrieve_reports(build, step, type)
 
@@ -103,7 +103,7 @@ class BDBXMLBackend(Component):
         doc.setMetaData('', 'step', dbxml.XmlValue(step.name))
         container.putDocument(doc, ctxt, dbxml.DBXML_GEN_NAME)
 
-    def retrieve_reports(self, build, step, type=None):
+    def retrieve_reports(self, build, step=None, type=None):
         if dbxml is None:
             log.warning('BDB XML not installed, cannot retrieve reports')
             return
@@ -111,9 +111,10 @@ class BDBXMLBackend(Component):
         mgr = dbxml.XmlManager()
         container = self._open_container(mgr)
         ctxt = mgr.createQueryContext()
-        query = "collection('%s')/report[dbxml:metadata('build')=%d and " \
-                                        "dbxml:metadata('step')='%s'" \
-                % (path, build.id, step.name)
+        query = "collection('%s')/report[dbxml:metadata('build')=%d " \
+                % (path, build.id)
+        if step is not None:
+            query += " and dbxml:metadata('step')='%s'" % step.name
         if type is not None:
             query += " and @type='%s'" % type
         query += "]"
@@ -183,9 +184,19 @@ class FSBackend(Component):
         finally:
             fd.close()
 
-    def retrieve_reports(self, build, step, type=None):
-        dirname = os.path.join(self.path, str(build.id), step.name)
-        if os.path.exists(dirname):
-            for filename in os.listdir(dirname):
-                if type is None or filename == type + '.xml':
-                    yield FSBackend.FileWrapper(os.path.join(dirname, filename))
+    def retrieve_reports(self, build, step=None, type=None):
+        if step is not None:
+            dirname = os.path.join(self.path, str(build.id), step.name)
+            if os.path.exists(dirname):
+                for filename in os.listdir(dirname):
+                    if type is None or filename == type + '.xml':
+                        yield FSBackend.FileWrapper(os.path.join(dirname,
+                                                                 filename))
+        else:
+            dirname = os.path.join(self.path, str(build.id))
+            if os.path.exists(dirname):
+                for dirname in os.listdir(dirname):
+                    if os.path.isdir(dirname):
+                        reports = self.retrieve_reports(build, dirname, type)
+                        for report in reports:
+                            yield report
