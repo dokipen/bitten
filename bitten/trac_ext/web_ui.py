@@ -14,9 +14,9 @@ import pkg_resources
 from trac.core import *
 from trac.Timeline import ITimelineEventProvider
 from trac.util import escape, pretty_timedelta
+from trac.web import IRequestHandler
 from trac.web.chrome import INavigationContributor, ITemplateProvider, \
                             add_link, add_stylesheet
-from trac.web import IRequestHandler
 from trac.wiki import wiki_to_html
 from bitten.model import BuildConfig, TargetPlatform, Build, BuildStep, BuildLog
 from bitten.store import ReportStore
@@ -392,7 +392,7 @@ class BuildController(Component):
     # IRequestHandler methods
 
     def match_request(self, req):
-        match = re.match(r'/build/([\w.-]+)/([\d]+)', req.path_info)
+        match = re.match(r'/build/([\w.-]+)/(\d+)', req.path_info)
         if match:
             if match.group(1):
                 req.args['config'] = match.group(1)

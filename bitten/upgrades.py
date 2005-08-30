@@ -7,6 +7,8 @@
 # you should have received as part of this distribution. The terms
 # are also available at http://bitten.cmlenz.net/wiki/License.
 
+import os
+
 def add_log_table(env, db):
     from bitten.model import BuildLog, BuildStep
     cursor = db.cursor()
@@ -45,7 +47,39 @@ def add_recipe_to_config(env, db):
                    "max_rev,label,description) SELECT name,path,0,'',NULL,"
                    "NULL,label,description FROM old_config")
 
+def add_config_to_reports(env, db):
+    backend = env.config.get('bitten', 'report_store', 'BDBXMLBackend')
+    if backend != 'BDBXMLBackend':
+        return
+
+    from bitten.model import Build
+    try:
+        import dbxml
+    except ImportError, e:
+        return
+
+    dbfile = os.path.join(env.path, 'db', 'bitten.dbxml')
+    if not os.path.isfile(dbfile):
+        return
+
+    mgr = dbxml.XmlManager()
+    container = mgr.openContainer(dbfile)
+    uc = mgr.createUpdateContext()
+
+    container.addIndex('', 'config', 'node-metadata-equality-string', uc)
+
+    qc = mgr.createQueryContext()
+    for value in mgr.query('collection("%s")/report' % dbfile, qc):
+        doc = value.asDocument()
+        metaval = dbxml.XmlValue()
+        if doc.getMetaData('', 'build', metaval):
+            build_id = int(metaval.asNumber())
+            build = Build.fetch(env, id=build_id, db=db)
+            doc.setMetaData('', 'config', dbxml.XmlValue(build.config))
+            container.updateDocument(doc, uc)
+
 map = {
     2: [add_log_table],
-    3: [add_recipe_to_config]
+    3: [add_recipe_to_config],
+    4: [add_config_to_reports]
 }

@@ -707,4 +707,4 @@ class BuildLog(object):
 
 schema = BuildConfig._schema + TargetPlatform._schema + Build._schema + \
          BuildStep._schema + BuildLog._schema
-schema_version = 3
+schema_version = 4

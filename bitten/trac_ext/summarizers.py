@@ -8,94 +8,77 @@
 # are also available at http://bitten.cmlenz.net/wiki/License.
 
 from trac.core import *
+from trac.util import escape
+from trac.web.chrome import Chrome
 from trac.web.clearsilver import HDFWrapper
 from bitten.model import BuildConfig
+from bitten.store import ReportStore
 from bitten.trac_ext.api import IReportSummarizer
 
 
-class TestResultsSummarizer(Component):
+class XQuerySummarizer(Component):
+    abstract = True
     implements(IReportSummarizer)
 
-    template = """<h3>Test Results</h3>
-<table class="listing tests">
- <thead><tr>
-  <th>Test Fixture</th><th>Total</th>
-  <th>Failures</th><th>Errors</th>
- </tr></thead>
- <tbody><?cs
- each:fixture = fixtures ?><tr><td><a href="<?cs
-  var:fixture.href ?>"><?cs var:fixture.name ?></a></td><td><?cs
-  var:fixture.total ?></td><td><?cs var:fixture.failures ?></td><td><?cs
-  var:fixture.errors ?></td></tr><?cs
- /each ?></tbody>
-</table>
-"""
+    query = None
+    report_type = None
+    template = None
 
     def get_supported_report_types(self):
-        return ['unittest']
+        return [self.report_type]
 
     def render_report_summary(self, req, build, step, report):
+        hdf = HDFWrapper(loadpaths=Chrome(self.env).get_all_templates_dirs())
         config = BuildConfig.fetch(self.env, name=build.config)
-        fixtures = {}
-        for test in report.children('test'):
-            filename = test.attr.get('file')
-            name = test.attr.get('fixture') or filename
-            status = test.attr.get('status')
-            if name in fixtures:
-                fixtures[name]['total'] += 1
-                fixtures[name]['errors'] += int(status == 'error')
-                fixtures[name]['failures'] += int(status == 'failure')
-            else:
-                file_href = None
-                if filename:
-                    file_href = self.env.href.browser(config.path, filename,
-                                                      rev=build.rev)
-                fixtures[name] = {'name': name, 'href': file_href, 'total': 1,
-                                  'errors': int(status == 'error'),
-                                  'failures': int(status == 'failure')}
-        hdf = HDFWrapper()
-        names = fixtures.keys()
-        names.sort()
-        for idx, name in enumerate(names):
-            hdf['fixtures.%d' % idx] = fixtures[name]
-        return hdf.parse(self.template).render()
+        store = ReportStore(self.env)
+        results = store.query_reports(self.query, config=config,build=build,
+                                      step=step, type=self.report_type)
+        for idx, elem in enumerate(results):
+            data = {}
+            for name, value in elem.attr.items():
+                if name == 'file':
+                    data['href'] = escape(self.env.href.browser(config.path,
+                                                                value,
+                                                                rev=build.rev))
+                data[name] = escape(value)
+            hdf['data.%d' % idx] = data
+
+        return hdf.render(self.template)
 
 
-class CodeCoverageSummarizer(Component):
-    implements(IReportSummarizer)
+class TestResultsSummarizer(XQuerySummarizer):
 
-    template = """<h3>Code Coverage</h3>
-<table class="listing coverage">
- <thead><tr><th>Unit</th><th>Lines of Code</th><th>Coverage</th></tr></thead>
- <tbody><?cs
- each:unit = units ?><tr><td><a href="<?cs
-  var:unit.href ?>"><?cs var:unit.name ?></a></td><td><?cs
-  var:unit.loc ?></td><td><?cs var:unit.cov ?>%</td></tr><?cs
- /each ?></tbody>
-</table>
+    report_type = 'unittest'
+    template = 'bitten_summary_tests.cs'
+
+    query = """
+for $report in $reports
+return
+    for $fixture in distinct-values($report/test/@fixture)
+    order by $fixture
+    return
+        let $tests := $report/test[@fixture=$fixture]
+        return
+            <test name="{$fixture}" file="{$tests[1]/@file}"
+                  success="{count($tests[@status='success'])}"
+                  errors="{count($tests[@status='error'])}"
+                  failures="{count($tests[@status='failure'])}"/>
 """
 
-    def get_supported_report_types(self):
-        return ['trace']
 
-    def render_report_summary(self, req, build, step, report):
-        config = BuildConfig.fetch(self.env, name=build.config)
-        units = {}
-        for coverage in report.children('coverage'):
-            filename = coverage.attr.get('file')
-            if filename:
-                file_href = self.env.href.browser(config.path, filename,
-                                                  rev=build.rev)
-            name = coverage.attr.get('module')
-            loc = 0
-            for line in coverage.children('line'):
-                loc += 1
-            units[name] = {'name': name, 'href': file_href, 'loc': loc,
-                           'cov': coverage.attr['percentage']}
 
-        hdf = HDFWrapper()
-        names = units.keys()
-        names.sort()
-        for idx, name in enumerate(names):
-            hdf['units.%d' % idx] = units[name]
-        return hdf.parse(self.template).render()
+class CodeCoverageSummarizer(XQuerySummarizer):
+
+    report_type = 'trace'
+    template = 'bitten_summary_coverage.cs'
+
+    query = """
+for $report in $reports
+where $report/@type = 'trace'
+return
+    for $coverage in $report/coverage
+    order by $coverage/@file
+    return
+        <unit file="{$coverage/@file}" name="{$coverage/@module}"
+              loc="{count($coverage/line)}" cov="{$coverage/@percentage}%"/>
+"""
