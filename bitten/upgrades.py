@@ -75,8 +75,12 @@ def add_config_to_reports(env, db):
         if doc.getMetaData('', 'build', metaval):
             build_id = int(metaval.asNumber())
             build = Build.fetch(env, id=build_id, db=db)
-            doc.setMetaData('', 'config', dbxml.XmlValue(build.config))
-            container.updateDocument(doc, uc)
+            if build:
+                doc.setMetaData('', 'config', dbxml.XmlValue(build.config))
+                container.updateDocument(doc, uc)
+            else:
+                # an orphaned report, for whatever reason... just remove it
+                container.deleteDocument(doc, uc)
 
 map = {
     2: [add_log_table],
