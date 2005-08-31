@@ -103,7 +103,8 @@
    <div id="charts"><?cs
     each:chart = config.charts ?>
      <object type="application/x-shockwave-flash" width="320" height="240" data="<?cs
-      var:chrome.href ?>/bitten/charts.swf">
+       var:chrome.href ?>/bitten/charts.swf">
+      <param name="movie" value="<?cs var:chrome.href ?>/bitten/charts.swf" />
       <param name="FlashVars" value="library_path=<?cs
         var:chrome.href ?>/bitten&amp;xml_source=<?cs
         var:chart.href ?><?cs if:config.charts_license ?>&amp;license=<?cs

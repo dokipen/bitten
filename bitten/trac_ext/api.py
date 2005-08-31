@@ -33,3 +33,18 @@ class IReportSummarizer(Interface):
     def render_report_summary(req, build, step, report):
         """Render a summary for the given report and return the results HTML as
         a string."""
+
+
+class IReportChartGenerator(Interface):
+    """Extension point interface for components that generator a chart for a
+    set of reports."""
+
+    def get_supported_report_types():
+        """Return a list of strings identifying the types of reports this 
+        component supports."""
+
+    def generate_chart_data(req, config, type):
+        """Generate the data for the chart.
+        
+        This method should store the data in the HDF of the request and return
+        the name of the template that should process the data."""

@@ -31,7 +31,7 @@ class XQuerySummarizer(Component):
         hdf = HDFWrapper(loadpaths=Chrome(self.env).get_all_templates_dirs())
         config = BuildConfig.fetch(self.env, name=build.config)
         store = ReportStore(self.env)
-        results = store.query_reports(self.query, config=config,build=build,
+        results = store.query_reports(self.query, config=config, build=build,
                                       step=step, type=self.report_type)
         for idx, elem in enumerate(results):
             data = {}

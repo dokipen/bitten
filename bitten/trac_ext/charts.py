@@ -14,11 +14,14 @@ from trac.core import *
 from trac.web import IRequestHandler
 from bitten.model import BuildConfig, Build
 from bitten.store import ReportStore
+from bitten.trac_ext.api import IReportChartGenerator
 from bitten.util import xmlio
 
 
 class BittenChartRenderer(Component):
     implements(IRequestHandler)
+
+    generators = ExtensionPoint(IReportChartGenerator)
 
     # IRequestHandler methods
 
@@ -30,26 +33,37 @@ class BittenChartRenderer(Component):
             return True
 
     def process_request(self, req):
-        type = req.args.get('type')
+        report_type = req.args.get('type')
         config = BuildConfig.fetch(self.env, name=req.args.get('config'))
-        if type == 'unittest':
-            return self._render_tests(req, config)
-        elif type == 'trace':
-            return self._render_coverage(req, config)
+
+        for generator in self.generators:
+            if report_type in generator.get_supported_report_types():
+                template = generator.generate_chart_data(req, config,
+                                                         report_type)
+                break
         else:
-            raise TracError, 'Unknown report type'
+            raise TracError, 'Unknown report type "%s"' % report_type
 
-    # Internal methods
+        return template, 'text/xml'
 
-    def _render_tests(self, req, config):
+
+class TestResultsChartGenerator(Component):
+    implements(IReportChartGenerator)
+
+    # IReportChartGenerator methods
+
+    def get_supported_report_types(self):
+        return ['unittest']
+
+    def generate_chart_data(self, req, config, report_type):
         rev_time = {}
         rev = {}
         for build in Build.select(self.env, config=config.name):
             rev[str(build.id)] = build.rev
-            rev_time[str(build.id)] = build.rev_time
+            rev_time[str(build.id)] = datetime.fromtimestamp(build.rev_time)
 
         store = ReportStore(self.env)
-        query = """
+        xquery = """
 for $report in $reports
 return
     <tests build="{dbxml:metadata('build', $report)}"
@@ -59,28 +73,42 @@ return
 """
 
         tests = []
-        for test in store.query_reports(query, config=config, type='unittest'):
-            tests.append({
-                'time': datetime.fromtimestamp(rev_time[test.attr['build']]),
-                'rev': rev[test.attr['build']], 'total': test.attr['total'],
-                'failed': test.attr['failed'],
-            })
-        tests.sort(lambda x, y: cmp(x['time'], y['time']))
+        for test in store.query_reports(xquery, config=config, type='unittest'):
+            tests.append((
+                rev_time[test.attr['build']], # Changeset date/time
+                rev[test.attr['build']], # Changeset/revision
+                test.attr['total'], # Total number of tests
+                test.attr['failed'] # Number of errors/failures
+            ))
+        tests.sort()
 
         req.hdf['chart.title'] = 'Unit Tests'
-        req.hdf['chart.data'] = tests
+        req.hdf['chart.data'] = [
+            [''] + [item[1] for item in tests],
+            ['Total'] + [item[2] for item in tests],
+            ['Failures'] + [int(item[3]) for item in tests]
+        ]
 
-        return 'bitten_chart_tests.cs', 'text/xml'
+        return 'bitten_chart_tests.cs'
 
-    def _render_coverage(self, req, config):
+
+class TestResultsChartGenerator(Component):
+    implements(IReportChartGenerator)
+
+    # IReportChartGenerator methods
+
+    def get_supported_report_types(self):
+        return ['trace']
+
+    def generate_chart_data(self, req, config, report_type):
         rev_time = {}
         rev = {}
         for build in Build.select(self.env, config=config.name):
             rev[str(build.id)] = build.rev
-            rev_time[str(build.id)] = build.rev_time
+            rev_time[str(build.id)] = datetime.fromtimestamp(build.rev_time)
 
         store = ReportStore(self.env)
-        query = """
+        xquery = """
 for $report in $reports
 return
     <coverage build="{dbxml:metadata('build', $report)}"
@@ -94,17 +122,20 @@ return
 """
 
         coverage = []
-        for test in store.query_reports(query, config=config, type='trace'):
-            values = [float(val) for val in test.gettext().split()]
-            coverage.append({
-                'time': datetime.fromtimestamp(rev_time[test.attr['build']]),
-                'rev': rev[test.attr['build']], 'loc': test.attr['loc'],
-                'cov': int(sum(values))
-            })
-        coverage.sort(lambda x, y: cmp(x['time'], y['time']))
-
+        for test in store.query_reports(xquery, config=config, type='trace'):
+            coverage.append((
+                rev_time[test.attr['build']], # Changeset date/time
+                rev[test.attr['build']], # Changeset/revision
+                test.attr['loc'], # Lines of code
+                sum([float(val) for val in test.gettext().split()])
+            ))
+        coverage.sort()
 
         req.hdf['chart.title'] = 'Code Coverage'
-        req.hdf['chart.data'] = coverage
+        req.hdf['chart.data'] = [
+            [''] + [item[1] for item in coverage],
+            ['Lines of code'] + [item[2] for item in coverage],
+            ['Coverage'] + [int(item[3]) for item in coverage]
+        ]
 
-        return 'bitten_chart_coverage.cs', 'text/xml'
+        return 'bitten_chart_coverage.cs'

@@ -495,7 +495,6 @@ class BuildController(Component):
         for summarizer in self.report_summarizers:
             types = summarizer.get_supported_report_types()
             summarizers.update(dict([(type, summarizer) for type in types]))
-        self.log.debug("Report summarizers: %s", summarizers)
 
         store = ReportStore(self.env)
         reports = []
