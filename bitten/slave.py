@@ -25,10 +25,11 @@ log = logging.getLogger('bitten.slave')
 class Slave(beep.Initiator):
     """Build slave."""
 
-    def __init__(self, ip, port, name=None, config=None):
+    def __init__(self, ip, port, name=None, config=None, dry_run=False):
         beep.Initiator.__init__(self, ip, port)
         self.name = name
         self.config = config
+        self.dry_run = dry_run
 
     def greeting_received(self, profiles):
         if OrchestrationProfileHandler.URI not in profiles:
@@ -151,8 +152,10 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
         global log
         log.info('Building in directory %s', recipe.ctxt.basedir)
         try:
-            xml = xmlio.Element('started', time=datetime.utcnow().isoformat())
-            self.channel.send_ans(msgno, beep.Payload(xml))
+            if not self.session.dry_run:
+                xml = xmlio.Element('started',
+                                    time=datetime.utcnow().isoformat())
+                self.channel.send_ans(msgno, beep.Payload(xml))
 
             failed = False
             for step in recipe:
@@ -179,7 +182,8 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
                         xml.attr['result'] = 'success'
                         log.info('Build step %s completed successfully',
                                  step.id)
-                    self.channel.send_ans(msgno, beep.Payload(xml))
+                    if not self.session.dry_run:
+                        self.channel.send_ans(msgno, beep.Payload(xml))
                 except InvalidRecipeError, e:
                     log.warning('Build step %s failed: %s', step.id, e)
                     duration = datetime.utcnow() - started
@@ -188,17 +192,22 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
                                         description=step.description,
                                         time=started.isoformat(),
                                         duration=duration.seconds)[e]
-                    self.channel.send_ans(msgno, beep.Payload(xml))
+                    if not self.session.dry_run:
+                        self.channel.send_ans(msgno, beep.Payload(xml))
 
             if failed:
                 log.warning('Build failed')
             else:
                 log.info('Build completed successfully')
-            xml = xmlio.Element('completed', time=datetime.utcnow().isoformat(),
-                                result=['success', 'failure'][failed])
-            self.channel.send_ans(msgno, beep.Payload(xml))
+            if not self.session.dry_run:
+                xml = xmlio.Element('completed', time=datetime.utcnow().isoformat(),
+                                    result=['success', 'failure'][failed])
+                self.channel.send_ans(msgno, beep.Payload(xml))
 
-            self.channel.send_nul(msgno)
+                self.channel.send_nul(msgno)
+            else:
+                xml = xmlio.Element('error', code=550)['Dry run']
+                self.channel.send_err(msgno, beep.Payload(xml))
 
         except InvalidRecipeError, e:
             xml = xmlio.Element('error')[e]
@@ -219,17 +228,19 @@ def main():
 
     parser = OptionParser(usage='usage: %prog [options] host [port]',
                           version='%%prog %s' % VERSION)
-    parser.add_option('-n', '--name', action='store', dest='name',
+    parser.add_option('--name', action='store', dest='name',
                       help='name of this slave (defaults to host name)')
     parser.add_option('-c', '--config', action='store', dest='config',
                       metavar='FILE', help='path to configuration file')
+    parser.add_option('-n', '--dry-run', action='store_const', dest='dry_run',
+                      const=True, help='don\'t report results back to master')
     parser.add_option('--debug', action='store_const', dest='loglevel',
                       const=logging.DEBUG, help='enable debugging output')
     parser.add_option('-v', '--verbose', action='store_const', dest='loglevel',
                       const=logging.INFO, help='print as much as possible')
     parser.add_option('-q', '--quiet', action='store_const', dest='loglevel',
                       const=logging.ERROR, help='print as little as possible')
-    parser.set_defaults(loglevel=logging.WARNING)
+    parser.set_defaults(dry_run=False, loglevel=logging.WARNING)
     options, args = parser.parse_args()
 
     if len(args) < 1:
@@ -252,7 +263,8 @@ def main():
     handler.setFormatter(formatter)
     logger.addHandler(handler)
 
-    slave = Slave(host, port, options.name, options.config)
+    slave = Slave(host, port, name=options.name, config=options.config,
+                  dry_run=options.dry_run)
     try:
         slave.run()
     except KeyboardInterrupt:

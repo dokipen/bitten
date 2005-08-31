@@ -299,7 +299,7 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
                 assert payload.content_type == beep.BEEP_XML
                 elem = xmlio.parse(payload.body)
                 if elem.name == 'error':
-                    log.warning('Slave %s did not accept archive: %s (%d)',
+                    log.warning('Slave %s refused to start build: %s (%d)',
                                 self.name, elem.gettext(),
                                 int(elem.attr['code']))
 
@@ -392,7 +392,7 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
             step.delete(db=db)
 
         store = ReportStore(self.env)
-        store.delete_reports(build=build.id)
+        store.delete_reports(build=build)
 
         build.slave = None
         build.started = 0
