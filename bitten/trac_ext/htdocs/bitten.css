@@ -15,6 +15,9 @@
 #content.build #builds { clear: none; margin-top: 2em; table-layout: fixed;
  width: 54%;
 }
+#content.build #builds tbody th, #content.build #builds tbody td {
+ background: #fff;
+}
 #content.build #builds th.chgset { width: 6em; }
 #content.build #builds td :link, #content.build #builds td :visited {
  font-weight: bold;

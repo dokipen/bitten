@@ -56,13 +56,12 @@ class TestResultsChartGenerator(Component):
         return ['unittest']
 
     def generate_chart_data(self, req, config, report_type):
-        rev_time = {}
-        rev = {}
+        rev_map = {}
         for build in Build.select(self.env, config=config.name):
             if build.status in (Build.PENDING, Build.IN_PROGRESS):
                 continue
-            rev[str(build.id)] = build.rev
-            rev_time[str(build.id)] = datetime.fromtimestamp(build.rev_time)
+            rev_map[str(build.id)] = (build.rev,
+                                      datetime.fromtimestamp(build.rev_time))
 
         store = ReportStore(self.env)
         xquery = """
@@ -74,14 +73,20 @@ return
     </tests>
 """
 
-        tests = []
+        # FIXME: It should be possible to aggregate the test counts by revision
+        #        in the XQuery above, somehow. For now, we do that in the Python
+        #        code
+
+        tests = {} # Accumulated test numbers by revision
         for test in store.query_reports(xquery, config=config, type='unittest'):
-            tests.append((
-                rev_time[test.attr['build']], # Changeset date/time
-                rev[test.attr['build']], # Changeset/revision
-                test.attr['total'], # Total number of tests
-                test.attr['failed'] # Number of errors/failures
-            ))
+            rev, rev_time = rev_map.get(test.attr['build'])
+            if rev not in tests:
+                tests[rev] = [rev_time, 0, 0]
+            tests[rev][1] = max(int(test.attr['total']), tests[rev][1])
+            tests[rev][2] = max(int(test.attr['failed']), tests[rev][2])
+
+        tests = [(rev_time, rev, total, failed) for
+                 rev, (rev_time, total, failed) in tests.items()]
         tests.sort()
 
         req.hdf['chart.title'] = 'Unit Tests'
@@ -103,11 +108,12 @@ class TestResultsChartGenerator(Component):
         return ['trace']
 
     def generate_chart_data(self, req, config, report_type):
-        rev_time = {}
-        rev = {}
+        rev_map = {}
         for build in Build.select(self.env, config=config.name):
-            rev[str(build.id)] = build.rev
-            rev_time[str(build.id)] = datetime.fromtimestamp(build.rev_time)
+            if build.status in (Build.PENDING, Build.IN_PROGRESS):
+                continue
+            rev_map[str(build.id)] = (build.rev,
+                                      datetime.fromtimestamp(build.rev_time))
 
         store = ReportStore(self.env)
         xquery = """
@@ -123,14 +129,21 @@ return
     </coverage>
 """
 
-        coverage = []
+        # FIXME: It should be possible to aggregate the coverage info by
+        #        revision in the XQuery above, somehow. For now, we do that in
+        #        the Python code
+
+        coverage = {} # Accumulated coverage info by revision
         for test in store.query_reports(xquery, config=config, type='trace'):
-            coverage.append((
-                rev_time[test.attr['build']], # Changeset date/time
-                rev[test.attr['build']], # Changeset/revision
-                test.attr['loc'], # Lines of code
-                sum([float(val) for val in test.gettext().split()])
-            ))
+            rev, rev_time = rev_map.get(test.attr['build'])
+            if rev not in coverage:
+                coverage[rev] = [rev_time, 0, 0]
+            coverage[rev][1] = max(int(test.attr['loc']), coverage[rev][1])
+            cov_lines = sum([float(val) for val in test.gettext().split()])
+            coverage[rev][2] = max(cov_lines, coverage[rev][2])
+
+        coverage = [(rev_time, rev, loc, cov) for
+                    rev, (rev_time, loc, cov) in coverage.items()]
         coverage.sort()
 
         req.hdf['chart.title'] = 'Code Coverage'
