@@ -318,6 +318,9 @@ class BuildConfigController(Component):
             {'name': platform.name, 'id': platform.id} for platform in platforms
         ]
 
+        charts_license = self.config.get('bitten', 'charts_license')
+        if charts_license:
+            req.hdf['config.charts_license'] = charts_license
         req.hdf['config.charts'] = [
             {'href': self.env.href.build(config.name, 'chart/unittest')},
             {'href': self.env.href.build(config.name, 'chart/trace')}
