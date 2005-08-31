@@ -318,13 +318,13 @@ class BuildConfigController(Component):
             {'name': platform.name, 'id': platform.id} for platform in platforms
         ]
 
-        charts_license = self.config.get('bitten', 'charts_license')
-        if charts_license:
-            req.hdf['config.charts_license'] = charts_license
         req.hdf['config.charts'] = [
             {'href': self.env.href.build(config.name, 'chart/unittest')},
             {'href': self.env.href.build(config.name, 'chart/trace')}
         ]
+        charts_license = self.config.get('bitten', 'charts_license')
+        if charts_license:
+            req.hdf['config.charts_license'] = escape(charts_license)
 
         repos = self.env.get_repository(req.authname)
         try:
@@ -335,7 +335,8 @@ class BuildConfigController(Component):
                 for build in Build.select(self.env, config=config.name, rev=rev):
                     if build.status == Build.PENDING:
                         continue
-                    req.hdf['%s.%s' % (prefix, build.platform)] = _build_to_hdf(self.env, req, build)
+                    build_hdf = _build_to_hdf(self.env, req, build)
+                    req.hdf['%s.%s' % (prefix, build.platform)] = build_hdf
                 if idx > 12:
                     break
         except TracError, e:

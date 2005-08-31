@@ -106,7 +106,8 @@
       var:chrome.href ?>/bitten/charts.swf">
       <param name="FlashVars" value="library_path=<?cs
         var:chrome.href ?>/bitten&amp;xml_source=<?cs
-        var:chart.href ?>" />
+        var:chart.href ?><?cs if:config.charts_license ?>&amp;license=<?cs
+        var:config.charts_license ?><?cs /if ?>" />
       <param name="wmode" value="transparent" />
      </object><br /><?cs
     /each ?>
