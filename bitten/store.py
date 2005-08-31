@@ -29,12 +29,9 @@ class ReportStore(Component):
 
     backends = ExtensionPoint(IReportStoreBackend)
 
-    def store_report(self, build, step, xml):
-        assert xml.name == 'report' and 'type' in xml.attr
+    def delete_reports(self, config=None, build=None, step=None, type=None):
         backend = self._get_configured_backend()
-        log.debug('Storing report of type "%s" in %s', xml.attr['type'],
-                  backend.__class__.__name__)
-        backend.store_report(build, step, xml)
+        return backend.delete_reports(config, build, step, type)
 
     def query_reports(self, xquery, config=None, build=None, step=None,
                      type=None):
@@ -44,6 +41,13 @@ class ReportStore(Component):
     def retrieve_reports(self, build, step=None, type=None):
         backend = self._get_configured_backend()
         return backend.retrieve_reports(build, step, type)
+
+    def store_report(self, build, step, xml):
+        assert xml.name == 'report' and 'type' in xml.attr
+        backend = self._get_configured_backend()
+        log.debug('Storing report of type "%s" in %s', xml.attr['type'],
+                  backend.__class__.__name__)
+        backend.store_report(build, step, xml)
 
     def _get_configured_backend(self):
         configured = self.config.get('bitten', 'report_store', 'BDBXMLBackend')
@@ -109,6 +113,17 @@ class BDBXMLBackend(Component):
 
     def __init__(self):
         self.path = os.path.join(self.env.path, 'db', 'bitten.dbxml')
+
+    def delete_reports(self, config=None, build=None, step=None, type=None):
+        if dbxml is None:
+            log.warning('BDB XML not installed, cannot store report')
+            return
+        mgr = dbxml.XmlManager()
+        container = self._open_container(mgr, create=True)
+        ctxt = mgr.createUpdateContext()
+        for elem in self.query_reports('return $reports', config=config,
+                                       build=build, step=step, type=type):
+            container.deleteDocument(elem._value.asDocument(), ctxt)
 
     def store_report(self, build, step, xml):
         if dbxml is None:

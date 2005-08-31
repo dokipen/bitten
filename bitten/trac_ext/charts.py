@@ -59,6 +59,8 @@ class TestResultsChartGenerator(Component):
         rev_time = {}
         rev = {}
         for build in Build.select(self.env, config=config.name):
+            if build.status in (Build.PENDING, Build.IN_PROGRESS):
+                continue
             rev[str(build.id)] = build.rev
             rev_time[str(build.id)] = datetime.fromtimestamp(build.rev_time)
 

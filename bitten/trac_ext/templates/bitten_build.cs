@@ -14,6 +14,14 @@
     /if ?>)</p>
   <p class="time">Completed: <?cs var:build.started ?> (<?cs
     var:build.started_delta ?> ago)<br />Took: <?cs var:build.duration ?></p><?cs
+  if:build.can_delete ?>
+   <div class="buttons">
+    <form method="post" action=""><div>
+     <input type="hidden" name="action" value="invalidate" />
+     <input type="submit" value="Invalidate build" />
+    </div></form>
+   </div><?cs
+  /if ?><?cs
   each:step = build.steps ?>
    <h2 id="<?cs var:step.name ?>"><?cs var:step.name ?> (<?cs
      var:step.duration ?>)</h2>

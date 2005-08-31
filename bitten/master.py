@@ -109,6 +109,7 @@ class Master(beep.Listener):
     def _cleanup_orphaned_builds(self):
         # Reset all in-progress builds
         db = self.env.get_db_cnx()
+        store = ReportStore(self.env)
         for build in Build.select(self.env, status=Build.IN_PROGRESS, db=db):
             build.status = Build.PENDING
             build.slave = None
@@ -119,6 +120,7 @@ class Master(beep.Listener):
             for build_log in BuildLog.select(self.env, build=build.id):
                 build_log.delete(db=db)
             build.update(db=db)
+            store.delete_reports(build=build)
         db.commit()
 
     def _cleanup_snapshots(self, when):
@@ -188,8 +190,7 @@ class Master(beep.Listener):
                      build.config, handler.name)
             for step in BuildStep.select(self.env, build=build.id):
                 step.delete(db=db)
-            for build_log in BuildLog.select(self.env, build=build.id):
-                build_log.delete(db=db)
+
             build.slave = None
             build.slave_info = {}
             build.status = Build.PENDING
@@ -386,12 +387,17 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
     def _build_aborted(self, db, build):
         log.info('Slave "%s" aborted build %d ("%s" as of [%s])',
                  self.name, build.id, build.config, build.rev)
+
+        for step in BuildStep.select(self.env, build=build.id, db=db):
+            step.delete(db=db)
+
+        store = ReportStore(self.env)
+        store.delete_reports(build=build.id)
+
         build.slave = None
         build.started = 0
         build.status = Build.PENDING
         build.slave_info = {}
-        for step in BuildStep.select(self.env, build=build.id, db=db):
-            step.delete(db=db)
 
 
 def _parse_iso_datetime(string):

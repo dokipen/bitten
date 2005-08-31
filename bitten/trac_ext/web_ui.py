@@ -84,7 +84,7 @@ class BuildConfigController(Component):
     # IRequestHandler methods
 
     def match_request(self, req):
-        match = re.match(r'/build(?:/([\w.-]+))?$', req.path_info)
+        match = re.match(r'/build(?:/([\w.-]+))?/?$', req.path_info)
         if match:
             if match.group(1):
                 req.args['config'] = match.group(1)
@@ -417,6 +417,11 @@ class BuildController(Component):
         build = Build.fetch(self.env, build_id, db=db)
         assert build, 'Build %s does not exist' % build_id
 
+        if req.method == 'POST':
+            if req.args.get('action') == 'invalidate':
+                self._do_invalidate(req, build, db)
+            req.redirect(self.env.href.build(build.config, build.id))
+
         add_link(req, 'up', self.env.href.build(build.config),
                  'Build Configuration')
         status2title = {Build.SUCCESS: 'Success', Build.FAILURE: 'Failure',
@@ -441,6 +446,7 @@ class BuildController(Component):
                 'reports': self._render_reports(req, build, step)
             })
         req.hdf['build.steps'] = steps
+        req.hdf['build.can_delete'] = req.perm.has_permission('BUILD_DELETE')
 
         add_stylesheet(req, 'bitten/bitten.css')
         return 'bitten_build.cs', None
@@ -476,6 +482,25 @@ class BuildController(Component):
                 yield event_kinds[status], href, title, stopped, None, ''
 
     # Internal methods
+
+    def _do_invalidate(self, req, build, db):
+        self.log.info('Invalidating build %d', build.id)
+
+        for step in BuildStep.select(self.env, build=build.id, db=db):
+            step.delete(db=db)
+
+        store = ReportStore(self.env)
+        store.delete_reports(build=build)
+
+        build.slave = None
+        build.started = build.stopped = 0
+        build.status = Build.PENDING
+        build.slave_info = {}
+        build.update()
+
+        db.commit()
+
+        req.redirect(self.env.href.build(build.config))
 
     def _render_log(self, req, build, step):
         items = []

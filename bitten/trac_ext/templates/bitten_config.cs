@@ -99,7 +99,6 @@
    if:config.description ?><div class="description"><?cs
      var:config.description ?></div><?cs
    /if ?>
-   
    <div id="charts"><?cs
     each:chart = config.charts ?>
      <object type="application/x-shockwave-flash" width="320" height="240" data="<?cs
@@ -112,9 +111,8 @@
       <param name="wmode" value="transparent" />
      </object><br /><?cs
     /each ?>
-   </div>
-   
-   <?cs
+   </div><?cs
+
    if:config.can_modify ?>
     <div class="buttons">
      <form method="get" action=""><div>
