@@ -7,6 +7,7 @@
 # you should have received as part of this distribution. The terms
 # are also available at http://bitten.cmlenz.net/wiki/License.
 
+from itertools import ifilterfalse
 import logging
 import fnmatch
 import os
@@ -212,20 +213,24 @@ class FileSet(object):
         if include is not None:
             self.include = shlex.split(include)
 
-        self.exclude = self.DEFAULT_EXCLUDES
+        self.exclude = self.DEFAULT_EXCLUDES[:]
         if exclude is not None:
             self.exclude += shlex.split(exclude)
 
         for dirpath, dirnames, filenames in os.walk(self.basedir):
-            dirpath = dirpath[len(self.basedir) + 1:]
+            dirpath = ndirpath = dirpath[len(self.basedir) + 1:]
+            if os.sep != '/':
+                ndirpath = dirpath.replace(os.sep, '/')
 
             for filename in filenames:
-                filepath = os.path.join(dirpath, filename)
+                filepath = nfilepath = os.path.join(dirpath, filename)
+                if os.sep != '/':
+                    nfilepath = nfilepath.replace(os.sep, '/')
 
                 if self.include:
                     included = False
                     for pattern in self.include:
-                        if fnmatch.fnmatchcase(filepath, pattern) or \
+                        if fnmatch.fnmatchcase(nfilepath, pattern) or \
                            fnmatch.fnmatchcase(filename, pattern):
                             included = True
                             break
@@ -234,7 +239,7 @@ class FileSet(object):
 
                 excluded = False
                 for pattern in self.exclude:
-                    if fnmatch.fnmatchcase(filepath, pattern) or \
+                    if fnmatch.fnmatchcase(nfilepath, pattern) or \
                        fnmatch.fnmatchcase(filename, pattern):
                         excluded = True
                         break
@@ -242,8 +247,8 @@ class FileSet(object):
                     self.files.append(filepath)
 
     def __iter__(self):
-        for file in self.files:
-            yield file
+        for filename in self.files:
+            yield filename
 
-    def __contains__(self, file):
-        return file in self.files
+    def __contains__(self, filename):
+        return filename in self.files
