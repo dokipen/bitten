@@ -166,7 +166,7 @@ class Listener(asyncore.dispatcher):
         if not self.sessions:
             self.close()
             return
-        def terminate_next_session(when):
+        def terminate_next_session(when=None):
             session = self.sessions[-1]
             def handle_ok():
                 if self.sessions:
