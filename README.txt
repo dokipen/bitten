@@ -27,8 +27,8 @@ Installation
 ------------
 
 Bitten is written in Python, so make sure that you have Python installed.
-Also, make sure that the version of Python you have installed is 2.3 or
-later.
+You'll need Python 2.3 or later. Also, make sure that setuptools
+(http://peak.telecommunity.com/DevCenter/setuptools) is installed.
 
 If that's taken care of, you just need to download and unpack the Bitten
 distribution, and execute the command:
@@ -52,7 +52,8 @@ done. You might need to install software that the build of your project
 requires, but the Bitten build slave itself doesn't require anything extra.
 
 For the build master and web interface, you'll need to install Trac 0.9
-beta 1 and Berkeley DB XML >= 2.1.x, as well as their respective
+beta 1 and Berkeley DB XML >= 2.1.x
+(http://www.sleepycat.com/products/xml.shtml), as well as their respective
 dependencies. Please refer to the documentation of those projects for
 information how they are installed.
 
@@ -84,7 +85,7 @@ which at this point is of course empty. If you've set up permissions
 correctly as described previously, you should see a button for adding new
 build configurations. Click that button and fill out the form. Also, add
 at least one target platform after saving the configuration. Last but not
-least, you'll have to "active" the build configuration.
+least, you'll have to "activate" the build configuration.
 
 
 Running the Build Master
