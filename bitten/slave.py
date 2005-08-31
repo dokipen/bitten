@@ -65,6 +65,8 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
                                                          version)
         if self.session.name is not None:
             node = self.session.name
+        else:
+            node = node.split('.', 1)[0]
 
         packages = []
         if self.session.config is not None:
