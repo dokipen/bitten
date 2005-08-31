@@ -88,10 +88,20 @@ class BDBXMLBackend(Component):
             while child:
                 if child.isNode() and name in (None, child.getLocalName()):
                     yield BDBXMLBackend.XmlValueAdapter(child)
+                elif child.isNull():
+                    break
                 child = child.getNextSibling()
 
         def gettext(self):
-            raise NotImplementedError
+            text = []
+            child = self._value.getFirstChild()
+            while child:
+                if child.isNode() and child.getNodeName() == '#text':
+                    text.append(child.getNodeValue())
+                elif child.isNull():
+                    break
+                child = child.getNextSibling()
+            return ''.join(text)
 
         def write(self, out, newlines=False):
             return self._value.asString()
