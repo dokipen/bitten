@@ -10,8 +10,12 @@
 #content.build form.config fieldset { margin-bottom: 1em; }
 #content.build form.platforms ul { list-style: none; padding-left: 1em; }
 
-#content.build #builds { margin-top: 2em; }
-#content.build #builds th.rev { width: 6em; }
+#content.build #charts { clear: right; float: right; width: 44%; }
+
+#content.build #builds { clear: none; margin-top: 2em; table-layout: fixed;
+ width: 54%;
+}
+#content.build #builds th.chgset { width: 6em; }
 #content.build #builds td :link, #content.build #builds td :visited {
  font-weight: bold;
 }

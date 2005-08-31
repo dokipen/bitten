@@ -318,6 +318,11 @@ class BuildConfigController(Component):
             {'name': platform.name, 'id': platform.id} for platform in platforms
         ]
 
+        req.hdf['config.charts'] = [
+            {'href': self.env.href.build(config.name, 'chart/unittest')},
+            {'href': self.env.href.build(config.name, 'chart/trace')}
+        ]
+
         repos = self.env.get_repository(req.authname)
         try:
             root = repos.get_node(config.path)
@@ -328,7 +333,7 @@ class BuildConfigController(Component):
                     if build.status == Build.PENDING:
                         continue
                     req.hdf['%s.%s' % (prefix, build.platform)] = _build_to_hdf(self.env, req, build)
-                if idx > 4:
+                if idx > 12:
                     break
         except TracError, e:
             self.log.error('Error accessing repository info', exc_info=True)

@@ -98,7 +98,21 @@
      var:config.path ?></a></li><?cs /if ?></ul><?cs
    if:config.description ?><div class="description"><?cs
      var:config.description ?></div><?cs
-   /if ?><?cs
+   /if ?>
+   
+   <div id="charts"><?cs
+    each:chart = config.charts ?>
+     <object type="application/x-shockwave-flash" width="320" height="240" data="<?cs
+      var:chrome.href ?>/bitten/charts.swf">
+      <param name="FlashVars" value="library_path=<?cs
+        var:chrome.href ?>/bitten/charts_library&amp;xml_source=<?cs
+        var:chart.href ?>" />
+      <param name="wmode" value="transparent" />
+     </object><br /><?cs
+    /each ?>
+   </div>
+   
+   <?cs
    if:config.can_modify ?>
     <div class="buttons">
      <form method="get" action=""><div>
@@ -108,12 +122,14 @@
     </div><?cs
    /if ?><?cs
    if:len(config.platforms) ?>
-    <table class="listing" id="builds"><thead><tr><th>Changeset</th><?cs
-    each:platform = config.platforms ?><th><?cs var:platform.name ?><?cs
-    /each ?></tr></thead><?cs
+    <table class="listing" id="builds"><thead><tr>
+     <th class="chgset" abbrev="Changeset">Chgset</th><?cs
+     each:platform = config.platforms ?><th><?cs var:platform.name ?><?cs
+     /each ?>
+    </tr></thead><?cs
     if:len(config.builds) ?><tbody><?cs
      each:rev = config.builds ?><tr>
-      <th class="rev" scope="row"><a href="<?cs
+      <th class="chgset" scope="row"><a href="<?cs
         var:rev.href ?>" title="View Changeset">[<?cs
         var:name(rev) ?>]</a></th><?cs
       each:platform = config.platforms ?><?cs
@@ -135,7 +151,7 @@
       /each ?></tr><?cs
      /each ?></tbody><?cs
     /if ?></table><?cs
-   /if ?></div><?cs
+   /if ?></div><br style="clear: right"/><?cs
 
   elif:page.mode == 'edit_platform' ?>
    <form class="platform" method="post" action="">
