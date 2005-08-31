@@ -63,7 +63,7 @@ class Fragment(object):
         elif isinstance(node, Fragment):
             self.children += node.children
         elif node is not None and node != '':
-            self.children.append(node)
+            self.children.append(str(node))
 
     def write(self, out, newlines=False):
         """Serializes the element and writes the XML to the given output
@@ -111,6 +111,8 @@ class Element(Fragment):
 
     >>> print Element('foo')['Hello world']
     <foo>Hello world</foo>
+    >>> print Element('foo')[42]
+    <foo>42</foo>
     >>> print Element('foo')['1 < 2']
     <foo>1 &lt; 2</foo>
 
