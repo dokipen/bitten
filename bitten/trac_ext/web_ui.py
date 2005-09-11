@@ -202,35 +202,10 @@ class BuildConfigController(Component):
         if 'cancel' in req.args:
             req.redirect(self.env.href.build(config_name, action='edit'))
 
-        platform = TargetPlatform(self.env, config=config_name,
-                                  name=req.args.get('name'))
-
-        properties = [int(key[9:]) for key in req.args
-                      if key.startswith('property_')]
-        properties.sort()
-        patterns = [int(key[8:]) for key in req.args
-                    if key.startswith('pattern_')]
-        patterns.sort()
-        platform.rules = [(req.args.get('property_%d' % property),
-                           req.args.get('pattern_%d' % pattern))
-                          for property, pattern in zip(properties, patterns)]
-
-        add_rules = [int(key[9:]) for key in req.args
-                     if key.startswith('add_rule_')]
-        if add_rules:
-            platform.rules.insert(add_rules[0] + 1, ('', ''))
-            self._render_platform_form(req, platform)
-            return
-        rm_rules = [int(key[8:]) for key in req.args
-                     if key.startswith('rm_rule_')]
-        if rm_rules:
-            del platform.rules[rm_rules[0]]
-            self._render_platform_form(req, platform)
-            return
-
-        platform.insert()
-
-        req.redirect(self.env.href.build(config_name, action='edit'))
+        platform = TargetPlatform(self.env, config=config_name)
+        if self._process_platform(req, platform):
+            platform.insert()
+            req.redirect(self.env.href.build(config_name, action='edit'))
 
     def _do_delete_platforms(self, req):
         """Delete selected target platforms."""
@@ -253,34 +228,38 @@ class BuildConfigController(Component):
             req.redirect(self.env.href.build(config_name, action='edit'))
 
         platform = TargetPlatform.fetch(self.env, platform_id)
+        if self._process_platform(req, platform):
+            platform.update()
+            req.redirect(self.env.href.build(config_name, action='edit'))
+
+    def _process_platform(self, req, platform):
         platform.name = req.args.get('name')
 
-        properties = [int(key[9:]) for key in req.args
+        properties = [int(key[9:]) for key in req.args.keys()
                       if key.startswith('property_')]
         properties.sort()
-        patterns = [int(key[8:]) for key in req.args
+        patterns = [int(key[8:]) for key in req.args.keys()
                     if key.startswith('pattern_')]
         patterns.sort()
         platform.rules = [(req.args.get('property_%d' % property),
                            req.args.get('pattern_%d' % pattern))
-                          for property, pattern in zip(properties, patterns)]
+                          for property, pattern in zip(properties, patterns)
+                          if req.args.get('property_%d' % property)]
 
-        add_rules = [int(key[9:]) for key in req.args
+        add_rules = [int(key[9:]) for key in req.args.keys()
                      if key.startswith('add_rule_')]
         if add_rules:
             platform.rules.insert(add_rules[0] + 1, ('', ''))
             self._render_platform_form(req, platform)
-            return
-        rm_rules = [int(key[8:]) for key in req.args
-                     if key.startswith('rm_rule_')]
+            return False
+        rm_rules = [int(key[8:]) for key in req.args.keys()
+                    if key.startswith('rm_rule_')]
         if rm_rules:
             del platform.rules[rm_rules[0]]
             self._render_platform_form(req, platform)
-            return
+            return False
 
-        platform.update()
-
-        req.redirect(self.env.href.build(config_name, action='edit'))
+        return True
 
     def _render_overview(self, req):
         req.hdf['title'] = 'Build Status'

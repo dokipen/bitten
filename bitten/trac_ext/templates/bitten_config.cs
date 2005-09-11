@@ -167,9 +167,9 @@
        var:rule.property ?>" /></td>
       <td><input type="text" name="pattern_<?cs var:name(rule) ?>" value="<?cs
        var:rule.pattern ?>" /></td>
-      <td><input type="submit" name="rm_rule_<?cs
-        var:name(rule) ?>" value="-" /><input type="submit" name="add_rule_<?cs
-        var:name(rule) ?>" value="+" />
+      <td><input type="submit" name="add_rule_<?cs
+        var:name(rule) ?>" value="+" /><input type="submit" name="rm_rule_<?cs
+        var:name(rule) ?>" value="-" />
       </td>
      </tr><?cs /each ?>
     </tbody></table>
