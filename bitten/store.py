@@ -169,9 +169,6 @@ class BDBXMLBackend(Component):
             yield BDBXMLBackend.XmlValueAdapter(value)
 
     def retrieve_reports(self, build, step=None, type=None):
-        if dbxml is None:
-            log.warning('BDB XML not installed, cannot retrieve reports')
-            return
         return self.query_reports('return $reports', build=build, step=step,
                                   type=type)
 
