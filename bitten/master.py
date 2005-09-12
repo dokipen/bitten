@@ -155,7 +155,8 @@ class Master(beep.Listener):
                 match = True
                 for propname, pattern in ifilter(None, platform.rules):
                     try:
-                        if not re.match(pattern, handler.info.get(propname)):
+                        propvalue = handler.info.get(propname)
+                        if not propvalue or not re.match(pattern, propvalue):
                             match = False
                             break
                     except re.error:
