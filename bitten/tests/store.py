@@ -14,20 +14,19 @@ import tempfile
 import unittest
 
 from trac.test import EnvironmentStub, Mock
-from bitten.store import BDBXMLBackend
+from bitten.store import BDBXMLReportStore
 from bitten.util import xmlio
 
 
-class BDBXMLBackendTestCase(unittest.TestCase):
+class BDBXMLReportStoreTestCase(unittest.TestCase):
 
     def setUp(self):
-        self.env = EnvironmentStub()
-        self.env.path = tempfile.mkdtemp('bitten-test')
-        os.mkdir(os.path.join(self.env.path, 'db'))
-        self.store = BDBXMLBackend(self.env)
+        self.path = os.path.join(tempfile.gettempdir(), 'bitten_test.dbxml')
+        self.store = BDBXMLReportStore(self.path)
 
     def tearDown(self):
-        shutil.rmtree(self.env.path)
+        self.store = None
+        os.unlink(self.path)
 
     def test_store_report(self):
         """
@@ -36,10 +35,9 @@ class BDBXMLBackendTestCase(unittest.TestCase):
         build = Mock(id=42, config='trunk')
         step = Mock(name='foo')
         xml = xmlio.Element('report', type='test')[xmlio.Element('dummy')]
-        self.store.store_report(build, step, xml)
+        self.store.store(build, step, xml)
 
-        self.assertEqual(1, len(list(self.store.retrieve_reports(build, step,
-                                                                 'test'))))
+        self.assertEqual(1, len(list(self.store.retrieve(build, step, 'test'))))
 
     def test_retrieve_reports_for_step(self):
         """
@@ -49,15 +47,15 @@ class BDBXMLBackendTestCase(unittest.TestCase):
         build = Mock(id=42, config='trunk')
         step = Mock(name='foo')
         xml = xmlio.Element('report', type='test')[xmlio.Element('dummy')]
-        self.store.store_report(build, step, xml)
+        self.store.store(build, step, xml)
         xml = xmlio.Element('report', type='lint')[xmlio.Element('dummy')]
-        self.store.store_report(build, step, xml)
+        self.store.store(build, step, xml)
 
         other_step = Mock(name='bar')
         xml = xmlio.Element('report', type='test')[xmlio.Element('dummy')]
-        self.store.store_report(build, other_step, xml)
+        self.store.store(build, other_step, xml)
 
-        self.assertEqual(2, len(list(self.store.retrieve_reports(build, step))))
+        self.assertEqual(2, len(list(self.store.retrieve(build, step))))
 
     def test_retrieve_reports_for_build(self):
         """
@@ -68,23 +66,23 @@ class BDBXMLBackendTestCase(unittest.TestCase):
         step_foo = Mock(name='foo')
         step_bar = Mock(name='bar')
         xml = xmlio.Element('report', type='test')[xmlio.Element('dummy')]
-        self.store.store_report(build, step_foo, xml)
+        self.store.store(build, step_foo, xml)
         xml = xmlio.Element('report', type='lint')[xmlio.Element('dummy')]
-        self.store.store_report(build, step_bar, xml)
+        self.store.store(build, step_bar, xml)
 
         other_build = Mock(id=66, config='trunk')
         step_baz = Mock(name='foo')
         xml = xmlio.Element('report', type='test')[xmlio.Element('dummy')]
-        self.store.store_report(other_build, step_baz, xml)
+        self.store.store(other_build, step_baz, xml)
 
-        self.assertEqual(2, len(list(self.store.retrieve_reports(build))))
+        self.assertEqual(2, len(list(self.store.retrieve(build))))
 
 
 def suite():
     suite = unittest.TestSuite()
     try:
         import dbxml
-        suite.addTest(unittest.makeSuite(BDBXMLBackendTestCase, 'test'))
+        suite.addTest(unittest.makeSuite(BDBXMLReportStoreTestCase, 'test'))
     except ImportError:
         print>>sys.stderr, 'Skipping unit tests for BDB XML backend'
     return suite

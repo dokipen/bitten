@@ -19,7 +19,7 @@ from trac.web.chrome import INavigationContributor, ITemplateProvider, \
                             add_link, add_stylesheet
 from trac.wiki import wiki_to_html
 from bitten.model import BuildConfig, TargetPlatform, Build, BuildStep, BuildLog
-from bitten.store import ReportStore
+from bitten.store import get_store
 from bitten.trac_ext.api import ILogFormatter, IReportSummarizer
 
 _status_label = {Build.IN_PROGRESS: 'in progress',
@@ -494,8 +494,8 @@ class BuildController(Component):
         for step in BuildStep.select(self.env, build=build.id, db=db):
             step.delete(db=db)
 
-        store = ReportStore(self.env)
-        store.delete_reports(build=build)
+        store = get_store(self.env)
+        store.delete(build=build)
 
         build.slave = None
         build.started = build.stopped = 0
@@ -526,9 +526,9 @@ class BuildController(Component):
             types = summarizer.get_supported_report_types()
             summarizers.update(dict([(type, summarizer) for type in types]))
 
-        store = ReportStore(self.env)
+        store = get_store(self.env)
         reports = []
-        for report in store.retrieve_reports(build, step):
+        for report in store.retrieve(build, step):
             report_type = report.attr['type']
             summarizer = summarizers.get(report_type)
             if summarizer:
@@ -622,9 +622,9 @@ class BuildReportController(Component):
         req.hdf['build'] = {'id': build.id,
                             'href': self.env.href.build(build.config, build.id)}
 
-        store = ReportStore(self.env)
+        store = get_store(self.env)
         reports = []
-        for report in store.retrieve_reports(build, step, report_type):
+        for report in store.retrieve(build, step, report_type):
             req.hdf['title'] = 'Build %d: %s' % (build.id, report_type)
             xml = report._node.toprettyxml('  ')
             if req.args.get('format') == 'xml':

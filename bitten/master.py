@@ -20,7 +20,7 @@ import time
 
 from trac.env import Environment
 from bitten.model import BuildConfig, TargetPlatform, Build, BuildStep, BuildLog
-from bitten.store import ReportStore
+from bitten.store import get_store
 from bitten.util import archive, beep, xmlio
 
 log = logging.getLogger('bitten.master')
@@ -109,7 +109,7 @@ class Master(beep.Listener):
     def _cleanup_orphaned_builds(self):
         # Reset all in-progress builds
         db = self.env.get_db_cnx()
-        store = ReportStore(self.env)
+        store = get_store(self.env)
         for build in Build.select(self.env, status=Build.IN_PROGRESS, db=db):
             build.status = Build.PENDING
             build.slave = None
@@ -120,7 +120,7 @@ class Master(beep.Listener):
             for build_log in BuildLog.select(self.env, build=build.id):
                 build_log.delete(db=db)
             build.update(db=db)
-            store.delete_reports(build=build)
+            store.delete(build=build)
         db.commit()
 
     def _cleanup_snapshots(self, when):
@@ -369,9 +369,9 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
                                            message_elem.gettext()))
             build_log.insert(db=db)
 
-        store = ReportStore(self.env)
+        store = get_store(self.env)
         for report in elem.children('report'):
-            store.store_report(build, step, report)
+            store.store(build, step, report)
 
     def _build_completed(self, build, elem, timestamp_delta=None):
         log.info('Slave %s completed build %d ("%s" as of [%s]) with status %s',
@@ -392,8 +392,8 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
         for step in BuildStep.select(self.env, build=build.id, db=db):
             step.delete(db=db)
 
-        store = ReportStore(self.env)
-        store.delete_reports(build=build)
+        store = get_store(self.env)
+        store.delete(build=build)
 
         build.slave = None
         build.started = 0

@@ -48,10 +48,6 @@ def add_recipe_to_config(env, db):
                    "NULL,label,description FROM old_config")
 
 def add_config_to_reports(env, db):
-    backend = env.config.get('bitten', 'report_store', 'BDBXMLBackend')
-    if backend != 'BDBXMLBackend':
-        return
-
     from bitten.model import Build
     try:
         import dbxml

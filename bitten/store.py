@@ -13,48 +13,37 @@ import os
 from trac.core import *
 from bitten.util import xmlio
 
-log = logging.getLogger('bitten.store')
 
+class ReportStore(object):
 
-class IReportStoreBackend(Interface):
+    def delete(self, config=None, build=None, step=None, type=None):
+        raise NotImplementedError
 
-    def store_report(build, step, xml):
-        """Store the given report."""
-
-    def retrieve_reports(build, step=None, type=None):
-        """Retrieve reports."""
-
-
-class ReportStore(Component):
-
-    backends = ExtensionPoint(IReportStoreBackend)
-
-    def delete_reports(self, config=None, build=None, step=None, type=None):
-        backend = self._get_configured_backend()
-        return backend.delete_reports(config, build, step, type)
-
-    def query_reports(self, xquery, config=None, build=None, step=None,
+    def query(self, xquery, config=None, build=None, step=None,
                      type=None):
-        backend = self._get_configured_backend()
-        return backend.query_reports(xquery, config, build, step, type)
+        raise NotImplementedError
 
-    def retrieve_reports(self, build, step=None, type=None):
-        backend = self._get_configured_backend()
-        return backend.retrieve_reports(build, step, type)
+    def retrieve(self, build, step=None, type=None):
+        raise NotImplementedError
 
-    def store_report(self, build, step, xml):
-        assert xml.name == 'report' and 'type' in xml.attr
-        backend = self._get_configured_backend()
-        log.debug('Storing report of type "%s" in %s', xml.attr['type'],
-                  backend.__class__.__name__)
-        backend.store_report(build, step, xml)
+    def store(self, build, step, xml):
+        raise NotImplementedError
 
-    def _get_configured_backend(self):
-        configured = self.config.get('bitten', 'report_store', 'BDBXMLBackend')
-        for backend in self.backends:
-            if backend.__class__.__name__ == configured:
-                return backend
-        raise TracError, 'Report store backend not available'
+
+class NullReportStore(ReportStore):
+
+    def delete(self, config=None, build=None, step=None, type=None):
+        return
+
+    def query(self, xquery, config=None, build=None, step=None,
+                     type=None):
+        return []
+
+    def retrieve(self, build, step=None, type=None):
+        return []
+
+    def store(self, build, step, xml):
+        return
 
 
 try:
@@ -63,10 +52,9 @@ except ImportError:
     dbxml = None
 
 
-class BDBXMLBackend(Component):
-    implements(IReportStoreBackend)
+class BDBXMLReportStore(ReportStore):
 
-    indexes = [
+    indices = [
         ('config', 'node-metadata-equality-string'),
         ('build', 'node-metadata-equality-decimal'),
         ('step',  'node-metadata-equality-string'),
@@ -111,42 +99,36 @@ class BDBXMLBackend(Component):
             return self._value.asString()
 
 
-    def __init__(self):
-        self.path = os.path.join(self.env.path, 'db', 'bitten.dbxml')
+    def __init__(self, path):
+        self.path = path
+        self.mgr = dbxml.XmlManager()
+        if not os.path.exists(path):
+            self.container = self.mgr.createContainer(self.path)
+            ctxt = self.mgr.createUpdateContext()
+            for name, index in self.indices:
+                self.container.addIndex('', name, index, ctxt)
+        else:
+            self.container = self.mgr.openContainer(self.path)
 
-    def delete_reports(self, config=None, build=None, step=None, type=None):
-        if dbxml is None:
-            log.warning('BDB XML not installed, cannot store report')
-            return
-        mgr = dbxml.XmlManager()
-        container = self._open_container(mgr, create=True)
-        ctxt = mgr.createUpdateContext()
-        for elem in self.query_reports('return $reports', config=config,
-                                       build=build, step=step, type=type):
-            container.deleteDocument(elem._value.asDocument(), ctxt)
+    def delete(self, config=None, build=None, step=None, type=None):
+        ctxt = self.mgr.createUpdateContext()
+        for elem in self.query('return $reports', config=config, build=build,
+                               step=step, type=type):
+            self.container.deleteDocument(elem._value.asDocument(), ctxt)
 
-    def store_report(self, build, step, xml):
-        if dbxml is None:
-            log.warning('BDB XML not installed, cannot store report')
-            return
-        mgr = dbxml.XmlManager()
-        container = self._open_container(mgr, create=True)
-        ctxt = mgr.createUpdateContext()
-        doc = mgr.createDocument()
+    def store(self, build, step, xml):
+        assert xml.name == 'report' and 'type' in xml.attr
+        ctxt = self.mgr.createUpdateContext()
+        doc = self.mgr.createDocument()
         doc.setContent(str(xml))
         doc.setMetaData('', 'config', dbxml.XmlValue(build.config))
         doc.setMetaData('', 'build', dbxml.XmlValue(build.id))
         doc.setMetaData('', 'step', dbxml.XmlValue(step.name))
-        container.putDocument(doc, ctxt, dbxml.DBXML_GEN_NAME)
+        self.container.putDocument(doc, ctxt, dbxml.DBXML_GEN_NAME)
 
-    def query_reports(self, xquery, config=None, build=None, step=None,
+    def query(self, xquery, config=None, build=None, step=None,
                      type=None):
-        if dbxml is None:
-            log.warning('BDB XML not installed, cannot query reports')
-            return
-        mgr = dbxml.XmlManager()
-        container = self._open_container(mgr)
-        ctxt = mgr.createQueryContext()
+        ctxt = self.mgr.createQueryContext()
 
         constraints = []
         if config:
@@ -162,21 +144,16 @@ class BDBXMLBackend(Component):
         if constraints:
             query += '[%s]' % ' and '.join(constraints)
         query += '\n' + xquery
-        self.log.debug('Executíng XQuery: %s', query)
 
-        results = mgr.query(query, ctxt)
+        results = self.mgr.query(query, ctxt)
         for value in results:
-            yield BDBXMLBackend.XmlValueAdapter(value)
+            yield BDBXMLReportStore.XmlValueAdapter(value)
 
-    def retrieve_reports(self, build, step=None, type=None):
-        return self.query_reports('return $reports', build=build, step=step,
-                                  type=type)
+    def retrieve(self, build, step=None, type=None):
+        return self.query('return $reports', build=build, step=step, type=type)
 
-    def _open_container(self, mgr, create=False):
-        if create and not os.path.exists(self.path):
-            container = mgr.createContainer(self.path)
-            ctxt = mgr.createUpdateContext()
-            for name, index in self.indexes:
-                container.addIndex('', name, index, ctxt)
-            return container
-        return mgr.openContainer(self.path)
+
+def get_store(env):
+    if dbxml is None:
+        return NullReportStore()
+    return BDBXMLReportStore(os.path.join(env.path, 'db', 'bitten.dbxml'))

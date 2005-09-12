@@ -13,7 +13,7 @@ import re
 from trac.core import *
 from trac.web import IRequestHandler
 from bitten.model import BuildConfig, Build
-from bitten.store import ReportStore
+from bitten.store import get_store
 from bitten.trac_ext.api import IReportChartGenerator
 from bitten.util import xmlio
 
@@ -63,7 +63,7 @@ class TestResultsChartGenerator(Component):
             rev_map[str(build.id)] = (build.rev,
                                       datetime.fromtimestamp(build.rev_time))
 
-        store = ReportStore(self.env)
+        store = get_store(self.env)
         xquery = """
 for $report in $reports
 return
@@ -78,7 +78,7 @@ return
         #        code
 
         tests = {} # Accumulated test numbers by revision
-        for test in store.query_reports(xquery, config=config, type='unittest'):
+        for test in store.query(xquery, config=config, type='unittest'):
             rev, rev_time = rev_map.get(test.attr['build'])
             if rev not in tests:
                 tests[rev] = [rev_time, 0, 0]
@@ -115,7 +115,7 @@ class TestResultsChartGenerator(Component):
             rev_map[str(build.id)] = (build.rev,
                                       datetime.fromtimestamp(build.rev_time))
 
-        store = ReportStore(self.env)
+        store = get_store(self.env)
         xquery = """
 for $report in $reports
 return
@@ -134,7 +134,7 @@ return
         #        the Python code
 
         coverage = {} # Accumulated coverage info by revision
-        for test in store.query_reports(xquery, config=config, type='trace'):
+        for test in store.query(xquery, config=config, type='trace'):
             rev, rev_time = rev_map.get(test.attr['build'])
             if rev not in coverage:
                 coverage[rev] = [rev_time, 0, 0]
