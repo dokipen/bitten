@@ -100,6 +100,8 @@ class BuildConfigController(Component):
             if config:
                 if action == 'new':
                     self._do_create_platform(req, config)
+                elif action == 'delete':
+                    self._do_delete_config(req, config)
                 else:
                     platform_id = req.args.get('platform')
                     if platform_id:
@@ -118,7 +120,9 @@ class BuildConfigController(Component):
                     self._do_create_config(req)
         else:
             if config:
-                if action == 'edit':
+                if action == 'delete':
+                    self._render_config_confirm(req, config)
+                elif action == 'edit':
                     platform_id = req.args.get('platform')
                     if platform_id:
                         platform = TargetPlatform.fetch(self.env,
@@ -165,6 +169,19 @@ class BuildConfigController(Component):
         config.insert()
 
         req.redirect(self.env.href.build(config.name))
+
+    def _do_delete_config(self, req, config_name):
+        """Save changes to a build configuration."""
+        req.perm.assert_permission('BUILD_DELETE')
+
+        if 'cancel' in req.args:
+            req.redirect(self.env.href.build(config_name))
+
+        config = BuildConfig.fetch(self.env, config_name)
+        assert config, 'Build configuration "%s" does not exist' % config_name
+
+        config.delete()
+        req.redirect(self.env.href.build())
 
     def _do_save_config(self, req, config_name):
         """Save changes to a build configuration."""
@@ -288,7 +305,8 @@ class BuildConfigController(Component):
             'name': config.name, 'label': config.label, 'path': config.path,
             'active': config.active, 'description': description,
             'browser_href': self.env.href.browser(config.path),
-            'can_modify': req.perm.has_permission('BUILD_MODIFY')
+            'can_modify': req.perm.has_permission('BUILD_MODIFY'),
+            'can_delete': req.perm.has_permission('BUILD_DELETE')
         }
         req.hdf['page.mode'] = 'view_config'
 
@@ -320,6 +338,14 @@ class BuildConfigController(Component):
                     break
         except TracError, e:
             self.log.error('Error accessing repository info', exc_info=True)
+
+    def _render_config_confirm(self, req, config_name):
+        req.perm.assert_permission('BUILD_DELETE')
+        config = BuildConfig.fetch(self.env, config_name)
+        req.hdf['title'] = 'Delete Build Configuration "%s"' \
+                           % escape(config.label or config.name)
+        req.hdf['config'] = {'name': config.name}
+        req.hdf['page.mode'] = 'delete_config'
 
     def _render_config_form(self, req, config_name=None):
         config = BuildConfig.fetch(self.env, config_name)

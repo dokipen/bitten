@@ -77,6 +77,16 @@
     </div><?cs
    /if ?><?cs
 
+ elif:page.mode == 'delete_config' ?>
+  <p><strong>Are you sure you want to delete the build configuration "<?cs
+    var:config.name ?>?</strong></p>
+  <p>This will also delete all builds performed for that configuration.</p>
+  <form action="" method="POST"><div class="buttons">
+   <input type="hidden" name="action" value="delete" />
+   <input type="submit" name="cancel" value="Cancel" />
+   <input type="submit" value="Delete configuration" />
+  </div></form><?cs
+
   elif:page.mode == 'view_config' ?><?cs
    if:config.can_modify ?><form id="prefs" method="post" class="activation"><?cs
     if:!config.active ?><div class="help">This build configuration is currently
@@ -113,13 +123,15 @@
     /each ?>
    </div><?cs
 
-   if:config.can_modify ?>
-    <div class="buttons">
-     <form method="get" action=""><div>
-      <input type="hidden" name="action" value="edit" />
-      <input type="submit" value="Edit configuration" />
-     </div></form>
-    </div><?cs
+   if:config.can_modify || config.can_delete ?><div class="buttons"><?cs
+    if:config.can_modify ?><form method="get" action=""><div>
+     <input type="hidden" name="action" value="edit" />
+     <input type="submit" value="Edit configuration" />
+    </div></form><?cs /if ?><?cs
+    if:config.can_delete ?><form method="get" action=""><div>
+     <input type="hidden" name="action" value="delete" />
+     <input type="submit" value="Delete configuration" />
+    </div></form><?cs /if ?><?cs
    /if ?><?cs
    if:len(config.platforms) ?>
     <table class="listing" id="builds"><thead><tr>

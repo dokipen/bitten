@@ -10,7 +10,8 @@
 import unittest
 
 from trac.test import EnvironmentStub
-from bitten.model import BuildConfig, TargetPlatform, Build, BuildStep, BuildLog
+from bitten.model import BuildConfig, TargetPlatform, Build, BuildStep, \
+                         BuildLog, schema
 
 
 class BuildConfigTestCase(unittest.TestCase):
@@ -19,7 +20,7 @@ class BuildConfigTestCase(unittest.TestCase):
         self.env = EnvironmentStub()
         db = self.env.get_db_cnx()
         cursor = db.cursor()
-        for table in BuildConfig._schema:
+        for table in schema:
             for stmt in db.to_sql(table):
                 cursor.execute(stmt)
         db.commit()
@@ -87,7 +88,7 @@ class BuildConfigTestCase(unittest.TestCase):
                          cursor.fetchone())
         self.assertEqual(None, cursor.fetchone())
 
-    def test_config_update_name(self):
+    def test_update_name(self):
         db = self.env.get_db_cnx()
         cursor = db.cursor()
         cursor.execute("INSERT INTO bitten_config (name,path,label,active) "
@@ -113,6 +114,23 @@ class BuildConfigTestCase(unittest.TestCase):
         config = BuildConfig.fetch(self.env, 'test')
         config.name = None
         self.assertRaises(AssertionError, config.update)
+
+    def test_delete(self):
+        db = self.env.get_db_cnx()
+        cursor = db.cursor()
+        cursor.execute("INSERT INTO bitten_config (name,path,label,active) "
+                       "VALUES (%s,%s,%s,%s)", ('test', 'trunk', 'Test', 0))
+
+        config = BuildConfig.fetch(self.env, 'test')
+        config.delete()
+        self.assertEqual(False, config.exists)
+
+        cursor.execute("SELECT * FROM bitten_config WHERE name=%s", ('test',))
+        self.assertEqual(None, cursor.fetchone())
+
+    def test_delete_non_existing(self):
+        config = BuildConfig(self.env, 'test')
+        self.assertRaises(AssertionError, config.delete)
 
 
 class TargetPlatformTestCase(unittest.TestCase):

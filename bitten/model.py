@@ -41,6 +41,29 @@ class BuildConfig(object):
 
     exists = property(fget=lambda self: self._old_name is not None)
 
+    def delete(self, db=None):
+        """Remove a build configuration and all dependent objects from the
+        database."""
+        assert self.exists, 'Cannot delete non-existing configuration'
+        if not db:
+            db = self.env.get_db_cnx()
+            handle_ta = True
+        else:
+            handle_ta = False
+
+        for platform in TargetPlatform.select(self.env, self.name, db=db):
+            platform.delete(db=db)
+
+        for build in Build.select(self.env, config=self.name, db=db):
+            build.delete(db=db)
+
+        cursor = db.cursor()
+        cursor.execute("DELETE FROM bitten_config WHERE name=%s", (self.name,))
+
+        if handle_ta:
+            db.commit()
+        self._old_name = None
+
     def insert(self, db=None):
         """Insert a new configuration into the database."""
         assert not self.exists, 'Cannot insert existing configuration'
@@ -339,8 +362,6 @@ class Build(object):
             handle_ta = True
         else:
             handle_ta = False
-
-        assert self.status == self.PENDING, 'Only pending builds can be deleted'
 
         for step in BuildStep.select(self.env, build=self.id):
             step.delete(db=db)
