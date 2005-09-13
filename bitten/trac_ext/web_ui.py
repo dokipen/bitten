@@ -315,18 +315,37 @@ class BuildConfigController(Component):
             {'name': platform.name, 'id': platform.id} for platform in platforms
         ]
 
-        req.hdf['config.charts'] = [
-            {'href': self.env.href.build(config.name, 'chart/unittest')},
-            {'href': self.env.href.build(config.name, 'chart/trace')}
-        ]
-        charts_license = self.config.get('bitten', 'charts_license')
-        if charts_license:
-            req.hdf['config.charts_license'] = escape(charts_license)
+        store = get_store(self.env)
+        has_reports = False
+        for report in  store.query('', config=config):
+            has_reports = True
+            break
+
+        if has_reports:
+            req.hdf['config.charts'] = [
+                {'href': self.env.href.build(config.name, 'chart/unittest')},
+                {'href': self.env.href.build(config.name, 'chart/trace')}
+            ]
+            charts_license = self.config.get('bitten', 'charts_license')
+            if charts_license:
+                req.hdf['config.charts_license'] = escape(charts_license)
 
         repos = self.env.get_repository(req.authname)
         try:
             root = repos.get_node(config.path)
             for idx, (path, rev, chg) in enumerate(root.get_history()):
+                # Don't follow moves/copies
+                if path != config.path:
+                    break
+                # If the directory was empty at that revision, it isn't built
+                old_node = repos.get_node(path, rev)
+                is_empty = True
+                for entry in old_node.get_entries():
+                    is_empty = False
+                    break
+                if is_empty:
+                    continue
+
                 prefix = 'config.builds.%d' % rev
                 req.hdf[prefix + '.href'] = self.env.href.changeset(rev)
                 for build in Build.select(self.env, config=config.name, rev=rev):

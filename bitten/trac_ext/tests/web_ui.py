@@ -7,6 +7,8 @@
 # you should have received as part of this distribution. The terms
 # are also available at http://bitten.cmlenz.net/wiki/License.
 
+import shutil
+import tempfile
 import unittest
 
 from trac.perm import PermissionCache, PermissionSystem
@@ -23,6 +25,7 @@ class BuildConfigControllerTestCase(unittest.TestCase):
 
     def setUp(self):
         self.env = EnvironmentStub()
+        self.env.path = tempfile.mkdtemp()
 
         # Create tables
         db = self.env.get_db_cnx()
@@ -38,6 +41,9 @@ class BuildConfigControllerTestCase(unittest.TestCase):
         # Hook up a dummy repository
         repos = Mock(get_node=lambda path: Mock(get_history=lambda: []))
         self.env.get_repository = lambda x: repos
+
+    def tearDown(self):
+        shutil.rmtree(self.env.path)
 
     def test_overview(self):
         PermissionSystem(self.env).grant_permission('joe', 'BUILD_VIEW')

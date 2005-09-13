@@ -133,7 +133,7 @@
      <input type="submit" value="Delete configuration" />
     </div></form><?cs /if ?><?cs
    /if ?><?cs
-   if:len(config.platforms) ?>
+   if:len(config.platforms) && len(config.builds) ?>
     <table class="listing" id="builds"><thead><tr>
      <th class="chgset" abbrev="Changeset">Chgset</th><?cs
      each:platform = config.platforms ?><th><?cs var:platform.name ?><?cs

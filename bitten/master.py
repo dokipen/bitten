@@ -67,6 +67,21 @@ class Master(beep.Listener):
                           config.path)
                 node = repos.get_node(config.path)
                 for path, rev, chg in node.get_history():
+
+                    # Don't follow moves/copies
+                    if path != repos.normalize_path(config.path):
+                        break
+
+                    # Make sure the repository directory isn't empty at this
+                    # revision
+                    old_node = repos.get_node(path, rev)
+                    is_empty = True
+                    for entry in old_node.get_entries():
+                        is_empty = False
+                        break
+                    if is_empty:
+                        continue
+
                     enqueued = False
                     for platform in TargetPlatform.select(self.env,
                                                           config.name, db=db):
@@ -99,6 +114,9 @@ class Master(beep.Listener):
             return
         log.debug('Checking for pending builds...')
         for build in Build.select(self.env, status=Build.PENDING):
+            config = BuildConfig.fetch(self.env, name=build.config)
+            if not config.active:
+                continue
             for slave in self.slaves.get(build.platform, []):
                 active_builds = Build.select(self.env, slave=slave.name,
                                              status=Build.IN_PROGRESS)

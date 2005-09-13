@@ -102,32 +102,31 @@ class BDBXMLReportStore(ReportStore):
     def __init__(self, path):
         self.path = path
         self.mgr = dbxml.XmlManager()
-        if not os.path.exists(path):
-            self.container = self.mgr.createContainer(self.path)
-            ctxt = self.mgr.createUpdateContext()
-            for name, index in self.indices:
-                self.container.addIndex('', name, index, ctxt)
-        else:
-            self.container = self.mgr.openContainer(self.path)
 
     def delete(self, config=None, build=None, step=None, type=None):
+        container = self._open_container()
+        if not container:
+            return
         ctxt = self.mgr.createUpdateContext()
         for elem in self.query('return $reports', config=config, build=build,
                                step=step, type=type):
-            self.container.deleteDocument(elem._value.asDocument(), ctxt)
+            container.deleteDocument(elem._value.asDocument(), ctxt)
 
     def store(self, build, step, xml):
         assert xml.name == 'report' and 'type' in xml.attr
+        container = self._open_container(create=True)
         ctxt = self.mgr.createUpdateContext()
         doc = self.mgr.createDocument()
         doc.setContent(str(xml))
         doc.setMetaData('', 'config', dbxml.XmlValue(build.config))
         doc.setMetaData('', 'build', dbxml.XmlValue(build.id))
         doc.setMetaData('', 'step', dbxml.XmlValue(step.name))
-        self.container.putDocument(doc, ctxt, dbxml.DBXML_GEN_NAME)
+        container.putDocument(doc, ctxt, dbxml.DBXML_GEN_NAME)
 
-    def query(self, xquery, config=None, build=None, step=None,
-                     type=None):
+    def query(self, xquery, config=None, build=None, step=None, type=None):
+        container = self._open_container()
+        if not container:
+            return
         ctxt = self.mgr.createQueryContext()
 
         constraints = []
@@ -143,14 +142,26 @@ class BDBXMLReportStore(ReportStore):
         query = "let $reports := collection('%s')/report" % self.path
         if constraints:
             query += '[%s]' % ' and '.join(constraints)
-        query += '\n' + xquery
+        query += '\n' + (xquery or 'return $reports')
 
         results = self.mgr.query(query, ctxt)
         for value in results:
             yield BDBXMLReportStore.XmlValueAdapter(value)
 
     def retrieve(self, build, step=None, type=None):
-        return self.query('return $reports', build=build, step=step, type=type)
+        return self.query('', build=build, step=step, type=type)
+
+    def _open_container(self, create=False):
+        if not os.path.exists(self.path):
+            if not create:
+                return None
+            container = self.mgr.createContainer(self.path)
+            ctxt = self.mgr.createUpdateContext()
+            for name, index in self.indices:
+                container.addIndex('', name, index, ctxt)
+        else:
+            container = self.mgr.openContainer(self.path)
+        return container
 
 
 def get_store(env):
