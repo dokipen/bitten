@@ -335,7 +335,7 @@ class BuildConfigController(Component):
             root = repos.get_node(config.path)
             for idx, (path, rev, chg) in enumerate(root.get_history()):
                 # Don't follow moves/copies
-                if path != config.path:
+                if path != repos.normalize_path(config.path):
                     break
                 # If the directory was empty at that revision, it isn't built
                 old_node = repos.get_node(path, rev)
