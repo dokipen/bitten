@@ -410,7 +410,7 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
             build.status = Build.SUCCESS
         build.update()
 
-    def _build_aborted(self, db, build):
+    def _build_aborted(self, build):
         log.info('Slave "%s" aborted build %d ("%s" as of [%s])',
                  self.name, build.id, build.config, build.rev)
 
