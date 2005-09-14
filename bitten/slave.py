@@ -66,7 +66,7 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
         if self.session.name is not None:
             node = self.session.name
         else:
-            node = node.split('.', 1)[0]
+            node = node.split('.', 1)[0].lower()
 
         packages = []
         if self.session.config is not None:
@@ -137,9 +137,18 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
             log.debug('Received snapshot archive: %s', archive_path)
 
             # Unpack the archive
-            prefix = archive.unpack(archive_path, workdir)
-            path = os.path.join(workdir, prefix)
-            log.debug('Unpacked snapshot to %s' % path)
+            try:
+                prefix = archive.unpack(archive_path, workdir)
+                path = os.path.join(workdir, prefix)
+                log.debug('Unpacked snapshot to %s' % path)
+            except archive.Error, e:
+                xml = xmlio.Element('error', code=550)[
+                    'Could not unpack archive (%s)' % e
+                ]
+                self.channel.send_err(msgno, beep.Payload(xml))
+                log.error('Could not unpack archive %s: %s', archive_path, e,
+                          exc_info=True)
+                return
 
             # Fix permissions
             for root, dirs, files in os.walk(workdir, topdown=False):
@@ -151,7 +160,6 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
             self.execute_build(msgno, Recipe(self.recipe_xml, path))
 
     def execute_build(self, msgno, recipe):
-        global log
         log.info('Building in directory %s', recipe.ctxt.basedir)
         try:
             if not self.session.dry_run:

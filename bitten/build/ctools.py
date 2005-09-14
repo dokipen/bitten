@@ -14,13 +14,11 @@ from bitten.util import xmlio
 
 log = logging.getLogger('bitten.build.ctools')
 
-def make(ctxt, target=None, file_=None, jobs=None, keep_going=False):
+def make(ctxt, target=None, file_=None, keep_going=False):
     """Execute a Makefile target."""
     args = ['--directory', ctxt.basedir]
     if file_:
         args += ['--file', ctxt.resolve(file_)]
-    if jobs:
-        args += ['--jobs', int(jobs)]
     if keep_going:
         args.append('--keep-going')
     if target:

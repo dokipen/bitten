@@ -61,7 +61,8 @@ def exec_(ctxt, executable=None, file_=None, output=None, args=None):
 def pipe(ctxt, executable=None, file_=None, input_=None, output=None,
          args=None):
     """Pipe the contents of a file through a script."""
-    assert file_, 'Missing required attribute "file"'
+    assert executable or file_, \
+        'Either "executable" or "file" attribute required'
     assert input_, 'Missing required attribute "file"'
 
     if args:

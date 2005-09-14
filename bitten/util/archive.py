@@ -15,6 +15,9 @@ import zipfile
 _formats = {'gzip': ('.tar.gz', 'gz'), 'bzip2': ('.tar.bz2', 'bz2'),
             'zip': ('.zip', None)}
 
+class Error(Exception):
+    """Error raised when packing or unpacking a snapshot archive fails."""
+
 def index(env, prefix):
     """Generator that yields `(rev, format, path)` tuples for every archive in
     the environment snapshots directory that match the specified prefix.
@@ -45,13 +48,14 @@ def pack(env, repos=None, path=None, rev=None, prefix=None, format='gzip',
         repos = env.get_repository()
     root = repos.get_node(path or '/', rev)
     if not root.isdir:
-        raise Exception, '"%s" is not a directory' % path
+        raise Error, '"%s" is not a directory' % path
 
-    assert format in _formats, 'Unknown archive format: %s' % format
+    if format not in _formats:
+        raise Error, 'Unknown archive format: %s' % format
 
     filedir = os.path.join(env.path, 'snapshots')
     if not os.access(filedir, os.R_OK + os.W_OK):
-        raise IOError, 'Insufficient permissions to create tarball'
+        raise Error, 'Insufficient permissions to create tarball'
     if not prefix:
         prefix = root.path.replace('/', '-')
     prefix += '_r%s' % root.rev
@@ -73,17 +77,23 @@ def pack(env, repos=None, path=None, rev=None, prefix=None, format='gzip',
             for entry in node.get_entries():
                 _add_entry(entry)
         elif format in ('bzip2', 'gzip'):
-            info = tarfile.TarInfo(os.path.join(prefix, name))
-            info.type = tarfile.REGTYPE
-            info.mtime = node.last_modified
-            info.size = node.content_length
-            archive.addfile(info, node.get_content())
+            try:
+                info = tarfile.TarInfo(os.path.join(prefix, name))
+                info.type = tarfile.REGTYPE
+                info.mtime = node.last_modified
+                info.size = node.content_length
+                archive.addfile(info, node.get_content())
+            except tarfile.TarError, e:
+                raise Error, e
         else: # ZIP format
-            info = zipfile.ZipInfo(os.path.join(prefix, name))
-            info.compress_type = zipfile.ZIP_DEFLATED
-            info.date_time = time.gmtime(node.last_modified)[:6]
-            info.file_size = node.content_length
-            archive.writestr(info, node.get_content().read())
+            try:
+                info = zipfile.ZipInfo(os.path.join(prefix, name))
+                info.compress_type = zipfile.ZIP_DEFLATED
+                info.date_time = time.gmtime(node.last_modified)[:6]
+                info.file_size = node.content_length
+                archive.writestr(info, node.get_content().read())
+            except zipfile.error, e:
+                raise Error, e
     _add_entry(root)
 
     archive.close()
@@ -98,22 +108,28 @@ def unpack(filename, dest_path, format=None):
                 format = name
                 break
         if not format:
-            raise Exception, 'Unkown archive extension: %s' \
-                             % os.path.splitext(filename)[1]
+            raise Error, 'Unkown archive extension: %s' \
+                         % os.path.splitext(filename)[1]
 
     names = []
     if format in ('bzip2', 'gzip'):
-        tar_file = tarfile.open(filename)
-        for tarinfo in tar_file:
-            names.append(tarinfo.name)
-            tar_file.extract(tarinfo, dest_path)
+        try:
+            tar_file = tarfile.open(filename)
+            for tarinfo in tar_file:
+                names.append(tarinfo.name)
+                tar_file.extract(tarinfo, dest_path)
+        except tarfile.TarError, e:
+            raise Error, e
     elif format == 'zip':
-        zip_file = zipfile.ZipFile(filename, 'r')
-        for name in zip_file.namelist():
-            names.append(name)
-            path = os.path.join(dest_path, name)
-            if name.endswith('/'):
-                os.makedirs(path)
-            else:
-                file(path, 'wb').write(zip_file.read(name))
+        try:
+            zip_file = zipfile.ZipFile(filename, 'r')
+            for name in zip_file.namelist():
+                names.append(name)
+                path = os.path.join(dest_path, name)
+                if name.endswith('/'):
+                    os.makedirs(path)
+                else:
+                    file(path, 'wb').write(zip_file.read(name))
+        except zipfile.error:
+            raise Error, e
     return os.path.commonprefix(names)
