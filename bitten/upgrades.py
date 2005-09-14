@@ -50,6 +50,7 @@ def add_recipe_to_config(env, db):
 def add_config_to_reports(env, db):
     from bitten.model import Build
     try:
+        from bsddb3 import db
         import dbxml
     except ImportError, e:
         return
@@ -58,14 +59,20 @@ def add_config_to_reports(env, db):
     if not os.path.isfile(dbfile):
         return
 
-    mgr = dbxml.XmlManager()
+    dbenv = db.DBEnv()
+    dbenv.open(os.path.dirname(dbfile),
+               db.DB_CREATE | db.DB_INIT_LOCK | db.DB_INIT_LOG |
+               db.DB_INIT_MPOOL | db.DB_INIT_TXN, 0)
+
+    mgr = dbxml.XmlManager(dbenv, 0)
+    xtn = mgr.createTransaction()
     container = mgr.openContainer(dbfile)
     uc = mgr.createUpdateContext()
 
-    container.addIndex('', 'config', 'node-metadata-equality-string', uc)
+    container.addIndex(xtn, '', 'config', 'node-metadata-equality-string', uc)
 
     qc = mgr.createQueryContext()
-    for value in mgr.query('collection("%s")/report' % dbfile, qc):
+    for value in mgr.query(xtn, 'collection("%s")/report' % dbfile, qc):
         doc = value.asDocument()
         metaval = dbxml.XmlValue()
         if doc.getMetaData('', 'build', metaval):
@@ -73,10 +80,14 @@ def add_config_to_reports(env, db):
             build = Build.fetch(env, id=build_id, db=db)
             if build:
                 doc.setMetaData('', 'config', dbxml.XmlValue(build.config))
-                container.updateDocument(doc, uc)
+                container.updateDocument(xtn, doc, uc)
             else:
                 # an orphaned report, for whatever reason... just remove it
-                container.deleteDocument(doc, uc)
+                container.deleteDocument(xtn, doc, uc)
+
+    xtn.commit()
+    container.close()
+    dbenv.close(0)
 
 map = {
     2: [add_log_table],

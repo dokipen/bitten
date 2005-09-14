@@ -140,6 +140,7 @@ class Master(beep.Listener):
             build.update(db=db)
             store.delete(build=build)
         db.commit()
+        store.commit()
 
     def _cleanup_snapshots(self, when):
         log.debug('Checking for unused snapshot archives...')
@@ -324,20 +325,17 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
 
             elif cmd == 'ANS':
                 assert payload.content_type == beep.BEEP_XML
-                db = self.env.get_db_cnx()
                 elem = xmlio.parse(payload.body)
                 if elem.name == 'started':
                     self._build_started(build, elem, timestamp_delta)
                 elif elem.name == 'step':
-                    self._build_step_completed(db, build, elem, timestamp_delta)
+                    self._build_step_completed(build, elem, timestamp_delta)
                 elif elem.name == 'completed':
                     self._build_completed(build, elem, timestamp_delta)
                 elif elem.name == 'aborted':
-                    self._build_aborted(db, build)
+                    self._build_aborted(build)
                 elif elem.name == 'error':
                     build.status = Build.FAILURE
-                build.update(db=db)
-                db.commit()
 
         snapshot_format = {
             ('application/tar', 'bzip2'): 'bzip2',
@@ -361,10 +359,14 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
         build.status = Build.IN_PROGRESS
         log.info('Slave %s started build %d ("%s" as of [%s])',
                  self.name, build.id, build.config, build.rev)
+        build.update()
 
-    def _build_step_completed(self, db, build, elem, timestamp_delta=None):
+    def _build_step_completed(self, build, elem, timestamp_delta=None):
         log.debug('Slave completed step "%s" with status %s', elem.attr['id'],
                   elem.attr['result'])
+
+        db = self.env.get_db_cnx()
+
         step = BuildStep(self.env, build=build.id, name=elem.attr['id'],
                          description=elem.attr.get('description'))
         step.started = int(_parse_iso_datetime(elem.attr['time']))
@@ -391,10 +393,14 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
         for report in elem.children('report'):
             store.store(build, step, report)
 
+        db.commit()
+        store.commit()
+
     def _build_completed(self, build, elem, timestamp_delta=None):
         log.info('Slave %s completed build %d ("%s" as of [%s]) with status %s',
                  self.name, build.id, build.config, build.rev,
                  elem.attr['result'])
+
         build.stopped = int(_parse_iso_datetime(elem.attr['time']))
         if timestamp_delta:
             build.stopped -= timestamp_delta
@@ -402,21 +408,28 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
             build.status = Build.FAILURE
         else:
             build.status = Build.SUCCESS
+        build.update()
 
     def _build_aborted(self, db, build):
         log.info('Slave "%s" aborted build %d ("%s" as of [%s])',
                  self.name, build.id, build.config, build.rev)
 
+        db = self.env.get_db_cnx()
+
         for step in BuildStep.select(self.env, build=build.id, db=db):
             step.delete(db=db)
-
-        store = get_store(self.env)
-        store.delete(build=build)
 
         build.slave = None
         build.started = 0
         build.status = Build.PENDING
         build.slave_info = {}
+        build.update(db=db)
+
+        store = get_store(self.env)
+        store.delete(build=build)
+
+        db.commit()
+        store.commit()
 
 
 def _parse_iso_datetime(string):

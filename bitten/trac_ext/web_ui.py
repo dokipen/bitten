@@ -177,10 +177,19 @@ class BuildConfigController(Component):
         if 'cancel' in req.args:
             req.redirect(self.env.href.build(config_name))
 
-        config = BuildConfig.fetch(self.env, config_name)
+        db = self.env.get_db_cnx()
+
+        config = BuildConfig.fetch(self.env, config_name, db=db)
         assert config, 'Build configuration "%s" does not exist' % config_name
 
-        config.delete()
+        store = get_store(self.env)
+        store.delete(config=config)
+
+        config.delete(db=db)
+
+        db.commit()
+        store.commit()
+
         req.redirect(self.env.href.build())
 
     def _do_save_config(self, req, config_name):
@@ -235,6 +244,10 @@ class BuildConfigController(Component):
             self.log.info('Deleting target platform %s of configuration %s',
                           platform.name, platform.config)
             platform.delete(db=db)
+
+            # FIXME: this should probably also delete all builds done for this
+            # platform, and all the associated reports
+
         db.commit()
 
     def _do_save_platform(self, req, config_name, platform_id):
@@ -523,6 +536,7 @@ class BuildController(Component):
         build.update()
 
         db.commit()
+        store.commit()
 
         req.redirect(self.env.href.build(build.config))
 

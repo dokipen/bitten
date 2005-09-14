@@ -16,6 +16,15 @@ from bitten.util import xmlio
 
 class ReportStore(object):
 
+    def close(self):
+        raise NotImplementedError
+
+    def commit(self):
+        raise NotImplementedError
+
+    def rollback(self):
+        raise NotImplementedError
+
     def delete(self, config=None, build=None, step=None, type=None):
         raise NotImplementedError
 
@@ -32,6 +41,15 @@ class ReportStore(object):
 
 class NullReportStore(ReportStore):
 
+    def close(self):
+        pass
+
+    def commit(self):
+        pass
+
+    def rollback(self):
+        pass
+
     def delete(self, config=None, build=None, step=None, type=None):
         return
 
@@ -47,8 +65,10 @@ class NullReportStore(ReportStore):
 
 
 try:
+    from bsddb3 import db
     import dbxml
 except ImportError:
+    db = None
     dbxml = None
 
 
@@ -101,32 +121,94 @@ class BDBXMLReportStore(ReportStore):
 
     def __init__(self, path):
         self.path = path
-        self.mgr = dbxml.XmlManager()
+        self.env = None
+        self.mgr = None
+        self.container = None
+        self.xtn = None
+
+    def _lazyinit(self, create=False):
+        if self.container is not None:
+            if self.xtn is None:
+                self.xtn = self.mgr.createTransaction()
+            return True
+
+        exists = os.path.exists(self.path)
+        if not exists and not create:
+            return False
+
+        self.env = db.DBEnv()
+        self.env.open(os.path.dirname(self.path),
+                      db.DB_CREATE | db.DB_INIT_LOCK | db.DB_INIT_LOG |
+                      db.DB_INIT_MPOOL | db.DB_INIT_TXN, 0)
+        self.mgr = dbxml.XmlManager(self.env, 0)
+        self.xtn = self.mgr.createTransaction()
+
+        if not exists:
+            self.container = self.mgr.createContainer(self.path,
+                                                      dbxml.DBXML_TRANSACTIONAL)
+            ctxt = self.mgr.createUpdateContext()
+            for name, index in self.indices:
+                self.container.addIndex(self.xtn, '', name, index, ctxt)
+        else:
+            self.container = self.mgr.openContainer(self.path,
+                                                    dbxml.DBXML_TRANSACTIONAL)
+
+        return True
+
+    def __del__(self):
+        self.close()
+
+    def close(self):
+        if self.xtn:
+            self.xtn.abort()
+            self.xtn = None
+        if self.container is not None:
+            self.container.close()
+            self.container = None
+        if self.env is not None:
+            self.env.close(0)
+            self.env = None
+
+    def commit(self):
+        if not self.xtn:
+            return
+        self.xtn.commit()
+        self.xtn = None
+
+    def rollback(self):
+        if not self.xtn:
+            return
+        self.xtn.abort()
+        self.xtn = None
 
     def delete(self, config=None, build=None, step=None, type=None):
-        container = self._open_container()
+        if not self._lazyinit(create=False):
+            return
+
+        container = self ._open_container()
         if not container:
             return
         ctxt = self.mgr.createUpdateContext()
         for elem in self.query('return $reports', config=config, build=build,
                                step=step, type=type):
-            container.deleteDocument(elem._value.asDocument(), ctxt)
+            container.deleteDocument(self.xtn, elem._value.asDocument(), ctxt)
 
     def store(self, build, step, xml):
         assert xml.name == 'report' and 'type' in xml.attr
-        container = self._open_container(create=True)
+        assert self._lazyinit(create=True)
+
         ctxt = self.mgr.createUpdateContext()
         doc = self.mgr.createDocument()
         doc.setContent(str(xml))
         doc.setMetaData('', 'config', dbxml.XmlValue(build.config))
         doc.setMetaData('', 'build', dbxml.XmlValue(build.id))
         doc.setMetaData('', 'step', dbxml.XmlValue(step.name))
-        container.putDocument(doc, ctxt, dbxml.DBXML_GEN_NAME)
+        self.container.putDocument(self.xtn, doc, ctxt, dbxml.DBXML_GEN_NAME)
 
     def query(self, xquery, config=None, build=None, step=None, type=None):
-        container = self._open_container()
-        if not container:
+        if not self._lazyinit(create=False):
             return
+
         ctxt = self.mgr.createQueryContext()
 
         constraints = []
@@ -144,24 +226,12 @@ class BDBXMLReportStore(ReportStore):
             query += '[%s]' % ' and '.join(constraints)
         query += '\n' + (xquery or 'return $reports')
 
-        results = self.mgr.query(query, ctxt)
+        results = self.mgr.query(self.xtn, query, ctxt, dbxml.DBXML_LAZY_DOCS)
         for value in results:
             yield BDBXMLReportStore.XmlValueAdapter(value)
 
     def retrieve(self, build, step=None, type=None):
         return self.query('', build=build, step=step, type=type)
-
-    def _open_container(self, create=False):
-        if not os.path.exists(self.path):
-            if not create:
-                return None
-            container = self.mgr.createContainer(self.path)
-            ctxt = self.mgr.createUpdateContext()
-            for name, index in self.indices:
-                container.addIndex('', name, index, ctxt)
-        else:
-            container = self.mgr.openContainer(self.path)
-        return container
 
 
 def get_store(env):

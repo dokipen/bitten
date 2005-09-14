@@ -21,12 +21,12 @@ from bitten.util import xmlio
 class BDBXMLReportStoreTestCase(unittest.TestCase):
 
     def setUp(self):
-        self.path = os.path.join(tempfile.gettempdir(), 'bitten_test.dbxml')
-        self.store = BDBXMLReportStore(self.path)
+        self.path = tempfile.mkdtemp(prefix='bitten-test')
+        self.store = BDBXMLReportStore(os.path.join(self.path, 'test.dbxml'))
 
     def tearDown(self):
-        self.store = None
-        os.unlink(self.path)
+        self.store.close()
+        shutil.rmtree(self.path)
 
     def test_store_report(self):
         """
