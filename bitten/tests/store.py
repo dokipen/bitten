@@ -77,6 +77,27 @@ class BDBXMLReportStoreTestCase(unittest.TestCase):
 
         self.assertEqual(2, len(list(self.store.retrieve(build))))
 
+    def test_delete_reports_for_build(self):
+        """
+        Verify that the reports for a build can be deleted.
+        """
+        build = Mock(id=42, config='trunk')
+        step_foo = Mock(name='foo')
+        step_bar = Mock(name='bar')
+        xml = xmlio.Element('report', type='test')[xmlio.Element('dummy')]
+        self.store.store(build, step_foo, xml)
+        xml = xmlio.Element('report', type='lint')[xmlio.Element('dummy')]
+        self.store.store(build, step_bar, xml)
+
+        other_build = Mock(id=66, config='trunk')
+        step_baz = Mock(name='foo')
+        xml = xmlio.Element('report', type='test')[xmlio.Element('dummy')]
+        self.store.store(other_build, step_baz, xml)
+
+        self.store.delete(build=build)
+        self.assertEqual(0, len(list(self.store.retrieve(build))))
+        self.assertEqual(1, len(list(self.store.retrieve(other_build))))
+
 
 def suite():
     suite = unittest.TestSuite()

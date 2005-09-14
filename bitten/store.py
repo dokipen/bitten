@@ -185,13 +185,11 @@ class BDBXMLReportStore(ReportStore):
         if not self._lazyinit(create=False):
             return
 
-        container = self ._open_container()
-        if not container:
-            return
         ctxt = self.mgr.createUpdateContext()
         for elem in self.query('return $reports', config=config, build=build,
                                step=step, type=type):
-            container.deleteDocument(self.xtn, elem._value.asDocument(), ctxt)
+            self.container.deleteDocument(self.xtn, elem._value.asDocument(),
+                                          ctxt)
 
     def store(self, build, step, xml):
         assert xml.name == 'report' and 'type' in xml.attr
