@@ -16,6 +16,7 @@ except:
 import sys
 import time
 from distutils.core import Command
+from distutils.errors import DistutilsExecError, DistutilsOptionError
 from unittest import _TextTestResult, TextTestRunner
 
 from bitten.util.xmlio import Element, SubElement
@@ -123,7 +124,8 @@ class unittest(Command):
         self.coverage_dir = None
 
     def finalize_options(self):
-        assert self.test_suite, 'Missing required attribute "test-suite"'
+        if not self.test_suite:
+            raise DistutilsOptionError, 'Missing required attribute test-suite'
         if self.xml_results is not None:
             if not os.path.exists(os.path.dirname(self.xml_results)):
                 os.makedirs(os.path.dirname(self.xml_results))

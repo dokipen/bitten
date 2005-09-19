@@ -25,11 +25,17 @@ log = logging.getLogger('bitten.slave')
 class Slave(beep.Initiator):
     """Build slave."""
 
-    def __init__(self, ip, port, name=None, config=None, dry_run=False):
+    def __init__(self, ip, port, name=None, config=None, dry_run=False,
+                 work_dir=None):
         beep.Initiator.__init__(self, ip, port)
         self.name = name
         self.config = config
         self.dry_run = dry_run
+        if not work_dir:
+            work_dir = tempfile.mkdtemp(prefix='bitten')
+        elif not os.path.exists(work_dir):
+            os.makedirs(work_dir)
+        self.work_dir = work_dir
 
     def greeting_received(self, profiles):
         if OrchestrationProfileHandler.URI not in profiles:
@@ -113,8 +119,6 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
 
         elif payload.content_type in ('application/tar', 'application/zip'):
             # Received snapshot archive for build
-            workdir = tempfile.mkdtemp(prefix='bitten')
-
             archive_name = payload.content_disposition
             if not archive_name:
                 if payload.content_type == 'application/tar':
@@ -126,20 +130,22 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
                         archive_name = 'snapshot.tar'
                 else:
                     archive_name = 'snapshot.zip'
-            archive_path = os.path.join(workdir, archive_name)
+            archive_path = os.path.join(self.session.work_dir, archive_name)
 
             archive_file = file(archive_path, 'wb')
             try:
                 shutil.copyfileobj(payload.body, archive_file)
             finally:
                 archive_file.close()
+            os.chmod(archive_path, 0400)
 
             log.debug('Received snapshot archive: %s', archive_path)
 
             # Unpack the archive
             try:
-                prefix = archive.unpack(archive_path, workdir)
-                path = os.path.join(workdir, prefix)
+                prefix = archive.unpack(archive_path, self.session.work_dir)
+                path = os.path.join(self.session.work_dir, prefix)
+                os.chmod(path, 0700)
                 log.debug('Unpacked snapshot to %s' % path)
             except archive.Error, e:
                 xml = xmlio.Element('error', code=550)[
@@ -150,14 +156,11 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
                           exc_info=True)
                 return
 
-            # Fix permissions
-            for root, dirs, files in os.walk(workdir, topdown=False):
-                for dirname in dirs:
-                    os.chmod(os.path.join(root, dirname), 0700)
-                for filename in files:
-                    os.chmod(os.path.join(root, filename), 0400)
-
-            self.execute_build(msgno, Recipe(self.recipe_xml, path))
+            try:
+                self.execute_build(msgno, Recipe(self.recipe_xml, path))
+            finally:
+                shutil.rmtree(path)
+                os.unlink(archive_path)
 
     def execute_build(self, msgno, recipe):
         log.info('Building in directory %s', recipe.ctxt.basedir)
@@ -242,8 +245,10 @@ def main():
                           version='%%prog %s' % VERSION)
     parser.add_option('--name', action='store', dest='name',
                       help='name of this slave (defaults to host name)')
-    parser.add_option('-c', '--config', action='store', dest='config',
+    parser.add_option('-f', '--config', action='store', dest='config',
                       metavar='FILE', help='path to configuration file')
+    parser.add_option('-d', '--work-dir', action='store', dest='work_dir',
+                      metavar='DIR', help='working directory for builds')
     parser.add_option('-n', '--dry-run', action='store_const', dest='dry_run',
                       const=True, help='don\'t report results back to master')
     parser.add_option('--debug', action='store_const', dest='loglevel',
@@ -276,11 +281,14 @@ def main():
     logger.addHandler(handler)
 
     slave = Slave(host, port, name=options.name, config=options.config,
-                  dry_run=options.dry_run)
+                  dry_run=options.dry_run, work_dir=options.work_dir)
     try:
         slave.run()
     except KeyboardInterrupt:
         slave.quit()
+
+    if os.path.isdir(slave.work_dir):
+        shutil.rmtree(slave.work_dir)
 
 if __name__ == '__main__':
     main()
