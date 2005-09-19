@@ -28,7 +28,8 @@ Installation
 
 Bitten is written in Python, so make sure that you have Python installed.
 You'll need Python 2.3 or later. Also, make sure that setuptools
-(http://peak.telecommunity.com/DevCenter/setuptools) is installed.
+(http://peak.telecommunity.com/DevCenter/setuptools), version 0.6a2 or later,
+is installed.
 
 If that's taken care of, you just need to download and unpack the Bitten
 distribution, and execute the command:
@@ -52,18 +53,16 @@ done. You might need to install software that the build of your project
 requires, but the Bitten build slave itself doesn't require anything extra.
 
 For the build master and web interface, you'll need to install Trac 0.9
-beta 1 and Berkeley DB XML >= 2.1.x
-(http://www.sleepycat.com/products/xml.shtml), as well as their respective
-dependencies. Please refer to the documentation of those projects for
-information how they are installed.
+beta 2. Please refer to the Trac documentation for information on how it is 
+installed.
 
 
 Build Master Configuration
 --------------------------
 
-Once Bitten, Trac and BDB XML are installed and working, you'll have to
-introduce Bitten to your Trac project environment. If you don't have a 
-Trac project set up yet, you'll need to do so in order to use Bitten.
+Once both Bitten and Trac are installed and working, you'll have to introduce
+Bitten to your Trac project environment. If you don't have a  Trac project
+set up yet, you'll need to do so in order to use Bitten.
 
 If you already have a Trac project environment, the Trac web interface
 will inform you with an error message that the environment needs to be
@@ -92,38 +91,38 @@ Running the Build Master
 ------------------------
 
 At this point, you're ready to start the Bitten build master. The
-installation of Bitten should have put a `bittend` script on your path.
-If the script is not on your path, look for it in the `bin` or `scripts`
-subdirectory of your Python installation.
+installation of Bitten should have put a `bitten-master` executable on your
+path. If the script is not on your path, look for it in the `bin` or
+`scripts` subdirectory of your Python installation.
 
-To find out about the options and arguments of the script, execute it with
+To find out about the options and arguments of the master, execute it with
 the `--help` option as follows:
 
-  $ bittend --help
+  $ bitten-master --help
 
 Most commonly, you'll want to specify the log level and log file, as well as
 the path to the Trac environment:
 
-  $ bittend --verbose --log=/var/log/bittend /var/trac/myproject
+  $ bitten-master --verbose --log=/var/log/bittend /var/trac/myproject
 
 
 Running the Build Slave
 -----------------------
 
 The build slave can be run on any machine that can connect to the machine
-on which the build master is running. Just as with the build master script,
-you should find the build slave script on your path after the installation.
-The build slave script is called `bitten`.
+on which the build master is running. Just as with the build master, you
+should find the build slave executable on your path after the installation.
+The executable file is called `bitten-slave`.
 
 To get a list of options for the build slave, execute it with the `--help`
 option:
 
-  $ bitten --help
+  $ bitten-slave --help
 
 To run the build slave against a slave installed on myproject.example.org,
 you'd run:
 
-  $ bitten myproject.example.org
+  $ bitten-slave myproject.example.org
 
 
 More Information
