@@ -132,7 +132,7 @@ class Master(beep.Listener):
             build.slave = None
             build.slave_info = {}
             build.started = 0
-            for step in BuildStep.select(self.env, build=build.id, db=db):
+            for step in list(BuildStep.select(self.env, build=build.id, db=db)):
                 step.delete(db=db)
             build.update(db=db)
         db.commit()
@@ -203,7 +203,7 @@ class Master(beep.Listener):
                                   status=Build.IN_PROGRESS, db=db):
             log.info('Build %d ("%s" as of [%s]) cancelled by  %s', build.id,
                      build.rev, build.config, handler.name)
-            for step in BuildStep.select(self.env, build=build.id):
+            for step in list(BuildStep.select(self.env, build=build.id)):
                 step.delete(db=db)
 
             build.slave = None
@@ -357,8 +357,8 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
         build.update()
 
     def _build_step_completed(self, build, elem, timestamp_delta=None):
-        log.debug('Slave completed step "%s" with status %s', elem.attr['id'],
-                  elem.attr['result'])
+        log.debug('Slave %s completed step "%s" with status %s', self.name,
+                  elem.attr['id'], elem.attr['result'])
 
         db = self.env.get_db_cnx()
 
@@ -417,12 +417,12 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
         build.update()
 
     def _build_aborted(self, build):
-        log.info('Slave "%s" aborted build %d ("%s" as of [%s])',
+        log.info('Slave %s aborted build %d ("%s" as of [%s])',
                  self.name, build.id, build.config, build.rev)
 
         db = self.env.get_db_cnx()
 
-        for step in BuildStep.select(self.env, build=build.id, db=db):
+        for step in list(BuildStep.select(self.env, build=build.id, db=db)):
             step.delete(db=db)
 
         build.slave = None
