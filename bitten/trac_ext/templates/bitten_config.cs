@@ -3,9 +3,20 @@
  <div id="content" class="build">
   <h1><?cs var:title ?></h1><?cs
 
-  if:page.mode == 'overview' ?><?cs
+  if:page.mode == 'overview' ?>
+   <form id="prefs" method="get">
+    <div>
+     <input type="checkbox" id="showall" name="show" value="all"<?cs
+      if:config.show_all ?> checked="checked"<?cs /if ?> />
+     <label for="showall">Show deactivated configurations</label>
+    </div>
+    <div class="buttons">
+     <input type="submit" value="Update" />
+    </div>
+   </form><?cs
    each:config = configs ?>
-    <h2><a href="<?cs var:config.href ?>"><?cs var:config.label ?></a></h2><?cs
+    <h2<?cs if:!config.active ?> class="deactivated"<?cs /if ?>><a href="<?cs
+      var:config.href ?>"><?cs var:config.label ?></a></h2><?cs
     if:config.description ?><div class="description"><?cs
      var:config.description ?></div><?cs
     /if ?><?cs

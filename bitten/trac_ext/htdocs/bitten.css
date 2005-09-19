@@ -4,6 +4,7 @@
  background-image: url(bitten_build.png) !important
 }
 
+#content.build h2.deactivated { text-decoration: line-through; }
 #content.build #prefs { line-height: 1.4em; }
 
 #content.build form.config th { text-align: left; }

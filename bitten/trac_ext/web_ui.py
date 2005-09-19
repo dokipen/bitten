@@ -289,14 +289,20 @@ class BuildConfigController(Component):
 
     def _render_overview(self, req):
         req.hdf['title'] = 'Build Status'
-        configurations = BuildConfig.select(self.env, include_inactive=True)
+        show_all = False
+        if req.args.get('show') == 'all':
+            show_all = True
+        req.hdf['config.show_all'] = show_all
+
+        configurations = BuildConfig.select(self.env, include_inactive=show_all)
         for idx, config in enumerate(configurations):
             description = config.description
             if description:
                 description = wiki_to_html(description, self.env, req)
             req.hdf['configs.%d' % idx] = {
                 'name': config.name, 'label': config.label or config.name,
-                'path': config.path, 'description': description,
+                'active': config.active, 'path': config.path,
+                'description': description,
                 'href': self.env.href.build(config.name),
             }
         req.hdf['page.mode'] = 'overview'
