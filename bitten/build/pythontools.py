@@ -69,7 +69,7 @@ def pylint(ctxt, file_=None):
                         r'(?P<msg>.*)$')
     msg_categories = dict(W='warning', E='error', C='convention', R='refactor')
 
-    problems = xmlio.Element('problems')
+    problems = xmlio.Fragment()
     try:
         fd = open(ctxt.resolve(file_), 'r')
         try:
@@ -88,7 +88,7 @@ def pylint(ctxt, file_=None):
                     xmlio.SubElement(problems, 'problem', category=category,
                                      type=msg_type, tag=tag, file=filename,
                                      line=lineno)[match.group('msg') or '']
-            ctxt.report(problems)
+            ctxt.report('lint', problems)
         finally:
             fd.close()
     except IOError, e:
@@ -127,8 +127,8 @@ def trace(ctxt, summary=None, coverdir=None, include=None, exclude=None):
                             continue
                         missing_files.remove(filename)
                         covered_modules.add(modname)
-                        module = xmlio.Element('coverage', file=filename,
-                                               module=modname, percentage=cov)
+                        module = xmlio.Element('coverage', name=modname,
+                                               file=filename, percentage=cov)
                         coverage_path = ctxt.resolve(coverdir,
                                                      modname + '.cover')
                         if not os.path.exists(coverage_path):
@@ -136,17 +136,24 @@ def trace(ctxt, summary=None, coverdir=None, include=None, exclude=None):
                                         modname, coverage_path)
                             continue
                         coverage_file = open(coverage_path, 'r')
+                        num_lines = 0
+                        lines = []
                         try:
                             for num, coverage_line in enumerate(coverage_file):
                                 match = coverage_line_re.search(coverage_line)
                                 if match:
                                     hits = match.group(1)
                                     if hits:
-                                        line = xmlio.Element('line', line=num,
-                                                             hits=int(hits))
-                                        module.append(line)
+                                        lines.append(hits)
+                                        num_lines += 1
+                                    else:
+                                        if coverage_line.startswith('>'):
+                                            num_lines += 1
+                                        lines.append('0')
                         finally:
                             coverage_file.close()
+                        module.attr['lines'] = len(lines)
+                        module.append(xmlio.Element('line_hits')[' '.join(lines)])
                         coverage.append(module)
 
             for filename in missing_files:
@@ -154,20 +161,21 @@ def trace(ctxt, summary=None, coverdir=None, include=None, exclude=None):
                 if modname in covered_modules:
                     continue
                 covered_modules.add(modname)
-                module = xmlio.Element('coverage', module=modname,
+                module = xmlio.Element('coverage', name=modname,
                                        file=filename, percentage=0)
                 filepath = ctxt.resolve(filename)
                 fileobj = file(filepath, 'r')
                 try:
+                    lines = 0
                     for lineno, linetype, line in loc.count(fileobj):
                         if linetype == loc.CODE:
-                            line = xmlio.Element('line', line=lineno, hits=0)
-                            module.append(line)
+                            lines += 1
+                    module.attr['lines'] = lines
                 finally:
                     fileobj.close()
                 coverage.append(module)
 
-            ctxt.report(coverage)
+            ctxt.report('coverage', coverage)
         finally:
             summary_file.close()
     except IOError, e:
@@ -192,9 +200,9 @@ def unittest(ctxt, file_=None):
                             continue
                     test.attr[name] = value
                 for grandchild in child.children():
-                    test.append(grandchild)
+                    test.append(xmlio.Element(grandchild.name)[grandchild.gettext()])
                 results.append(test)
-            ctxt.report(results)
+            ctxt.report('test', results)
         finally:
             fd.close()
     except IOError, e:

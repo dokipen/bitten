@@ -12,73 +12,89 @@ from trac.util import escape
 from trac.web.chrome import Chrome
 from trac.web.clearsilver import HDFWrapper
 from bitten.model import BuildConfig
-from bitten.store import get_store
 from bitten.trac_ext.api import IReportSummarizer
 
 
-class XQuerySummarizer(Component):
-    abstract = True
+class TestResultsSummarizer(Component):
     implements(IReportSummarizer)
 
-    query = None
-    report_type = None
-    template = None
+    def get_supported_categories(self):
+        return ['test']
 
-    def get_supported_report_types(self):
-        return [self.report_type]
+    def render_summary(self, req, build, step, category):
+        assert category == 'test'
 
-    def render_report_summary(self, req, build, step, report):
         hdf = HDFWrapper(loadpaths=Chrome(self.env).get_all_templates_dirs())
-        config = BuildConfig.fetch(self.env, name=build.config)
-        store = get_store(self.env)
-        results = store.query(self.query, config=config, build=build, step=step,
-                              type=self.report_type)
-        for idx, elem in enumerate(results):
-            data = {}
-            for name, value in elem.attr.items():
-                if name == 'file':
-                    data['href'] = escape(self.env.href.browser(config.path,
-                                                                value,
-                                                                rev=build.rev))
-                data[name] = escape(value)
-            hdf['data.%d' % idx] = data
+        db = self.env.get_db_cnx()
+        cursor = db.cursor()
+        cursor.execute("""
+SELECT item_fixture.value AS fixture, item_file.value AS file,
+       COUNT(item_success.value) AS num_success,
+       COUNT(item_failure.value) AS num_failure,
+       COUNT(item_error.value) AS num_error
+FROM bitten_report AS report
+ LEFT OUTER JOIN bitten_report_item AS item_fixture
+  ON (item_fixture.report=report.id AND item_fixture.name='fixture')
+ LEFT OUTER JOIN bitten_report_item AS item_file
+  ON (item_file.report=report.id AND item_file.item=item_fixture.item AND
+      item_file.name='file')
+ LEFT OUTER JOIN bitten_report_item AS item_success
+  ON (item_success.report=report.id AND item_success.item=item_fixture.item AND
+      item_success.name='status' AND item_success.value='success')
+ LEFT OUTER JOIN bitten_report_item AS item_failure
+  ON (item_failure.report=report.id AND item_failure.item=item_fixture.item AND
+      item_failure.name='status' AND item_failure.value='failure')
+ LEFT OUTER JOIN bitten_report_item AS item_error
+  ON (item_error.report=report.id AND item_error.item=item_fixture.item AND
+      item_error.name='status' AND item_error.value='error')
+WHERE category='test' AND build=%s
+GROUP BY file, fixture ORDER BY fixture""", (build.id,))
 
-        return hdf.render(self.template)
+        data = []
+        for fixture, file, num_success, num_failure, num_error in cursor:
+            data.append({'name': fixture, 'href': self.env.href.browser(file),
+                         'num_success': num_success, 'num_error': num_error,
+                         'num_failure': num_failure})
 
-
-class TestResultsSummarizer(XQuerySummarizer):
-
-    report_type = 'unittest'
-    template = 'bitten_summary_tests.cs'
-
-    query = """
-for $report in $reports
-return
-    for $fixture in distinct-values($report/test/@fixture)
-    order by $fixture
-    return
-        let $tests := $report/test[@fixture=$fixture]
-        return
-            <test name="{$fixture}" file="{$tests[1]/@file}"
-                  success="{count($tests[@status='success'])}"
-                  errors="{count($tests[@status='error'])}"
-                  failures="{count($tests[@status='failure'])}"/>
-"""
+        hdf['data'] = data
+        return hdf.render('bitten_summary_tests.cs')
 
 
+class CodeCoverageSummarizer(Component):
+    implements(IReportSummarizer)
 
-class CodeCoverageSummarizer(XQuerySummarizer):
+    def get_supported_categories(self):
+        return ['coverage']
 
-    report_type = 'trace'
-    template = 'bitten_summary_coverage.cs'
+    def render_summary(self, req, build, step, category):
+        assert category == 'coverage'
 
-    query = """
-for $report in $reports
-where $report/@type = 'trace'
-return
-    for $coverage in $report/coverage
-    order by $coverage/@file
-    return
-        <unit file="{$coverage/@file}" name="{$coverage/@module}"
-              loc="{count($coverage/line)}" cov="{$coverage/@percentage}%"/>
-"""
+        hdf = HDFWrapper(loadpaths=Chrome(self.env).get_all_templates_dirs())
+        db = self.env.get_db_cnx()
+        cursor = db.cursor()
+        cursor.execute("""
+SELECT item_name.value AS unit, item_file.value AS file,
+       item_lines.value AS loc, item_percentage.value AS cov
+FROM bitten_report AS report
+ LEFT OUTER JOIN bitten_report_item AS item_name
+  ON (item_name.report=report.id AND item_name.name='name')
+ LEFT OUTER JOIN bitten_report_item AS item_file
+  ON (item_file.report=report.id AND item_file.item=item_name.item AND
+      item_file.name='file')
+ LEFT OUTER JOIN bitten_report_item AS item_lines
+  ON (item_lines.report=report.id AND item_lines.item=item_name.item AND
+      item_lines.name='lines')
+ LEFT OUTER JOIN bitten_report_item AS item_percentage
+  ON (item_percentage.report=report.id AND
+      item_percentage.item=item_name.item AND
+      item_percentage.name='percentage')
+WHERE category='coverage' AND build=%s
+GROUP BY file, unit ORDER BY unit""", (build.id,))
+
+        data = []
+        for unit, file, loc, cov in cursor:
+            data.append({'name': unit, 'href': self.env.href.browser(file),
+                         'loc': loc, 'cov': cov})
+
+        hdf['data'] = data
+        return hdf.render('bitten_summary_coverage.cs')

@@ -8,8 +8,10 @@
 # are also available at http://bitten.cmlenz.net/wiki/License.
 
 import os
+import sys
 
 def add_log_table(env, db):
+    """Add a table for storing the builds logs."""
     from bitten.model import BuildLog, BuildStep
     cursor = db.cursor()
 
@@ -34,6 +36,9 @@ def add_log_table(env, db):
                    "started,stopped FROM old_step")
 
 def add_recipe_to_config(env, db):
+    """Add a column for storing the build recipe to the build configuration
+    table."""
+
     from bitten.model import BuildConfig
     cursor = db.cursor()
 
@@ -48,9 +53,12 @@ def add_recipe_to_config(env, db):
                    "NULL,label,description FROM old_config")
 
 def add_config_to_reports(env, db):
+    """Add the name of the build configuration as metadata to report documents
+    stored in the BDB XML database."""
+
     from bitten.model import Build
     try:
-        from bsddb3 import db
+        from bsddb3 import db as bdb
         import dbxml
     except ImportError, e:
         return
@@ -59,14 +67,14 @@ def add_config_to_reports(env, db):
     if not os.path.isfile(dbfile):
         return
 
-    dbenv = db.DBEnv()
+    dbenv = bdb.DBEnv()
     dbenv.open(os.path.dirname(dbfile),
-               db.DB_CREATE | db.DB_INIT_LOCK | db.DB_INIT_LOG |
-               db.DB_INIT_MPOOL | db.DB_INIT_TXN, 0)
+               bdb.DB_CREATE | bdb.DB_INIT_LOCK | bdb.DB_INIT_LOG |
+               bdb.DB_INIT_MPOOL | bdb.DB_INIT_TXN, 0)
 
     mgr = dbxml.XmlManager(dbenv, 0)
     xtn = mgr.createTransaction()
-    container = mgr.openContainer(dbfile)
+    container = mgr.openContainer(dbfile, dbxml.DBXML_TRANSACTIONAL)
     uc = mgr.createUpdateContext()
 
     container.addIndex(xtn, '', 'config', 'node-metadata-equality-string', uc)
@@ -89,8 +97,122 @@ def add_config_to_reports(env, db):
     container.close()
     dbenv.close(0)
 
+def add_order_to_log(env, db):
+    """Add order column to log table to make sure that build logs are displayed
+    in the order they were generated."""
+    from bitten.model import BuildLog
+    cursor = db.cursor()
+
+    cursor.execute("CREATE TEMP TABLE old_log AS "
+                   "SELECT * FROM bitten_log")
+    cursor.execute("DROP TABLE bitten_log")
+    for stmt in db.to_sql(BuildLog._schema[0]):
+        cursor.execute(stmt)
+    cursor.execute("INSERT INTO bitten_log (id,build,step,generator,orderno) "
+                   "SELECT id,build,step,type,0 FROM old_log")
+
+def add_report_tables(env, db):
+    """Add database tables for report storage."""
+    from bitten.model import Report
+    cursor = db.cursor()
+
+    for table in Report._schema:
+        for stmt in db.to_sql(table):
+            cursor.execute(stmt)
+
+def xmldb_to_db(env, db):
+    """Migrate report data from Berkeley DB XML to SQL database.
+    
+    Depending on the number of reports stored, this might take rather long.
+    After the upgrade is done, the bitten.dbxml file (and any BDB XML log files)
+    may be deleted. BDB XML is no longer used by Bitten.
+    """
+    from bitten.model import Report
+    from bitten.util import xmlio
+    try:
+        from bsddb3 import db as bdb
+        import dbxml
+    except ImportError, e:
+        return
+
+    dbfile = os.path.join(env.path, 'db', 'bitten.dbxml')
+    if not os.path.isfile(dbfile):
+        return
+
+    dbenv = bdb.DBEnv()
+    dbenv.open(os.path.dirname(dbfile),
+               bdb.DB_CREATE | bdb.DB_INIT_LOCK | bdb.DB_INIT_LOG |
+               bdb.DB_INIT_MPOOL | bdb.DB_INIT_TXN, 0)
+
+    mgr = dbxml.XmlManager(dbenv, 0)
+    xtn = mgr.createTransaction()
+    container = mgr.openContainer(dbfile, dbxml.DBXML_TRANSACTIONAL)
+
+    def get_pylint_items(xml):
+        for problems_elem in xml.children('problems'):
+            for problem_elem in problems_elem.children('problem'):
+                item = {'type': 'problem'}
+                item.update(problem_elem.attr)
+                yield item
+
+    def get_trace_items(xml):
+        for cov_elem in xml.children('coverage'):
+            item = {'type': 'coverage', 'name': cov_elem.attr['module'],
+                    'file': cov_elem.attr['file'],
+                    'percentage': cov_elem.attr['percentage']}
+            lines = 0
+            line_hits = []
+            for line_elem in cov_elem.children('line'):
+                lines += 1
+                line_hits.append(line_elem.attr['hits'])
+            item['lines'] = lines
+            item['line_hits'] = ' '.join(line_hits)
+            yield item
+
+    def get_unittest_items(xml):
+        for test_elem in xml.children('test'):
+            item = {'type': 'test'}
+            item.update(test_elem.attr)
+            for child_elem in test_elem.children():
+                item[child_elem.name] = child_elem.gettext()
+            yield item
+
+    qc = mgr.createQueryContext()
+    for value in mgr.query(xtn, 'collection("%s")/report' % dbfile, qc, 0):
+        doc = value.asDocument()
+        metaval = dbxml.XmlValue()
+        build, step = None, None
+        if doc.getMetaData('', 'build', metaval):
+            build = metaval.asNumber()
+        if doc.getMetaData('', 'step', metaval):
+            step = metaval.asString()
+
+        report_types = {'pylint':   ('lint', get_pylint_items),
+                        'trace':    ('coverage', get_trace_items),
+                        'unittest': ('test', get_unittest_items)}
+        xml = xmlio.parse(value.asString())
+        report_type = xml.attr['type']
+        category, get_items = report_types[report_type]
+        sys.stderr.write('.')
+        sys.stderr.flush()
+        report = Report(env, build, step, category=category,
+                        generator=report_type)
+        report.items = list(get_items(xml))
+        try:
+            report.insert(db=db)
+        except AssertionError:
+            # Duplicate report, skip
+            pass
+    sys.stderr.write('\n')
+    sys.stderr.flush()
+
+    xtn.abort()
+    container.close()
+    dbenv.close(0)
+
 map = {
     2: [add_log_table],
     3: [add_recipe_to_config],
-    4: [add_config_to_reports]
+    4: [add_config_to_reports],
+    5: [add_order_to_log, add_report_tables, xmldb_to_db]
 }

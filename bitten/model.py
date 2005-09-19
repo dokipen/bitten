@@ -7,6 +7,11 @@
 # you should have received as part of this distribution. The terms
 # are also available at http://bitten.cmlenz.net/wiki/License.
 
+try:
+    set
+except NameError:
+    from sets import Set as set
+
 from trac.db_default import Table, Column, Index
 
 
@@ -51,10 +56,10 @@ class BuildConfig(object):
         else:
             handle_ta = False
 
-        for platform in TargetPlatform.select(self.env, self.name, db=db):
+        for platform in list(TargetPlatform.select(self.env, self.name, db=db)):
             platform.delete(db=db)
 
-        for build in Build.select(self.env, config=self.name, db=db):
+        for build in list(Build.select(self.env, config=self.name, db=db)):
             build.delete(db=db)
 
         cursor = db.cursor()
@@ -363,7 +368,7 @@ class Build(object):
         else:
             handle_ta = False
 
-        for step in BuildStep.select(self.env, build=self.id):
+        for step in list(BuildStep.select(self.env, build=self.id)):
             step.delete(db=db)
 
         cursor = db.cursor()
@@ -528,8 +533,12 @@ class BuildStep(object):
         else:
             handle_ta = False
 
-        for log in BuildLog.select(self.env, build=self.build, step=self.name):
+        for log in list(BuildLog.select(self.env, build=self.build,
+                                        step=self.name, db=db)):
             log.delete(db=db)
+        for report in list(Report.select(self.env, build=self.build,
+                                         step=self.name, db=db)):
+            report.delete(db=db)
 
         cursor = db.cursor()
         cursor.execute("DELETE FROM bitten_step WHERE build=%s AND name=%s",
@@ -607,7 +616,8 @@ class BuildLog(object):
     _schema = [
         Table('bitten_log', key='id')[
             Column('id', auto_increment=True), Column('build', type='int'),
-            Column('step'), Column('type')
+            Column('step'), Column('generator'), Column('orderno', type='int'),
+            Index(['build', 'step'])
         ],
         Table('bitten_log_message', key=('log', 'line'))[
             Column('log', type='int'), Column('line', type='int'),
@@ -621,7 +631,8 @@ class BuildLog(object):
     WARNING = 'W'
     ERROR = 'E'
 
-    def __init__(self, env, build=None, step=None, type=None):
+    def __init__(self, env, build=None, step=None, generator=None,
+                 orderno=None):
         """Initialize a new build log with the specified attributes.
 
         To actually create this build log in the database, the `insert` method
@@ -631,7 +642,8 @@ class BuildLog(object):
         self.id = None
         self.build = build
         self.step = step
-        self.type = type
+        self.generator = generator or ''
+        self.orderno = orderno and int(orderno) or 0
         self.messages = []
 
     exists = property(fget=lambda self: self.id is not None)
@@ -665,8 +677,9 @@ class BuildLog(object):
         assert self.build and self.step
 
         cursor = db.cursor()
-        cursor.execute("INSERT INTO bitten_log (build,step,type) "
-                       "VALUES (%s,%s,%s)", (self.build, self.step, self.type))
+        cursor.execute("INSERT INTO bitten_log (build,step,generator,orderno) "
+                       "VALUES (%s,%s,%s,%s)", (self.build, self.step,
+                       self.generator, self.orderno))
         id = db.get_last_id(cursor, 'bitten_log')
         cursor.executemany("INSERT INTO bitten_log_message "
                            "(log,line,level,message) VALUES (%s,%s,%s,%s)",
@@ -683,12 +696,12 @@ class BuildLog(object):
             db = env.get_db_cnx()
 
         cursor = db.cursor()
-        cursor.execute("SELECT build,step,type FROM bitten_log "
+        cursor.execute("SELECT build,step,generator,orderno FROM bitten_log "
                        "WHERE id=%s", (id,))
         row = cursor.fetchone()
         if not row:
             return None
-        log = BuildLog(env, int(row[0]), row[1], row[2] or '')
+        log = BuildLog(env, int(row[0]), row[1], row[2], row[3])
         log.id = id
         cursor.execute("SELECT level,message FROM bitten_log_message "
                        "WHERE log=%s ORDER BY line", (id,))
@@ -698,7 +711,7 @@ class BuildLog(object):
 
     fetch = classmethod(fetch)
 
-    def select(cls, env, build=None, step=None, type=None, db=None):
+    def select(cls, env, build=None, step=None, generator=None, db=None):
         """Retrieve existing build logs from the database that match the
         specified criteria.
         """
@@ -710,15 +723,15 @@ class BuildLog(object):
             where_clauses.append(("build=%s", build))
         if step is not None:
             where_clauses.append(("step=%s", step))
-        if type is not None:
-            where_clauses.append(("type=%s", type))
+        if generator is not None:
+            where_clauses.append(("generator=%s", generator))
         if where_clauses:
             where = "WHERE " + " AND ".join([wc[0] for wc in where_clauses])
         else:
             where = ""
 
         cursor = db.cursor()
-        cursor.execute("SELECT id FROM bitten_log %s ORDER BY type"
+        cursor.execute("SELECT id FROM bitten_log %s ORDER BY orderno"
                        % where, [wc[1] for wc in where_clauses])
         for (id, ) in cursor:
             yield BuildLog.fetch(env, id, db=db)
@@ -726,6 +739,147 @@ class BuildLog(object):
     select = classmethod(select)
 
 
+class Report(object):
+    """Represents a generated report."""
+
+    _schema = [
+        Table('bitten_report', key='id')[
+            Column('id', auto_increment=True), Column('build', type='int'),
+            Column('step'), Column('category'), Column('generator'),
+            Index(['build', 'step', 'category'])
+        ],
+        Table('bitten_report_item', key=('report', 'item', 'name'))[
+            Column('report', type='int'), Column('item', type='int'),
+            Column('name'), Column('value')
+        ]
+    ]
+
+    def __init__(self, env, build=None, step=None, category=None,
+                 generator=None):
+        """Initialize a new report with the specified attributes.
+
+        To actually create this build log in the database, the `insert` method
+        needs to be called.
+        """
+        self.env = env
+        self.id = None
+        self.build = build
+        self.step = step
+        self.category = category
+        self.generator = generator or ''
+        self.items = []
+
+    exists = property(fget=lambda self: self.id is not None)
+
+    def delete(self, db=None):
+        """Remove the report from the database."""
+        assert self.exists, 'Cannot delete a non-existing report'
+        if not db:
+            db = self.env.get_db_cnx()
+            handle_ta = True
+        else:
+            handle_ta = False
+
+        cursor = db.cursor()
+        cursor.execute("DELETE FROM bitten_report_item WHERE report=%s",
+                       (self.id,))
+        cursor.execute("DELETE FROM bitten_report WHERE id=%s", (self.id,))
+
+        if handle_ta:
+            db.commit()
+        self.id = None
+
+    def insert(self, db=None):
+        """Insert a new build log into the database."""
+        if not db:
+            db = self.env.get_db_cnx()
+            handle_ta = True
+        else:
+            handle_ta = False
+
+        assert self.build and self.step and self.category
+
+        # Enforce uniqueness of build-step-category.
+        # This should be done by the database, but the DB schema helpers in Trac
+        # currently don't support UNIQUE() constraints
+        assert not list(Report.select(self.env, build=self.build,
+                                      step=self.step, category=self.category,
+                                      db=db)), 'Report already exists'
+
+        cursor = db.cursor()
+        cursor.execute("INSERT INTO bitten_report "
+                       "(build,step,category,generator) VALUES (%s,%s,%s,%s)",
+                       (self.build, self.step, self.category, self.generator))
+        id = db.get_last_id(cursor, 'bitten_report')
+        for idx, item in enumerate(self.items):
+            cursor.executemany("INSERT INTO bitten_report_item "
+                               "(report,item,name,value) VALUES (%s,%s,%s,%s)",
+                               [(id, idx, key, value) for key, value
+                                in item.items()])
+
+        if handle_ta:
+            db.commit()
+        self.id = id
+
+    def fetch(cls, env, id, db=None):
+        """Retrieve an existing build from the database by ID."""
+        if not db:
+            db = env.get_db_cnx()
+
+        cursor = db.cursor()
+        cursor.execute("SELECT build,step,category,generator "
+                       "FROM bitten_report WHERE id=%s", (id,))
+        row = cursor.fetchone()
+        if not row:
+            return None
+        report = Report(env, int(row[0]), row[1], row[2] or '', row[3] or '')
+        report.id = id
+
+        cursor.execute("SELECT item,name,value FROM bitten_report_item "
+                       "WHERE report=%s ORDER BY item", (id,))
+        items = {}
+        for item, name, value in cursor:
+            items.setdefault(item, {})[name] = value
+        report.items = items.values()
+
+        return report
+
+    fetch = classmethod(fetch)
+
+    def select(cls, env, config=None, build=None, step=None, category=None,
+               db=None):
+        """Retrieve existing reports from the database that match the specified
+        criteria.
+        """
+        where_clauses = []
+        joins = []
+        if config is not None:
+            where_clauses.append(("config=%s", config))
+            joins.append("INNER JOIN bitten_build ON (bitten_build.id=build)")
+        if build is not None:
+            where_clauses.append(("build=%s", build))
+        if step is not None:
+            where_clauses.append(("step=%s", step))
+        if category is not None:
+            where_clauses.append(("category=%s", category))
+
+        if where_clauses:
+            where = "WHERE " + " AND ".join([wc[0] for wc in where_clauses])
+        else:
+            where = ""
+
+        if not db:
+            db = env.get_db_cnx()
+        cursor = db.cursor()
+        cursor.execute("SELECT bitten_report.id FROM bitten_report %s %s "
+                       "ORDER BY category" % (' '.join(joins), where),
+                       [wc[1] for wc in where_clauses])
+        for (id, ) in cursor:
+            yield Report.fetch(env, id, db=db)
+
+    select = classmethod(select)
+
+
 schema = BuildConfig._schema + TargetPlatform._schema + Build._schema + \
-         BuildStep._schema + BuildLog._schema
-schema_version = 4
+         BuildStep._schema + BuildLog._schema + Report._schema
+schema_version = 5

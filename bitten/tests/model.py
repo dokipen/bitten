@@ -11,7 +11,7 @@ import unittest
 
 from trac.test import EnvironmentStub
 from bitten.model import BuildConfig, TargetPlatform, Build, BuildStep, \
-                         BuildLog, schema
+                         BuildLog, Report, schema
 
 
 class BuildConfigTestCase(unittest.TestCase):
@@ -358,11 +358,11 @@ class BuildLogTestCase(unittest.TestCase):
         self.assertEqual(None, log.id)
         self.assertEqual(None, log.build)
         self.assertEqual(None, log.step)
-        self.assertEqual(None, log.type)
+        self.assertEqual('', log.generator)
         self.assertEqual([], log.messages)
 
     def test_insert(self):
-        log = BuildLog(self.env, build=1, step='test', type='distutils')
+        log = BuildLog(self.env, build=1, step='test', generator='distutils')
         log.messages = [
             (BuildLog.INFO, 'running tests'),
             (BuildLog.ERROR, 'tests failed')
@@ -372,7 +372,7 @@ class BuildLogTestCase(unittest.TestCase):
 
         db = self.env.get_db_cnx()
         cursor = db.cursor()
-        cursor.execute("SELECT build,step,type FROM bitten_log "
+        cursor.execute("SELECT build,step,generator FROM bitten_log "
                        "WHERE id=%s", (log.id,))
         self.assertEqual((1, 'test', 'distutils'), cursor.fetchone())
         cursor.execute("SELECT level,message FROM bitten_log_message "
@@ -390,7 +390,7 @@ class BuildLogTestCase(unittest.TestCase):
     def test_delete(self):
         db = self.env.get_db_cnx()
         cursor = db.cursor()
-        cursor.execute("INSERT INTO bitten_log (build,step,type) "
+        cursor.execute("INSERT INTO bitten_log (build,step,generator) "
                        "VALUES (%s,%s,%s)", (1, 'test', 'distutils'))
         id = db.get_last_id(cursor, 'bitten_log')
         cursor.executemany("INSERT INTO bitten_log_message "
@@ -409,13 +409,13 @@ class BuildLogTestCase(unittest.TestCase):
         self.assertEqual(True, not cursor.fetchall())
 
     def test_delete_new(self):
-        log = BuildLog(self.env, build=1, step='test', type='foo')
+        log = BuildLog(self.env, build=1, step='test', generator='foo')
         self.assertRaises(AssertionError, log.delete)
 
     def test_fetch(self):
         db = self.env.get_db_cnx()
         cursor = db.cursor()
-        cursor.execute("INSERT INTO bitten_log (build,step,type) "
+        cursor.execute("INSERT INTO bitten_log (build,step,generator) "
                        "VALUES (%s,%s,%s)", (1, 'test', 'distutils'))
         id = db.get_last_id(cursor, 'bitten_log')
         cursor.executemany("INSERT INTO bitten_log_message "
@@ -428,14 +428,14 @@ class BuildLogTestCase(unittest.TestCase):
         self.assertEqual(id, log.id)
         self.assertEqual(1, log.build)
         self.assertEqual('test', log.step)
-        self.assertEqual('distutils', log.type)
+        self.assertEqual('distutils', log.generator)
         self.assertEqual((BuildLog.INFO, 'running tests'), log.messages[0])
         self.assertEqual((BuildLog.ERROR, 'tests failed'), log.messages[1])
 
     def test_select(self):
         db = self.env.get_db_cnx()
         cursor = db.cursor()
-        cursor.execute("INSERT INTO bitten_log (build,step,type) "
+        cursor.execute("INSERT INTO bitten_log (build,step,generator) "
                        "VALUES (%s,%s,%s)", (1, 'test', 'distutils'))
         id = db.get_last_id(cursor, 'bitten_log')
         cursor.executemany("INSERT INTO bitten_log_message "
@@ -449,10 +449,156 @@ class BuildLogTestCase(unittest.TestCase):
         self.assertEqual(id, log.id)
         self.assertEqual(1, log.build)
         self.assertEqual('test', log.step)
-        self.assertEqual('distutils', log.type)
+        self.assertEqual('distutils', log.generator)
         self.assertEqual((BuildLog.INFO, 'running tests'), log.messages[0])
         self.assertEqual((BuildLog.ERROR, 'tests failed'), log.messages[1])
         self.assertRaises(StopIteration, logs.next)
+
+
+class ReportTestCase(unittest.TestCase):
+
+    def setUp(self):
+        self.env = EnvironmentStub()
+        db = self.env.get_db_cnx()
+        cursor = db.cursor()
+        for table in Report._schema:
+            for stmt in db.to_sql(table):
+                cursor.execute(stmt)
+        db.commit()
+
+    def test_delete(self):
+        db = self.env.get_db_cnx()
+        cursor = db.cursor()
+        cursor.execute("INSERT INTO bitten_report "
+                       "(build,step,category,generator) VALUES (%s,%s,%s,%s)",
+                       (1, 'test', 'test', 'unittest'))
+        report_id = db.get_last_id(cursor, 'bitten_report')
+        cursor.executemany("INSERT INTO bitten_report_item "
+                           "(report,item,name,value) VALUES (%s,%s,%s,%s)",
+                           [(report_id, 0, 'file', 'tests/foo.c'),
+                            (report_id, 0, 'result', 'failure'),
+                            (report_id, 1, 'file', 'tests/bar.c'),
+                            (report_id, 1, 'result', 'success')])
+
+        report = Report.fetch(self.env, report_id, db=db)
+        report.delete(db=db)
+        self.assertEqual(False, report.exists)
+        report = Report.fetch(self.env, report_id, db=db)
+        self.assertEqual(None, report)
+
+    def test_insert(self):
+        report = Report(self.env, build=1, step='test', category='test',
+                        generator='unittest')
+        report.items = [
+            {'file': 'tests/foo.c', 'status': 'failure'},
+            {'file': 'tests/bar.c', 'status': 'success'}
+        ]
+        report.insert()
+
+        db = self.env.get_db_cnx()
+        cursor = db.cursor()
+        cursor.execute("SELECT build,step,category,generator "
+                       "FROM bitten_report WHERE id=%s", (report.id,))
+        self.assertEqual((1, 'test', 'test', 'unittest'),
+                         cursor.fetchone())
+        cursor.execute("SELECT item,name,value FROM bitten_report_item "
+                       "WHERE report=%s ORDER BY item", (report.id,))
+        items = []
+        prev_item = None
+        for item, name, value in cursor:
+            if item != prev_item:
+                items.append({name: value})
+                prev_item = item
+            else:
+                items[-1][name] = value
+        self.assertEquals(2, len(items))
+        seen_foo, seen_bar = False, False
+        for item in items:
+            if item['file'] == 'tests/foo.c':
+                self.assertEqual('failure', item['status'])
+                seen_foo = True
+            if item['file'] == 'tests/bar.c':
+                self.assertEqual('success', item['status'])
+                seen_bar = True
+        self.assertEquals((True, True), (seen_foo, seen_bar))
+
+    def test_insert_dupe(self):
+        report = Report(self.env, build=1, step='test', category='test',
+                        generator='unittest')
+        report.insert()
+
+        report = Report(self.env, build=1, step='test', category='test',
+                        generator='unittest')
+        self.assertRaises(AssertionError, report.insert)
+
+    def test_fetch(self):
+        db = self.env.get_db_cnx()
+        cursor = db.cursor()
+        cursor.execute("INSERT INTO bitten_report "
+                       "(build,step,category,generator) VALUES (%s,%s,%s,%s)",
+                       (1, 'test', 'test', 'unittest'))
+        report_id = db.get_last_id(cursor, 'bitten_report')
+        cursor.executemany("INSERT INTO bitten_report_item "
+                           "(report,item,name,value) VALUES (%s,%s,%s,%s)",
+                           [(report_id, 0, 'file', 'tests/foo.c'),
+                            (report_id, 0, 'result', 'failure'),
+                            (report_id, 1, 'file', 'tests/bar.c'),
+                            (report_id, 1, 'result', 'success')])
+
+        report = Report.fetch(self.env, report_id)
+        self.assertEquals(report_id, report.id)
+        self.assertEquals('test', report.step)
+        self.assertEquals('test', report.category)
+        self.assertEquals('unittest', report.generator)
+        self.assertEquals(2, len(report.items))
+        assert {'file': 'tests/foo.c', 'result': 'failure'} in report.items
+        assert {'file': 'tests/bar.c', 'result': 'success'} in report.items
+
+    def test_select(self):
+        db = self.env.get_db_cnx()
+        cursor = db.cursor()
+        cursor.execute("INSERT INTO bitten_report "
+                       "(build,step,category,generator) VALUES (%s,%s,%s,%s)",
+                       (1, 'test', 'test', 'unittest'))
+        report1_id = db.get_last_id(cursor, 'bitten_report')
+        cursor.execute("INSERT INTO bitten_report "
+                       "(build,step,category,generator) VALUES (%s,%s,%s,%s)",
+                       (1, 'test', 'coverage', 'trace'))
+        report2_id = db.get_last_id(cursor, 'bitten_report')
+        cursor.executemany("INSERT INTO bitten_report_item "
+                           "(report,item,name,value) VALUES (%s,%s,%s,%s)",
+                           [(report1_id, 0, 'file', 'tests/foo.c'),
+                            (report1_id, 0, 'result', 'failure'),
+                            (report1_id, 1, 'file', 'tests/bar.c'),
+                            (report1_id, 1, 'result', 'success'),
+                            (report2_id, 0, 'file', 'tests/foo.c'),
+                            (report2_id, 0, 'loc', '12'),
+                            (report2_id, 0, 'cov', '50'),
+                            (report2_id, 1, 'file', 'tests/bar.c'),
+                            (report2_id, 1, 'loc', '20'),
+                            (report2_id, 1, 'cov', '25')])
+
+        reports = Report.select(self.env, build=1, step='test')
+        for idx, report in enumerate(reports):
+            if report.id == report1_id:
+                self.assertEquals('test', report.step)
+                self.assertEquals('test', report.category)
+                self.assertEquals('unittest', report.generator)
+                self.assertEquals(2, len(report.items))
+                assert {'file': 'tests/foo.c', 'result': 'failure'} \
+                       in report.items
+                assert {'file': 'tests/bar.c', 'result': 'success'} \
+                       in report.items
+            elif report.id == report1_id:
+                self.assertEquals('test', report.step)
+                self.assertEquals('coverage', report.category)
+                self.assertEquals('trace', report.generator)
+                self.assertEquals(2, len(report.items))
+                assert {'file': 'tests/foo.c', 'loc': '12', 'cov': '50'} \
+                       in report.items
+                assert {'file': 'tests/bar.c', 'loc': '20', 'cov': '25'} \
+                       in report.items
+        self.assertEqual(1, idx)
 
 
 def suite():
@@ -462,6 +608,7 @@ def suite():
     suite.addTest(unittest.makeSuite(BuildTestCase, 'test'))
     suite.addTest(unittest.makeSuite(BuildStepTestCase, 'test'))
     suite.addTest(unittest.makeSuite(BuildLogTestCase, 'test'))
+    suite.addTest(unittest.makeSuite(ReportTestCase, 'test'))
     return suite
 
 if __name__ == '__main__':

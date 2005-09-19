@@ -34,13 +34,14 @@ class Context(object):
         self.output = []
 
     def error(self, message):
-        self.output.append((Recipe.ERROR, self.current_function, message))
+        self.output.append((Recipe.ERROR, None, self.current_function, message))
 
     def log(self, xml_elem):
-        self.output.append((Recipe.LOG, self.current_function, xml_elem))
+        self.output.append((Recipe.LOG, None, self.current_function, xml_elem))
 
-    def report(self, xml_elem):
-        self.output.append((Recipe.REPORT, self.current_function, xml_elem))
+    def report(self, category, xml_elem):
+        self.output.append((Recipe.REPORT, category, self.current_function,
+                            xml_elem))
 
     def resolve(self, *path):
         return os.path.normpath(os.path.join(self.basedir, *path))
@@ -80,10 +81,10 @@ class Step(object):
             ctxt.current_step = None
         errors = []
         while ctxt.output:
-            type, function, output = ctxt.output.pop(0)
-            yield type, function, output
+            type, category, generator, output = ctxt.output.pop(0)
+            yield type, category, generator, output
             if type == Recipe.ERROR:
-                errors.append((function, output))
+                errors.append((generator, output))
         if errors:
             if self.onerror == 'fail':
                 raise BuildError, 'Build step %s failed' % self.id

@@ -177,10 +177,12 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
                                         time=started.isoformat())
                     step_failed = False
                     try:
-                        for type, function, output in step.execute(recipe.ctxt):
+                        for type, category, generator, output in \
+                                step.execute(recipe.ctxt):
                             if type == Recipe.ERROR:
                                 step_failed = True
-                            xmlio.SubElement(xml, type, type=function)[output]
+                            xmlio.SubElement(xml, type, category=category,
+                                             generator=generator)[output]
                     except BuildError, e:
                         log.error('Build step %s failed', step.id)
                         failed = True

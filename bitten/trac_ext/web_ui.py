@@ -18,8 +18,8 @@ from trac.web import IRequestHandler
 from trac.web.chrome import INavigationContributor, ITemplateProvider, \
                             add_link, add_stylesheet
 from trac.wiki import wiki_to_html
-from bitten.model import BuildConfig, TargetPlatform, Build, BuildStep, BuildLog
-from bitten.store import get_store
+from bitten.model import BuildConfig, TargetPlatform, Build, BuildStep, \
+                         BuildLog, Report
 from bitten.trac_ext.api import ILogFormatter, IReportSummarizer
 
 _status_label = {Build.IN_PROGRESS: 'in progress',
@@ -182,13 +182,9 @@ class BuildConfigController(Component):
         config = BuildConfig.fetch(self.env, config_name, db=db)
         assert config, 'Build configuration "%s" does not exist' % config_name
 
-        store = get_store(self.env)
-        store.delete(config=config)
-
         config.delete(db=db)
 
         db.commit()
-        store.commit()
 
         req.redirect(self.env.href.build())
 
@@ -328,16 +324,15 @@ class BuildConfigController(Component):
             {'name': platform.name, 'id': platform.id} for platform in platforms
         ]
 
-        store = get_store(self.env)
         has_reports = False
-        for report in  store.query('', config=config):
+        for report in Report.select(self.env, config=config.name):
             has_reports = True
             break
 
         if has_reports:
             req.hdf['config.charts'] = [
-                {'href': self.env.href.build(config.name, 'chart/unittest')},
-                {'href': self.env.href.build(config.name, 'chart/trace')}
+                {'href': self.env.href.build(config.name, 'chart/test')},
+                {'href': self.env.href.build(config.name, 'chart/coverage')}
             ]
             charts_license = self.config.get('bitten', 'charts_license')
             if charts_license:
@@ -526,9 +521,6 @@ class BuildController(Component):
         for step in BuildStep.select(self.env, build=build.id, db=db):
             step.delete(db=db)
 
-        store = get_store(self.env)
-        store.delete(build=build)
-
         build.slave = None
         build.started = build.stopped = 0
         build.status = Build.PENDING
@@ -536,7 +528,6 @@ class BuildController(Component):
         build.update()
 
         db.commit()
-        store.commit()
 
         req.redirect(self.env.href.build(build.config))
 
@@ -546,7 +537,7 @@ class BuildController(Component):
             formatters = []
             for formatter in self.log_formatters:
                 formatters.append(formatter.get_formatter(req, build, step,
-                                                          log.type))
+                                                          log.generator))
             for level, message in log.messages:
                 for format in formatters:
                     message = format(level, message)
@@ -556,30 +547,25 @@ class BuildController(Component):
     def _render_reports(self, req, build, step):
         summarizers = {} # keyed by report type
         for summarizer in self.report_summarizers:
-            types = summarizer.get_supported_report_types()
-            summarizers.update(dict([(type, summarizer) for type in types]))
+            categories = summarizer.get_supported_categories()
+            summarizers.update(dict([(cat, summarizer) for cat in categories]))
 
-        store = get_store(self.env)
         reports = []
-        for report in store.retrieve(build, step):
-            report_type = report.attr['type']
-            summarizer = summarizers.get(report_type)
+        for report in Report.select(self.env, build=build.id, step=step.name):
+            summarizer = summarizers.get(report.category)
             if summarizer:
-                summary = summarizer.render_report_summary(req, build, step,
-                                                           report)
+                summary = summarizer.render_summary(req, build, step,
+                                                    report.category)
             else:
                 summary = None
-            report_href = self.env.href.buildreport(build.id, step.name,
-                                                    report_type)
-            reports.append({'type': report_type, 'href': report_href,
-                            'summary': summary})
+            reports.append({'category': report.category, 'summary': summary})
         return reports
 
 
 class SourceFileLinkFormatter(Component):
     """Finds references to files and directories in the repository in the build
     log and renders them as links to the repository browser."""
-    
+
     implements(ILogFormatter)
 
     def get_formatter(self, req, build, step, type):
@@ -605,76 +591,3 @@ class SourceFileLinkFormatter(Component):
                 message = pattern.sub(_replace, message)
             return message
         return _formatter
-
-
-class BuildReportController(Component):
-    """Temporary web interface that simply displays the XML source of a report
-    using the Trac `Mimeview` component."""
-
-    implements(INavigationContributor, IRequestHandler)
-
-    template_cs = """<?cs include:"header.cs" ?>
- <div id="ctxtnav" class="nav"></div>
- <div id="content" class="build">
-  <h1>Build <a href="<?cs var:build.href ?>"><?cs var:build.id ?></a>: <?cs
-    var:report.type ?></h1>
-  <?cs var:report.preview ?>
- </div>
-<?cs include:"footer.cs" ?>"""
-
-    # INavigationContributor methods
-
-    def get_active_navigation_item(self, req):
-        return 'build'
-
-    def get_navigation_items(self, req):
-        return []
-
-    # IRequestHandler methods
-
-    def match_request(self, req):
-        match = re.match(r'/buildreport/(?P<build>[\d]+)/(?P<step>[\w]+)'
-                         r'/(?P<type>[\w]+)', req.path_info)
-        if match:
-            for name in match.groupdict():
-                req.args[name] = match.group(name)
-            return True
-
-    def process_request(self, req):
-        req.perm.assert_permission('BUILD_VIEW')
-
-        build = Build.fetch(self.env, int(req.args.get('build')))
-        if not build:
-            raise TracError, 'Build %d does not exist' % req.args.get('build')
-        step = BuildStep.fetch(self.env, build.id, req.args.get('step'))
-        if not step:
-            raise TracError, 'Build step %s does not exist' \
-                             % req.args.get('step')
-        report_type = req.args.get('type')
-
-        req.hdf['build'] = {'id': build.id,
-                            'href': self.env.href.build(build.config, build.id)}
-
-        store = get_store(self.env)
-        reports = []
-        for report in store.retrieve(build, step, report_type):
-            req.hdf['title'] = 'Build %d: %s' % (build.id, report_type)
-            xml = report._node.toprettyxml('  ')
-            if req.args.get('format') == 'xml':
-                req.send_response(200)
-                req.send_header('Content-Type', 'text/xml;charset=utf-8')
-                req.end_headers()
-                req.write(xml)
-                return
-            else:
-                from trac.mimeview import Mimeview
-                preview = Mimeview(self.env).render(req, 'application/xml', xml)
-                req.hdf['report'] = {'type': report_type, 'preview': preview}
-            break
-
-        xml_href = self.env.href.buildreport(build.id, step.name, report_type,
-                                             format='xml')
-        add_link(req, 'alternate', xml_href, 'XML', 'text/xml')
-        add_stylesheet(req, 'common/css/code.css')
-        template = req.hdf.parse(self.template_cs)
-        return template, None

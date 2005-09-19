@@ -19,8 +19,8 @@ except NameError:
 import time
 
 from trac.env import Environment
-from bitten.model import BuildConfig, TargetPlatform, Build, BuildStep, BuildLog
-from bitten.store import get_store
+from bitten.model import BuildConfig, TargetPlatform, Build, BuildStep, \
+                         BuildLog, Report
 from bitten.util import archive, beep, xmlio
 
 log = logging.getLogger('bitten.master')
@@ -127,20 +127,15 @@ class Master(beep.Listener):
     def _cleanup_orphaned_builds(self):
         # Reset all in-progress builds
         db = self.env.get_db_cnx()
-        store = get_store(self.env)
         for build in Build.select(self.env, status=Build.IN_PROGRESS, db=db):
             build.status = Build.PENDING
             build.slave = None
             build.slave_info = {}
             build.started = 0
-            for step in BuildStep.select(self.env, build=build.id):
+            for step in BuildStep.select(self.env, build=build.id, db=db):
                 step.delete(db=db)
-            for build_log in BuildLog.select(self.env, build=build.id):
-                build_log.delete(db=db)
             build.update(db=db)
-            store.delete(build=build)
         db.commit()
-        store.commit()
 
     def _cleanup_snapshots(self, when):
         log.debug('Checking for unused snapshot archives...')
@@ -206,8 +201,8 @@ class Master(beep.Listener):
         db = self.env.get_db_cnx()
         for build in Build.select(self.env, slave=handler.name,
                                   status=Build.IN_PROGRESS, db=db):
-            log.info('Build [%s] of "%s" by %s cancelled', build.rev,
-                     build.config, handler.name)
+            log.info('Build %d ("%s" as of [%s]) cancelled by  %s', build.id,
+                     build.rev, build.config, handler.name)
             for step in BuildStep.select(self.env, build=build.id):
                 step.delete(db=db)
 
@@ -381,20 +376,31 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
             step.status = BuildStep.SUCCESS
         step.insert(db=db)
 
-        for log_elem in elem.children('log'):
+        for idx, log_elem in enumerate(elem.children('log')):
             build_log = BuildLog(self.env, build=build.id, step=step.name,
-                                 type=log_elem.attr.get('type'))
+                                 generator=log_elem.attr.get('generator'),
+                                 orderno=idx)
             for message_elem in log_elem.children('message'):
                 build_log.messages.append((message_elem.attr['level'],
                                            message_elem.gettext()))
             build_log.insert(db=db)
 
-        store = get_store(self.env)
-        for report in elem.children('report'):
-            store.store(build, step, report)
+        report_types = {'unittest': 'test', 'trace': 'coverage',
+                        'pylint': 'lint'}
+        for report_elem in elem.children('report'):
+            generator = report_elem.attr.get('generator')
+            report = Report(self.env, build=build.id, step=step.name,
+                            category=report_types[generator],
+                            generator=generator)
+            for item_elem in report_elem.children():
+                item = {'type': item_elem.name}
+                item.update(item_elem.attr)
+                for child_elem in item_elem.children():
+                    item[child_elem.name] = child_elem.gettext()
+                report.items.append(item)
+            report.insert(db=db)
 
         db.commit()
-        store.commit()
 
     def _build_completed(self, build, elem, timestamp_delta=None):
         log.info('Slave %s completed build %d ("%s" as of [%s]) with status %s',
@@ -425,11 +431,7 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
         build.slave_info = {}
         build.update(db=db)
 
-        store = get_store(self.env)
-        store.delete(build=build)
-
         db.commit()
-        store.commit()
 
 
 def _parse_iso_datetime(string):

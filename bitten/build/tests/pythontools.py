@@ -44,10 +44,10 @@ class TraceTestCase(unittest.TestCase):
         self.summary.close()
         pythontools.trace(self.ctxt, summary=self.summary.name, include='*.py',
                           coverdir=self.coverdir)
-        type, function, xml = self.ctxt.output.pop()
+        type, category, generator, xml = self.ctxt.output.pop()
         self.assertEqual(Recipe.REPORT, type)
+        self.assertEqual('coverage', category)
         self.assertEqual(0, len(xml.children))
-
 
 
 class UnittestTestCase(unittest.TestCase):
@@ -71,8 +71,9 @@ class UnittestTestCase(unittest.TestCase):
                               '</unittest-results>')
         self.results_xml.close()
         pythontools.unittest(self.ctxt, self.results_xml.name)
-        type, function, xml = self.ctxt.output.pop()
+        type, category, generator, xml = self.ctxt.output.pop()
         self.assertEqual(Recipe.REPORT, type)
+        self.assertEqual('test', category)
         self.assertEqual(0, len(xml.children))
 
     def test_successful_test(self):
@@ -85,8 +86,7 @@ class UnittestTestCase(unittest.TestCase):
                               % os.path.join(self.ctxt.basedir, 'bar_test.py'))
         self.results_xml.close()
         pythontools.unittest(self.ctxt, self.results_xml.name)
-        type, function, xml = self.ctxt.output.pop()
-        self.assertEqual(Recipe.REPORT, type)
+        type, category, generator, xml = self.ctxt.output.pop()
         self.assertEqual(1, len(xml.children))
         test_elem = xml.children[0]
         self.assertEqual('test', test_elem.name)
@@ -105,7 +105,8 @@ class UnittestTestCase(unittest.TestCase):
                               % os.path.join(self.ctxt.basedir, 'bar_test.py'))
         self.results_xml.close()
         pythontools.unittest(self.ctxt, self.results_xml.name)
-        type, function, xml = self.ctxt.output.pop()
+        type, category, generator, xml = self.ctxt.output.pop()
+        self.assertEqual(1, len(xml.children))
         self.assertEqual('bar_test.py', xml.children[0].attr['file'])
 
     def test_missing_file_attribute(self):
@@ -116,7 +117,8 @@ class UnittestTestCase(unittest.TestCase):
                               '</unittest-results>')
         self.results_xml.close()
         pythontools.unittest(self.ctxt, self.results_xml.name)
-        type, function, xml = self.ctxt.output.pop()
+        type, category, generator, xml = self.ctxt.output.pop()
+        self.assertEqual(1, len(xml.children))
         self.assertEqual(None, xml.children[0].attr.get('file'))
 
 

@@ -51,7 +51,7 @@ def main():
             if not steps_to_run or step.id in steps_to_run:
                 print
                 print '-->', step.id
-                for type, function, output in step.execute(recipe.ctxt):
+                for type, category, generator, output in step.execute(recipe.ctxt):
                     if type == Recipe.ERROR:
                         log.error('Failure in step "%s": %s', step.id, output)
                     elif type == Recipe.REPORT and options.print_reports:

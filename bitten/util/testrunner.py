@@ -134,16 +134,18 @@ class unittest(Command):
             from trace import Trace
             trace = Trace(ignoredirs=[sys.prefix, sys.exec_prefix],
                           trace=False, count=True)
-            trace.runfunc(self._run_tests)
-            results = trace.results()
-            real_stdout = sys.stdout
-            sys.stdout = open(self.coverage_results, 'w')
             try:
-                results.write_results(show_missing=True, summary=True,
-                                      coverdir=self.coverage_dir)
+                trace.runfunc(self._run_tests)
             finally:
-                sys.stdout.close()
-                sys.stdout = real_stdout
+                results = trace.results()
+                real_stdout = sys.stdout
+                sys.stdout = open(self.coverage_results, 'w')
+                try:
+                    results.write_results(show_missing=True, summary=True,
+                                          coverdir=self.coverage_dir)
+                finally:
+                    sys.stdout.close()
+                    sys.stdout = real_stdout
         else:
             self._run_tests()
 

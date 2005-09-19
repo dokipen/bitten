@@ -7,7 +7,9 @@
 # you should have received as part of this distribution. The terms
 # are also available at http://bitten.cmlenz.net/wiki/License.
 
+import inspect
 import os
+import textwrap
 
 from trac.core import *
 from trac.env import IEnvironmentSetupParticipant
@@ -59,7 +61,9 @@ class BuildSystem(Component):
             from bitten import upgrades
             for version in range(current_version + 1, schema_version + 1):
                 for function in upgrades.map.get(version):
+                    print textwrap.fill(inspect.getdoc(function))
                     function(self.env, db)
+                    print 'Done.'
             cursor.execute("UPDATE system SET value=%s WHERE "
                            "name='bitten_version'", (schema_version,))
             self.log.info('Upgraded Bitten tables from version %d to %d',

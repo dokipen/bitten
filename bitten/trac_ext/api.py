@@ -26,11 +26,11 @@ class IReportSummarizer(Interface):
     """Extension point interface for components that render a summary of reports
     of some kind."""
 
-    def get_supported_report_types():
+    def get_supported_categories():
         """Return a list of strings identifying the types of reports this 
         component supports."""
 
-    def render_report_summary(req, build, step, report):
+    def render_summary(req, build, step, category):
         """Render a summary for the given report and return the results HTML as
         a string."""
 
@@ -39,11 +39,11 @@ class IReportChartGenerator(Interface):
     """Extension point interface for components that generator a chart for a
     set of reports."""
 
-    def get_supported_report_types():
+    def get_supported_categories():
         """Return a list of strings identifying the types of reports this 
         component supports."""
 
-    def generate_chart_data(req, config, type):
+    def generate_chart_data(req, config, category):
         """Generate the data for the chart.
         
         This method should store the data in the HDF of the request and return
