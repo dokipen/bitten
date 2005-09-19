@@ -13,15 +13,26 @@ from setuptools import setup, find_packages
 from bitten import __version__ as VERSION
 from bitten.util.testrunner import unittest
 
-setup(name='bitten', version=VERSION, author='Christopher Lenz',
-      author_email='cmlenz@gmx.de', url='http://bitten.cmlenz.net/',
-      description='Framework for collecting software metrics via continuous '
-                  'integration',
-      license='BSD',
-      packages=find_packages(exclude=['ez_setup', '*.tests*']),
-      package_data={'bitten.trac_ext': ['htdocs/*.*',
-                                        'htdocs/charts_library/*.swf',
-                                        'templates/*.cs']},
-      scripts=['scripts/bitten', 'scripts/bittend'],
-      test_suite='bitten.tests.suite', zip_safe=True,
-      cmdclass={'unittest': unittest})
+setup(
+    name='Bitten', version=VERSION, author='Christopher Lenz',
+    author_email='cmlenz@gmx.de', url='http://bitten.cmlenz.net/',
+    description='Framework for collecting software metrics via continuous '
+                'integration',
+    license='BSD',
+    packages=find_packages(exclude=['ez_setup', '*.tests*']),
+    package_data={
+        'bitten.trac_ext': ['htdocs/*.*',
+                            'htdocs/charts_library/*.swf',
+                            'templates/*.cs']
+    },
+    entry_points = {
+        'console_scripts': ['bitten-master = bitten.master:main',
+                            'bitten-slave = bitten.slave:main'],
+        'distutils.commands': ['unittest = bitten.util.testrunner:unittest'],
+        'trac.plugins': ['bitten.main = bitten.trac_ext.main',
+                         'bitten.web_ui = bitten.trac_ext.web_ui',
+                         'bitten.summarizers = bitten.trac_ext.summarizers',
+                         'bitten.charts = bitten.trac_ext.charts']
+    },
+    test_suite='bitten.tests.suite', zip_safe=True
+)

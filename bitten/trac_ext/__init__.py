@@ -7,5 +7,4 @@
 # you should have received as part of this distribution. The terms
 # are also available at http://bitten.cmlenz.net/wiki/License.
 
-import bitten.trac_ext.main
-import bitten.trac_ext.web_ui
+from bitten.trac_ext.api import *
