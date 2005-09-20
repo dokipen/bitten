@@ -365,7 +365,7 @@ class BuildConfigController(Component):
                 if is_empty:
                     continue
 
-                if idx <= (page - 1) * 12:
+                if idx < (page - 1) * 12:
                     idx += 1
                     continue
 
@@ -378,7 +378,7 @@ class BuildConfigController(Component):
                     req.hdf['%s.%s' % (prefix, build.platform)] = build_hdf
 
                 idx += 1
-                if idx > page * 12:
+                if idx >= page * 12:
                     more = True
                     break
 
