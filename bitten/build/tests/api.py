@@ -13,7 +13,7 @@ import sys
 import tempfile
 import unittest
 
-from bitten.build import CommandLine, FileSet
+from bitten.build import CommandLine, FileSet, TimeoutError
 
 
 class CommandLineTestCase(unittest.TestCase):
@@ -129,6 +129,16 @@ if data == 'abcd':
         self.assertEqual([], stderr)
         self.assertEqual(['Thanks'], stdout)
         self.assertEqual(0, cmdline.returncode)
+
+    def test_timeout(self):
+        script_file = self._create_file('test.py', content="""
+import time
+time.sleep(2.0)
+print 'Done'
+""")
+        cmdline = CommandLine('python', [script_file])
+        iterable = iter(cmdline.execute(timeout=.5))
+        self.assertRaises(TimeoutError, iterable.next)
 
 
 class FileSetTestCase(unittest.TestCase):
