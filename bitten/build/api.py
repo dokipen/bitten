@@ -59,18 +59,46 @@ class CommandLine(object):
                 os.chdir(self.cwd)
 
             import tempfile
-            out_name = tempfile.mktemp()
-            err_name = tempfile.mktemp()
-            cmd = "( %s ) > %s 2> %s" % (' '.join(args), out_name, err_name)
-            self.returncode = os.system(cmd)
-            log.debug('Exited with code %s', self.returncode)
+            in_name = None
+            if self.input:
+                if isinstance(self.input, basestring):
+                    in_file, in_name = tempfile.mkstemp(prefix='bitten_',
+                                                        suffix='.pipe')
+                    os.write(in_file, self.input)
+                    os.close(in_file)
+                    in_redirect = '< "%s" ' % in_name
+                else:
+                    in_redirect = '< "%s" ' % self.input.name
+            else:
+                in_redirect = ''
 
-            out_file = file(out_name, 'r')
-            err_file = file(err_name, 'r')
-            out_lines = out_file.readlines()
-            err_lines = err_file.readlines()
-            out_file.close()
-            err_file.close()
+            out_file, out_name = tempfile.mkstemp(prefix='bitten_',
+                                                  suffix='.pipe')
+            os.close(out_file)
+            err_file, err_name = tempfile.mkstemp(prefix='bitten_',
+                                                  suffix='.pipe')
+            os.close(err_file)
+
+            try:
+                cmd = '( %s ) > "%s" %s 2> "%s"' % (' '.join(args), out_name,
+                                                    in_redirect, err_name)
+                self.returncode = os.system(cmd)
+                log.debug('Exited with code %s', self.returncode)
+
+                out_file = file(out_name, 'r')
+                err_file = file(err_name, 'r')
+                out_lines = out_file.readlines()
+                err_lines = err_file.readlines()
+                out_file.close()
+                err_file.close()
+            finally:
+                if in_name:
+                    os.unlink(in_name)
+                if out_name:
+                    os.unlink(out_name)
+                if err_name:
+                    os.unlink(err_name)
+
             for out_line, err_line in self._combine(out_lines, err_lines):
                 yield out_line and out_line.rstrip(), \
                       err_line and err_line.rstrip()
