@@ -1,5 +1,23 @@
 <?cs include:"header.cs" ?>
- <div id="ctxtnav" class="nav"></div>
+ <div id="ctxtnav" class="nav"><?cs
+ if:page.mode == 'view_config' ?><?cs
+  with:links = chrome.links ?><?cs
+   if:len(links.prev) || len(links.next) ?><ul><?cs
+    if:len(links.prev) ?>
+     <li class="first<?cs if:!len(links.up) && !len(links.next) ?> last<?cs /if ?>">
+      &larr; <a href="<?cs var:links.prev.0.href ?>"><?cs
+        var:links.prev.0.title ?></a>
+     </li><?cs
+    /if ?><?cs
+    if:len(links.next) ?>
+     <li class="<?cs if:!len(links.prev) && !len(links.up) ?>first <?cs /if ?>last">
+      <a href="<?cs var:links.next.0.href ?>"><?cs
+        var:links.next.0.title ?></a> &rarr;
+     </li><?cs
+    /if ?></ul><?cs
+   /if ?><?cs
+  /with ?><?cs
+ /if ?></div>
  <div id="content" class="build">
   <h1><?cs var:title ?></h1><?cs
 

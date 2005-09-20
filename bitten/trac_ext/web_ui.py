@@ -344,10 +344,15 @@ class BuildConfigController(Component):
             if charts_license:
                 req.hdf['config.charts_license'] = escape(charts_license)
 
+        page = max(1, int(req.args.get('page', 1)))
+        more = False
+        req.hdf['page.number'] = page
+
         repos = self.env.get_repository(req.authname)
         try:
             root = repos.get_node(config.path)
-            for idx, (path, rev, chg) in enumerate(root.get_history()):
+            idx = 0
+            for path, rev, chg in root.get_history():
                 # Don't follow moves/copies
                 if path != repos.normalize_path(config.path):
                     break
@@ -360,6 +365,10 @@ class BuildConfigController(Component):
                 if is_empty:
                     continue
 
+                if idx <= (page - 1) * 12:
+                    idx += 1
+                    continue
+
                 prefix = 'config.builds.%d' % rev
                 req.hdf[prefix + '.href'] = self.env.href.changeset(rev)
                 for build in Build.select(self.env, config=config.name, rev=rev):
@@ -367,8 +376,22 @@ class BuildConfigController(Component):
                         continue
                     build_hdf = _build_to_hdf(self.env, req, build)
                     req.hdf['%s.%s' % (prefix, build.platform)] = build_hdf
-                if idx > 12:
+
+                idx += 1
+                if idx > page * 12:
+                    more = True
                     break
+
+            if page > 1:
+                if page == 2:
+                    prev_href = self.env.href.build(config.name)
+                else:
+                    prev_href = self.env.href.build(config.name, page=page - 1)
+                add_link(req, 'prev', prev_href, 'Previous Page')
+            if more:
+                next_href = self.env.href.build(config.name, page=page + 1)
+                add_link(req, 'next', next_href, 'Next Page')
+
         except TracError, e:
             self.log.error('Error accessing repository info', exc_info=True)
 
