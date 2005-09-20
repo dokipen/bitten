@@ -21,10 +21,9 @@ class TestResultsSummarizer(Component):
     def get_supported_categories(self):
         return ['test']
 
-    def render_summary(self, req, build, step, category):
+    def render_summary(self, req, config, build, step, category):
         assert category == 'test'
 
-        hdf = HDFWrapper(loadpaths=Chrome(self.env).get_all_templates_dirs())
         db = self.env.get_db_cnx()
         cursor = db.cursor()
         cursor.execute("""
@@ -52,10 +51,12 @@ GROUP BY file, fixture ORDER BY fixture""", (build.id,))
 
         data = []
         for fixture, file, num_success, num_failure, num_error in cursor:
-            data.append({'name': fixture, 'href': self.env.href.browser(file),
-                         'num_success': num_success, 'num_error': num_error,
-                         'num_failure': num_failure})
+            data.append({'name': fixture, 'num_success': num_success,
+                         'num_error': num_error, 'num_failure': num_failure})
+            if file:
+                data[-1]['href'] = self.env.href.browser(config.path, file)
 
+        hdf = HDFWrapper(loadpaths=Chrome(self.env).get_all_templates_dirs())
         hdf['data'] = data
         return hdf.render('bitten_summary_tests.cs')
 
@@ -66,10 +67,9 @@ class CodeCoverageSummarizer(Component):
     def get_supported_categories(self):
         return ['coverage']
 
-    def render_summary(self, req, build, step, category):
+    def render_summary(self, req, config, build, step, category):
         assert category == 'coverage'
 
-        hdf = HDFWrapper(loadpaths=Chrome(self.env).get_all_templates_dirs())
         db = self.env.get_db_cnx()
         cursor = db.cursor()
         cursor.execute("""
@@ -93,8 +93,10 @@ GROUP BY file, unit ORDER BY unit""", (build.id,))
 
         data = []
         for unit, file, loc, cov in cursor:
-            data.append({'name': unit, 'href': self.env.href.browser(file),
-                         'loc': loc, 'cov': cov})
+            data.append({'name': unit, 'loc': loc, 'cov': cov})
+            if file:
+                data[-1]['href'] = self.env.href.browser(config.path, file)
 
+        hdf = HDFWrapper(loadpaths=Chrome(self.env).get_all_templates_dirs())
         hdf['data'] = data
         return hdf.render('bitten_summary_coverage.cs')

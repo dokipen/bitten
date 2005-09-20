@@ -32,7 +32,7 @@ class RecipeTestCase(unittest.TestCase):
         steps = list(recipe)
         self.assertEqual(0, len(steps))
 
-    def test_single_step(self):
+    def test_empty_step(self):
         xml = xmlio.parse('<build>'
                           ' <step id="foo" description="Bar"></step>'
                           '</build>')

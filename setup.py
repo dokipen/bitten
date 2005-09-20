@@ -13,6 +13,8 @@ from setuptools import setup, find_packages
 from bitten import __version__ as VERSION
 from bitten.util.testrunner import unittest
 
+NS = 'http://bitten.cmlenz.net/tools/'
+
 setup(
     name='Bitten', version=VERSION, author='Christopher Lenz',
     author_email='cmlenz@gmx.de', url='http://bitten.cmlenz.net/',
@@ -26,13 +28,29 @@ setup(
                             'templates/*.cs']
     },
     entry_points = {
-        'console_scripts': ['bitten-master = bitten.master:main',
-                            'bitten-slave = bitten.slave:main'],
-        'distutils.commands': ['unittest = bitten.util.testrunner:unittest'],
-        'trac.plugins': ['bitten.main = bitten.trac_ext.main',
-                         'bitten.web_ui = bitten.trac_ext.web_ui',
-                         'bitten.summarizers = bitten.trac_ext.summarizers',
-                         'bitten.charts = bitten.trac_ext.charts']
+        'console_scripts': [
+            'bitten-master = bitten.master:main',
+            'bitten-slave = bitten.slave:main'
+        ],
+        'distutils.commands': [
+            'unittest = bitten.util.testrunner:unittest'
+        ],
+        'trac.plugins': [
+            'bitten.main = bitten.trac_ext.main',
+            'bitten.web_ui = bitten.trac_ext.web_ui',
+            'bitten.summarizers = bitten.trac_ext.summarizers',
+            'bitten.charts = bitten.trac_ext.charts'
+        ],
+        'bitten.recipe_commands': [
+            NS + 'sh#exec = bitten.build.shtools:exec_',
+            NS + 'sh#pipe = bitten.build.shtools:pipe',
+            NS + 'c#make = bitten.build.ctools:make',
+            NS + 'python#distutils = bitten.build.pythontools:distutils',
+            NS + 'python#exec = bitten.build.pythontools:exec_',
+            NS + 'python#pylint = bitten.build.pythontools:pylint',
+            NS + 'python#trace = bitten.build.pythontools:trace',
+            NS + 'python#unittest = bitten.build.pythontools:unittest'
+        ]
     },
     test_suite='bitten.tests.suite', zip_safe=True
 )

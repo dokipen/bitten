@@ -481,7 +481,7 @@ class BuildController(Component):
                 'duration': pretty_timedelta(step.started, step.stopped),
                 'failed': step.status == BuildStep.FAILURE,
                 'log': self._render_log(req, build, step),
-                'reports': self._render_reports(req, build, step)
+                'reports': self._render_reports(req, config, build, step)
             })
         req.hdf['build.steps'] = steps
         req.hdf['build.can_delete'] = req.perm.has_permission('BUILD_DELETE')
@@ -550,7 +550,7 @@ class BuildController(Component):
                 items.append({'level': level, 'message': message})
         return items
 
-    def _render_reports(self, req, build, step):
+    def _render_reports(self, req, config, build, step):
         summarizers = {} # keyed by report type
         for summarizer in self.report_summarizers:
             categories = summarizer.get_supported_categories()
@@ -560,7 +560,7 @@ class BuildController(Component):
         for report in Report.select(self.env, build=build.id, step=step.name):
             summarizer = summarizers.get(report.category)
             if summarizer:
-                summary = summarizer.render_summary(req, build, step,
+                summary = summarizer.render_summary(req, config, build, step,
                                                     report.category)
             else:
                 summary = None
@@ -581,7 +581,9 @@ class SourceFileLinkFormatter(Component):
         def _walk(node):
             for child in node.get_entries():
                 path = child.path[len(config.path) + 1:]
-                pattern = re.compile("([\s'\"])(%s)([\s'\"])" % re.escape(path))
+                pattern = re.compile("([\s'\"])(%s|%s)([\s'\"])"
+                                     % (re.escape(path),
+                                        re.escape(path.replace('/', '\\'))))
                 nodes.append((child.path, pattern))
                 if child.isdir:
                     _walk(child)

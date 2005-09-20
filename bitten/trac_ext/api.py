@@ -30,7 +30,7 @@ class IReportSummarizer(Interface):
         """Return a list of strings identifying the types of reports this 
         component supports."""
 
-    def render_summary(req, build, step, category):
+    def render_summary(req, config, build, step, category):
         """Render a summary for the given report and return the results HTML as
         a string."""
 

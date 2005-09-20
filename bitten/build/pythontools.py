@@ -86,8 +86,10 @@ def pylint(ctxt, file_=None):
                     lineno = int(match.group('line'))
                     tag = match.group('tag')
                     xmlio.SubElement(problems, 'problem', category=category,
-                                     type=msg_type, tag=tag, file=filename,
-                                     line=lineno)[match.group('msg') or '']
+                                     type=msg_type, tag=tag, line=lineno,
+                                     file=filename.replace(os.sep, '/'))[
+                        match.group('msg') or ''
+                    ]
             ctxt.report('lint', problems)
         finally:
             fd.close()
@@ -128,7 +130,8 @@ def trace(ctxt, summary=None, coverdir=None, include=None, exclude=None):
                         missing_files.remove(filename)
                         covered_modules.add(modname)
                         module = xmlio.Element('coverage', name=modname,
-                                               file=filename, percentage=cov)
+                                               file=filename.replace(os.sep, '/'),
+                                               percentage=cov)
                         coverage_path = ctxt.resolve(coverdir,
                                                      modname + '.cover')
                         if not os.path.exists(coverage_path):
@@ -162,7 +165,8 @@ def trace(ctxt, summary=None, coverdir=None, include=None, exclude=None):
                     continue
                 covered_modules.add(modname)
                 module = xmlio.Element('coverage', name=modname,
-                                       file=filename, percentage=0)
+                                       file=filename.replace(os.sep, '/'),
+                                       percentage=0)
                 filepath = ctxt.resolve(filename)
                 fileobj = file(filepath, 'r')
                 try:
@@ -196,6 +200,7 @@ def unittest(ctxt, file_=None):
                         value = os.path.realpath(value)
                         if value.startswith(ctxt.basedir):
                             value = value[len(ctxt.basedir) + 1:]
+                            value = value.replace(os.sep, '/')
                         else:
                             continue
                     test.attr[name] = value

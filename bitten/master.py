@@ -385,13 +385,10 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
                                            message_elem.gettext()))
             build_log.insert(db=db)
 
-        report_types = {'unittest': 'test', 'trace': 'coverage',
-                        'pylint': 'lint'}
         for report_elem in elem.children('report'):
-            generator = report_elem.attr.get('generator')
             report = Report(self.env, build=build.id, step=step.name,
-                            category=report_types[generator],
-                            generator=generator)
+                            category=report_elem.attr.get('category'),
+                            generator=report_elem.attr.get('generator'))
             for item_elem in report_elem.children():
                 item = {'type': item_elem.name}
                 item.update(item_elem.attr)

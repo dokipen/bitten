@@ -210,9 +210,53 @@ def xmldb_to_db(env, db):
     container.close()
     dbenv.close(0)
 
+def normalize_file_paths(env, db):
+    """Normalize the file separator in file names in reports."""
+    cursor = db.cursor()
+    cursor.execute("SELECT report,item,value FROM bitten_report_item "
+                   "WHERE name='file'")
+    rows = cursor.fetchall()
+    for report, item, value in rows:
+        if '\\' in value:
+            cursor.execute("UPDATE bitten_report_item SET value=%s "
+                           "WHERE report=%s AND item=%s AND name='file'",
+                           (value.replace('\\', '/'), report, item))
+
+def fixup_generators(env, db):
+    """Upgrade the identifiers for the recipe commands that generated log
+    messages and report data."""
+    from bitten.model import BuildLog, Report
+
+    mapping = {
+        'pipe': 'http://bitten.cmlenz.net/tools/sh#pipe',
+        'make': 'http://bitten.cmlenz.net/tools/c#make',
+        'distutils': 'http://bitten.cmlenz.net/tools/python#distutils',
+        'exec_': 'http://bitten.cmlenz.net/tools/python#exec' # Ambigious
+    }
+    cursor = db.cursor()
+    cursor.execute("SELECT id,generator FROM bitten_log "
+                   "WHERE generator IN (%s)"
+                   % ','.join([repr(key) for key in mapping.keys()]))
+    for id, generator in cursor:
+        cursor.execute("UPDATE bitten_log SET generator=%s "
+                       "WHERE id=%s", (mapping[generator], id))
+
+    mapping = {
+        'unittest': 'http://bitten.cmlenz.net/tools/python#unittest',
+        'trace': 'http://bitten.cmlenz.net/tools/python#trace',
+        'pylint': 'http://bitten.cmlenz.net/tools/python#pylint'
+    }
+    cursor.execute("SELECT id,generator FROM bitten_report "
+                   "WHERE generator IN (%s)"
+                   % ','.join([repr(key) for key in mapping.keys()]))
+    for id, generator in cursor:
+        cursor.execute("UPDATE bitten_report SET generator=%s "
+                       "WHERE id=%s", (mapping[generator], id))
+
 map = {
     2: [add_log_table],
     3: [add_recipe_to_config],
     4: [add_config_to_reports],
-    5: [add_order_to_log, add_report_tables, xmldb_to_db]
+    5: [add_order_to_log, add_report_tables, xmldb_to_db],
+    6: [normalize_file_paths, fixup_generators]
 }

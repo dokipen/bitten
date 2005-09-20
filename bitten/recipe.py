@@ -11,6 +11,7 @@ import keyword
 import logging
 import os
 
+from pkg_resources import WorkingSet
 from bitten.build import BuildError
 from bitten.util import xmlio
 
@@ -26,22 +27,49 @@ class InvalidRecipeError(Exception):
 class Context(object):
     """The context in which a recipe command or report is run."""
 
-    current_step = None
-    current_function = None
+    step = None # The current step
+    generator = None # The current generator (namespace#name)
 
     def __init__(self, basedir):
         self.basedir = os.path.realpath(basedir)
         self.output = []
 
+    def run(self, step, namespace, name, attr):
+        if not namespace:
+            log.warn('Ignoring element <%s> without namespace', name)
+            return
+
+        group = 'bitten.recipe_commands'
+        qname = namespace + '#' + name
+        function = None
+        for entry_point in WorkingSet().iter_entry_points(group, qname):
+            function = entry_point.load()
+            break
+        else:
+            raise InvalidRecipeError, 'Unknown recipe command %s' % qname
+
+        def escape(name):
+            name = name.replace('-', '_')
+            if keyword.iskeyword(name) or name in __builtins__:
+                name = name + '_'
+            return name
+        args = dict([(escape(name), attr[name]) for name in attr])
+
+        self.step = step
+        self.generator = qname
+        log.debug('Executing %s with arguments: %s', function, args)
+        function(self, **args)
+        self.generator = None
+        self.step = None
+
     def error(self, message):
-        self.output.append((Recipe.ERROR, None, self.current_function, message))
+        self.output.append((Recipe.ERROR, None, self.generator, message))
 
     def log(self, xml_elem):
-        self.output.append((Recipe.LOG, None, self.current_function, xml_elem))
+        self.output.append((Recipe.LOG, None, self.generator, xml_elem))
 
     def report(self, category, xml_elem):
-        self.output.append((Recipe.REPORT, category, self.current_function,
-                            xml_elem))
+        self.output.append((Recipe.REPORT, category, self.generator, xml_elem))
 
     def resolve(self, *path):
         return os.path.normpath(os.path.join(self.basedir, *path))
@@ -60,25 +88,10 @@ class Step(object):
         self.description = elem.attr.get('description')
         self.onerror = elem.attr.get('onerror', 'fail')
 
-    def __iter__(self):
-        for child in self._elem:
-            if child.namespace: # Commands
-                yield self._function(child), self._args(child)
-            elif child.name == 'reports': # Reports
-                for grandchild in child:
-                    yield self._function(grandchild), self._args(grandchild)
-            else:
-                raise InvalidRecipeError, "Unknown element <%s>" % child.name
-
     def execute(self, ctxt):
-        ctxt.current_step = self
-        try:
-            for function, args in self:
-                ctxt.current_function = function.__name__
-                function(ctxt, **args)
-                ctxt.current_function = None
-        finally:
-            ctxt.current_step = None
+        for child in self._elem:
+            ctxt.run(self, child.namespace, child.name, child.attr)
+
         errors = []
         while ctxt.output:
             type, category, generator, output = ctxt.output.pop(0)
@@ -90,29 +103,6 @@ class Step(object):
                 raise BuildError, 'Build step %s failed' % self.id
             log.warning('Ignoring errors in step %s (%s)', self.id,
                         ', '.join([error[1] for error in errors]))
-
-    def _args(self, elem):
-        return dict([(self._translate_name(name), value) for name, value
-                     in elem.attr.items()])
-
-    def _function(self, elem):
-        if not elem.namespace.startswith('bitten:'):
-            # Ignore elements in foreign namespaces
-            return None
-        func_name = self._translate_name(elem.name)
-        try:
-            module = __import__(elem.namespace[7:], globals(), locals(),
-                                [func_name])
-            func = getattr(module, func_name)
-            return func
-        except (ImportError, AttributeError), e:
-            raise InvalidRecipeError, 'Cannot load "%s" (%s)' % (elem.name, e)
-
-    def _translate_name(self, name):
-        name = name.replace('-', '_')
-        if keyword.iskeyword(name) or name in __builtins__:
-            name = name + '_'
-        return name
 
 
 class Recipe(object):
