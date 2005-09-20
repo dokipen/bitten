@@ -7,13 +7,10 @@
 # you should have received as part of this distribution. The terms
 # are also available at http://bitten.cmlenz.net/wiki/License.
 
-from itertools import ifilterfalse
 import logging
 import fnmatch
 import os
 import shlex
-import shutil
-import time
 
 log = logging.getLogger('bitten.build.api')
 
@@ -30,41 +27,23 @@ class CommandLine(object):
     """Simple helper for executing subprocesses."""
     # TODO: Use 'subprocess' module if available (Python >= 2.4)
 
-    def __init__(self, executable, args, stdin=None, cwd=None):
+    def __init__(self, executable, args, input=None, cwd=None):
         """Initialize the CommandLine object.
         
         @param executable The name of the program to execute
         @param args A list of arguments to pass to the executable
+        @param input String or file-like object containing any input data for
+                     the program
         @param cwd The working directory to change to before executing the
                    command
         """
         self.executable = executable
         self.arguments = [str(arg) for arg in args]
-        self.stdin = stdin
+        self.input = input
         self.cwd = cwd
         if self.cwd:
             assert os.path.isdir(self.cwd)
         self.returncode = None
-
-        # TODO: On windows, map file name extension to application
-        if os.name == 'nt':
-            pass
-
-        # Shebang support for Posix systems
-        if os.path.isfile(self.executable):
-            executable_file = file(self.executable, 'r')
-            try:
-                for line in executable_file:
-                    if line.startswith('#!'):
-                        parts = shlex.split(line[2:])
-                        if len(parts) > 1:
-                            self.arguments[:0] = parts[1:] + [self.executable]
-                        else:
-                            self.arguments[:0] = [self.executable]
-                        self.executable = parts[0]
-                    break
-            finally:
-                executable_file.close()
 
     if os.name == 'nt': # windows
 
@@ -110,32 +89,41 @@ class CommandLine(object):
             log.debug('Executing %s', [self.executable] + self.arguments)
             pipe = popen2.Popen3([self.executable] + self.arguments,
                                  capturestderr=True)
-            if self.stdin:
-                if isinstance(self.stdin, basestring):
-                    pipe.tochild.write(self.stdin)
-                else:
-                    shutil.copyfileobj(self.stdin, pipe.tochild)
-            pipe.tochild.close()
+            if self.input:
+                if not isinstance(self.input, basestring):
+                    self.input = self.input.read()
+            else:
+                pipe.tochild.close()
 
-            def make_non_blocking(fd):
-                fn = fd.fileno()
-                fl = fcntl.fcntl(fn, fcntl.F_GETFL)
+            def make_non_blocking(filedesc):
+                fileno = filedesc.fileno()
+                flock = fcntl.fcntl(fileno, fcntl.F_GETFL)
                 try:
-                    fcntl.fcntl(fn, fcntl.F_SETFL, fl | os.O_NDELAY)
+                    fcntl.fcntl(fileno, fcntl.F_SETFL, flock | os.O_NDELAY)
                 except AttributeError:
-                    fcntl.fcntl(fn, fcntl.F_SETFL, fl | os.FNDELAY)
-                return fd
+                    fcntl.fcntl(fileno, fcntl.F_SETFL, flock | os.FNDELAY)
+                return filedesc
 
             out_file, err_file = [make_non_blocking(fd) for fd
                                   in (pipe.fromchild, pipe.childerr)]
+            in_file = None
+            if self.input:
+                in_file = make_non_blocking(pipe.tochild)
             out_data, err_data = [], []
             out_eof = err_eof = False
             while not out_eof or not err_eof:
                 to_check = [out_file] * (not out_eof) + \
                            [err_file] * (not err_eof)
-                ready = select.select(to_check, [], [], timeout)
-                if not ready[0]:
+                ready = select.select(to_check, in_file and [in_file] or [],
+                                      [], timeout)
+                if not (ready[0] or ready[1]):
                     raise TimeoutError, 'Command %s timed out' % self.executable
+                if in_file in ready[1]:
+                    sent = os.write(in_file.fileno(), self.input)
+                    self.input = self.input[sent:]
+                    if not self.input:
+                        in_file.close()
+                        in_file = None
                 if out_file in ready[0]:
                     data = out_file.read()
                     if data:
@@ -148,12 +136,11 @@ class CommandLine(object):
                         err_data.append(data)
                     else:
                         err_eof = True
-
                 out_lines = self._extract_lines(out_data)
                 err_lines = self._extract_lines(err_data)
                 for out_line, err_line in self._combine(out_lines, err_lines):
                     yield out_line, err_line
-                time.sleep(.1)
+                select.select([], [], [], .1)
             self.returncode = pipe.wait()
             log.debug('%s exited with code %s', self.executable,
                       self.returncode)
@@ -218,9 +205,7 @@ class FileSet(object):
             self.exclude += shlex.split(exclude)
 
         for dirpath, dirnames, filenames in os.walk(self.basedir):
-            dirpath = ndirpath = dirpath[len(self.basedir) + 1:]
-            if os.sep != '/':
-                ndirpath = dirpath.replace(os.sep, '/')
+            dirpath = dirpath[len(self.basedir) + 1:]
 
             for filename in filenames:
                 filepath = nfilepath = os.path.join(dirpath, filename)

@@ -86,7 +86,7 @@ def pipe(ctxt, executable=None, file_=None, input_=None, output=None,
         output_file = file(output, 'w')
 
     try:
-        cmdline = CommandLine(executable, args, stdin=input_file,
+        cmdline = CommandLine(executable, args, input=input_file,
                               cwd=ctxt.basedir)
         log_elem = xmlio.Fragment()
         for out, err in cmdline.execute():
