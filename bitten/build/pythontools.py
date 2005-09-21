@@ -120,26 +120,28 @@ def trace(ctxt, summary=None, coverdir=None, include=None, exclude=None):
             for summary_line in summary_file:
                 match = summary_line_re.search(summary_line)
                 if match:
-                    filename = os.path.realpath(match.group(4))
                     modname = match.group(3)
-                    cov = int(match.group(2))
-                    if filename.startswith(ctxt.basedir):
-                        filename = filename[len(ctxt.basedir) + 1:]
-                        if not filename in fileset:
-                            continue
-                        missing_files.remove(filename)
-                        covered_modules.add(modname)
-                        module = xmlio.Element('coverage', name=modname,
-                                               file=filename.replace(os.sep, '/'),
-                                               percentage=cov)
-                        coverage_path = ctxt.resolve(coverdir,
-                                                     modname + '.cover')
-                        if not os.path.exists(coverage_path):
-                            log.warning('No coverage file for module %s at %s',
-                                        modname, coverage_path)
-                            continue
+                    filename = match.group(4)
+                    if not os.path.isabs(filename):
+                        filename = os.path.normpath(os.path.join(ctxt.basedir,
+                                                                 filename))
+                    else:
+                        filename = os.path.realpath(filename)
+                    if not filename.startswith(ctxt.basedir):
+                        continue
+                    filename = filename[len(ctxt.basedir) + 1:]
+                    if not filename in fileset:
+                        continue
+
+                    missing_files.remove(filename)
+                    covered_modules.add(modname)
+                    module = xmlio.Element('coverage', name=modname,
+                                           file=filename.replace(os.sep, '/'),
+                                           lines=int(match.group(1)),
+                                           percentage=int(match.group(2)))
+                    coverage_path = ctxt.resolve(coverdir, modname + '.cover')
+                    if os.path.exists(coverage_path):
                         coverage_file = open(coverage_path, 'r')
-                        num_lines = 0
                         lines = []
                         try:
                             for num, coverage_line in enumerate(coverage_file):
@@ -148,16 +150,17 @@ def trace(ctxt, summary=None, coverdir=None, include=None, exclude=None):
                                     hits = match.group(1)
                                     if hits:
                                         lines.append(hits)
-                                        num_lines += 1
                                     else:
-                                        if coverage_line.startswith('>'):
-                                            num_lines += 1
                                         lines.append('0')
                         finally:
                             coverage_file.close()
-                        module.attr['lines'] = len(lines)
-                        module.append(xmlio.Element('line_hits')[' '.join(lines)])
-                        coverage.append(module)
+                        module.append(xmlio.Element('line_hits')[
+                            ' '.join(lines)
+                        ])
+                    else:
+                        log.warning('No coverage file for module %s at %s',
+                                    modname, coverage_path)
+                    coverage.append(module)
 
             for filename in missing_files:
                 modname = os.path.splitext(filename.replace(os.sep, '.'))[0]

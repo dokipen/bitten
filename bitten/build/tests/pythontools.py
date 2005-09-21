@@ -29,6 +29,14 @@ class TraceTestCase(unittest.TestCase):
     def tearDown(self):
         shutil.rmtree(self.basedir)
 
+    def _create_file(self, *path):
+        filename = os.path.join(self.basedir, *path)
+        dirname = os.path.dirname(filename)
+        os.makedirs(dirname)
+        fd = file(filename, 'w')
+        fd.close()
+        return filename[len(self.basedir) + 1:]
+
     def test_missing_param_summary(self):
         self.summary.close()
         self.assertRaises(AssertionError, pythontools.trace, self.ctxt,
@@ -48,6 +56,46 @@ class TraceTestCase(unittest.TestCase):
         self.assertEqual(Recipe.REPORT, type)
         self.assertEqual('coverage', category)
         self.assertEqual(0, len(xml.children))
+
+    def test_summary_with_absolute_path(self):
+        self.summary.write("""
+lines   cov%%   module   (path)
+   60   100%%   test.module   (%s/test/module.py)
+""" % self.ctxt.basedir)
+        self.summary.close()
+        self._create_file('test', 'module.py')
+        pythontools.trace(self.ctxt, summary=self.summary.name,
+                          include='test/*', coverdir=self.coverdir)
+        type, category, generator, xml = self.ctxt.output.pop()
+        self.assertEqual(Recipe.REPORT, type)
+        self.assertEqual('coverage', category)
+        self.assertEqual(1, len(xml.children))
+        child = xml.children[0]
+        self.assertEqual('coverage', child.name)
+        self.assertEqual('test.module', child.attr['name'])
+        self.assertEqual('test/module.py', child.attr['file'])
+        self.assertEqual(100, child.attr['percentage'])
+        self.assertEqual(60, child.attr['lines'])
+
+    def test_summary_with_relative_path(self):
+        self.summary.write("""
+lines   cov%   module   (path)
+   60   100%   test.module   (./test/module.py)
+""")
+        self.summary.close()
+        self._create_file('test', 'module.py')
+        pythontools.trace(self.ctxt, summary=self.summary.name,
+                          include='test/*', coverdir=self.coverdir)
+        type, category, generator, xml = self.ctxt.output.pop()
+        self.assertEqual(Recipe.REPORT, type)
+        self.assertEqual('coverage', category)
+        self.assertEqual(1, len(xml.children))
+        child = xml.children[0]
+        self.assertEqual('coverage', child.name)
+        self.assertEqual('test.module', child.attr['name'])
+        self.assertEqual('test/module.py', child.attr['file'])
+        self.assertEqual(100, child.attr['percentage'])
+        self.assertEqual(60, child.attr['lines'])
 
 
 class UnittestTestCase(unittest.TestCase):
