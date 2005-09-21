@@ -143,7 +143,7 @@ def trace(ctxt, summary=None, coverdir=None, include=None, exclude=None):
                         coverage_file = open(coverage_path, 'r')
                         lines = []
                         try:
-                            for num, coverage_line in enumerate(coverage_file):
+                            for coverage_line in coverage_file:
                                 match = coverage_line_re.search(coverage_line)
                                 if match:
                                     hits = match.group(1)
@@ -214,7 +214,9 @@ def unittest(ctxt, file_=None):
                             continue
                     test.attr[name] = value
                 for grandchild in child.children():
-                    test.append(xmlio.Element(grandchild.name)[grandchild.gettext()])
+                    test.append(xmlio.Element(grandchild.name)[
+                        grandchild.gettext()
+                    ])
                 results.append(test)
             ctxt.report('test', results)
         finally:

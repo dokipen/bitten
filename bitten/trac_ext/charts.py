@@ -7,14 +7,12 @@
 # you should have received as part of this distribution. The terms
 # are also available at http://bitten.cmlenz.net/wiki/License.
 
-from datetime import datetime
 import re
 
 from trac.core import *
 from trac.web import IRequestHandler
-from bitten.model import BuildConfig, Build, Report
+from bitten.model import BuildConfig
 from bitten.trac_ext.api import IReportChartGenerator
-from bitten.util import xmlio
 
 
 class ReportChartController(Component):

@@ -8,10 +8,8 @@
 # are also available at http://bitten.cmlenz.net/wiki/License.
 
 from trac.core import *
-from trac.util import escape
 from trac.web.chrome import Chrome
 from trac.web.clearsilver import HDFWrapper
-from bitten.model import BuildConfig
 from bitten.trac_ext.api import IReportSummarizer
 
 

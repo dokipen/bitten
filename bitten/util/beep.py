@@ -33,7 +33,6 @@ try:
 except ImportError:
     from StringIO import StringIO
 import sys
-import time
 
 from bitten.util import xmlio
 
@@ -379,7 +378,7 @@ class Initiator(Session):
         """
         try:
             asyncore.loop()
-        except TerminateSession, e:
+        except TerminateSession:
             log.info('Terminating session')
             self.terminate()
 

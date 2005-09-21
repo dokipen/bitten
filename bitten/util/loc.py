@@ -16,7 +16,6 @@
 #     that copyright notice and this  permission notice appear in
 #     supporting documentation.
 
-import os
 import re
 
 # Reg. exps. to find the end of a triple quote, given that

@@ -60,7 +60,7 @@ def add_config_to_reports(env, db):
     try:
         from bsddb3 import db as bdb
         import dbxml
-    except ImportError, e:
+    except ImportError:
         return
 
     dbfile = os.path.join(env.path, 'db', 'bitten.dbxml')
@@ -132,7 +132,7 @@ def xmldb_to_db(env, db):
     try:
         from bsddb3 import db as bdb
         import dbxml
-    except ImportError, e:
+    except ImportError:
         return
 
     dbfile = os.path.join(env.path, 'db', 'bitten.dbxml')
@@ -225,7 +225,6 @@ def normalize_file_paths(env, db):
 def fixup_generators(env, db):
     """Upgrade the identifiers for the recipe commands that generated log
     messages and report data."""
-    from bitten.model import BuildLog, Report
 
     mapping = {
         'pipe': 'http://bitten.cmlenz.net/tools/sh#pipe',
@@ -237,9 +236,9 @@ def fixup_generators(env, db):
     cursor.execute("SELECT id,generator FROM bitten_log "
                    "WHERE generator IN (%s)"
                    % ','.join([repr(key) for key in mapping.keys()]))
-    for id, generator in cursor:
+    for log_id, generator in cursor:
         cursor.execute("UPDATE bitten_log SET generator=%s "
-                       "WHERE id=%s", (mapping[generator], id))
+                       "WHERE id=%s", (mapping[generator], log_id))
 
     mapping = {
         'unittest': 'http://bitten.cmlenz.net/tools/python#unittest',
@@ -249,9 +248,9 @@ def fixup_generators(env, db):
     cursor.execute("SELECT id,generator FROM bitten_report "
                    "WHERE generator IN (%s)"
                    % ','.join([repr(key) for key in mapping.keys()]))
-    for id, generator in cursor:
+    for report_id, generator in cursor:
         cursor.execute("UPDATE bitten_report SET generator=%s "
-                       "WHERE id=%s", (mapping[generator], id))
+                       "WHERE id=%s", (mapping[generator], report_id))
 
 map = {
     2: [add_log_table],

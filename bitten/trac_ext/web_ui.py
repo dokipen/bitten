@@ -392,7 +392,7 @@ class BuildConfigController(Component):
                 next_href = self.env.href.build(config.name, page=page + 1)
                 add_link(req, 'next', next_href, 'Next Page')
 
-        except TracError, e:
+        except TracError:
             self.log.error('Error accessing repository info', exc_info=True)
 
     def _render_config_confirm(self, req, config_name):
@@ -523,7 +523,7 @@ class BuildController(Component):
             add_stylesheet(req, 'bitten/bitten.css')
             db = self.env.get_db_cnx()
             cursor = db.cursor()
-            cursor.execute("SELECT b.id,b.config,c.label,b.rev,p.name,b.slave,"
+            cursor.execute("SELECT b.id,b.config,c.label,b.rev,p.name,"
                            "b.stopped,b.status FROM bitten_build AS b"
                            "  INNER JOIN bitten_config AS c ON (c.name=b.config)"
                            "  INNER JOIN bitten_platform AS p ON (p.id=b.platform) "
@@ -532,7 +532,7 @@ class BuildController(Component):
                            (start, stop, Build.SUCCESS, Build.FAILURE))
             event_kinds = {Build.SUCCESS: 'successbuild',
                            Build.FAILURE: 'failedbuild'}
-            for id, config, label, rev, platform, slave, stopped, status in cursor:
+            for id, config, label, rev, platform, stopped, status in cursor:
                 title = 'Build of <em>%s [%s]</em> on %s %s' \
                         % (escape(label), escape(rev), escape(platform),
                            _status_label[status])
