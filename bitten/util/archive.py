@@ -130,6 +130,6 @@ def unpack(filename, dest_path, format=None):
                     os.makedirs(path)
                 else:
                     file(path, 'wb').write(zip_file.read(name))
-        except zipfile.error:
+        except zipfile.error, e:
             raise Error, e
     return os.path.commonprefix(names)
