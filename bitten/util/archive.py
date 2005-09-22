@@ -44,14 +44,14 @@ def index(env, prefix):
 def pack(env, repos=None, path=None, rev=None, prefix=None, format='gzip',
          overwrite=False):
     """Create a snapshot archive in the specified format."""
+    if format not in _formats:
+        raise Error, 'Unknown archive format: %s' % format
+
     if repos is None:
         repos = env.get_repository()
     root = repos.get_node(path or '/', rev)
     if not root.isdir:
         raise Error, '"%s" is not a directory' % path
-
-    if format not in _formats:
-        raise Error, 'Unknown archive format: %s' % format
 
     filedir = os.path.join(env.path, 'snapshots')
     if not os.access(filedir, os.R_OK + os.W_OK):
@@ -130,6 +130,6 @@ def unpack(filename, dest_path, format=None):
                     os.makedirs(path)
                 else:
                     file(path, 'wb').write(zip_file.read(name))
-        except zipfile.error, e:
+        except (IOError, zipfile.error), e:
             raise Error, e
     return os.path.commonprefix(names)

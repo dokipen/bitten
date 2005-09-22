@@ -7,7 +7,6 @@
 # you should have received as part of this distribution. The terms
 # are also available at http://bitten.cmlenz.net/wiki/License.
 
-import logging
 import unittest
 
 from bitten.util import beep, xmlio

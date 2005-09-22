@@ -11,10 +11,11 @@ import doctest
 import unittest
 
 from bitten.util import xmlio
-from bitten.util.tests import beep
+from bitten.util.tests import archive, beep
 
 def suite():
     suite = unittest.TestSuite()
+    suite.addTest(archive.suite())
     suite.addTest(beep.suite())
     suite.addTest(doctest.DocTestSuite(xmlio))
     return suite
