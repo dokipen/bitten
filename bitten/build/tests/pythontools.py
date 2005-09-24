@@ -12,7 +12,7 @@ import shutil
 import tempfile
 import unittest
 
-from bitten.build import pythontools, BuildError
+from bitten.build import pythontools
 from bitten.recipe import Context, Recipe
 
 

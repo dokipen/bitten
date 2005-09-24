@@ -721,7 +721,7 @@ class Payload(object):
             data = ''
         if isinstance(data, xmlio.Element):
             self.body = StringIO(str(data))
-        elif isinstance(data, (str, unicode)):
+        elif isinstance(data, basestring):
             self.body = StringIO(data)
         else:
             assert hasattr(data, 'read'), \

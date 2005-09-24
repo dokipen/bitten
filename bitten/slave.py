@@ -184,8 +184,10 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
                                 step.execute(recipe.ctxt):
                             if type == Recipe.ERROR:
                                 step_failed = True
-                            xmlio.SubElement(xml, type, category=category,
-                                             generator=generator)[output]
+                            xml.append(xmlio.Element(type, category=category,
+                                                     generator=generator)[
+                                output
+                            ])
                     except BuildError, e:
                         log.error('Build step %s failed', step.id)
                         failed = True
@@ -206,7 +208,9 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
                     xml = xmlio.Element('step', id=step.id, result='failure',
                                         description=step.description,
                                         time=started.isoformat(),
-                                        duration=duration.seconds)[e]
+                                        duration=duration.seconds)[
+                        xmlio.Element('error')[e]
+                    ]
                     if not self.session.dry_run:
                         self.channel.send_ans(msgno, beep.Payload(xml))
 

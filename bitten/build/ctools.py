@@ -29,10 +29,10 @@ def make(ctxt, target=None, file_=None, keep_going=False):
     for out, err in cmdline.execute():
         if out is not None:
             log.info(out)
-            xmlio.SubElement(log_elem, 'message', level='info')[out]
+            log_elem.append(xmlio.Element('message', level='info')[out])
         if err is not None:
             log.error(err)
-            xmlio.SubElement(log_elem, 'message', level='error')[err]
+            log_elem.append(xmlio.Element('message', level='error')[err])
     ctxt.log(log_elem)
 
     if cmdline.returncode != 0:

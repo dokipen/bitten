@@ -27,7 +27,7 @@ def distutils(ctxt, command='build'):
     for out, err in cmdline.execute():
         if out is not None:
             log.info(out)
-            xmlio.SubElement(log_elem, 'message', level='info')[out]
+            log_elem.append(xmlio.Element('message', level='info')[out])
         if err is not None:
             level = 'error'
             if err.startswith('warning: '):
@@ -36,7 +36,7 @@ def distutils(ctxt, command='build'):
                 log.warning(err)
             else:
                 log.error(err)
-            xmlio.SubElement(log_elem, 'message', level=level)[err]
+            log_elem.append(xmlio.Element('message', level=level)[err])
     ctxt.log(log_elem)
     if cmdline.returncode != 0:
         ctxt.error('distutils failed (%s)' % cmdline.returncode)
@@ -83,13 +83,14 @@ def pylint(ctxt, file_=None):
                     filename = os.path.realpath(match.group('file'))
                     if filename.startswith(ctxt.basedir):
                         filename = filename[len(ctxt.basedir) + 1:]
+                    filename = filename.replace(os.sep, '/')
                     lineno = int(match.group('line'))
                     tag = match.group('tag')
-                    xmlio.SubElement(problems, 'problem', category=category,
-                                     type=msg_type, tag=tag, line=lineno,
-                                     file=filename.replace(os.sep, '/'))[
+                    problems.append(xmlio.Element('problem', category=category,
+                                                  type=msg_type, tag=tag,
+                                                  line=lineno, file=filename)[
                         match.group('msg') or ''
-                    ]
+                    ])
             ctxt.report('lint', problems)
         finally:
             fd.close()

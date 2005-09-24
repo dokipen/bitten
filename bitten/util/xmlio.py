@@ -160,23 +160,6 @@ class Element(Fragment):
             out.write(os.linesep)
 
 
-class SubElement(Element):
-    """Element that is appended as a new child to another element on
-    construction.
-    """
-    __slots__ = []
-
-    def __init__(self, parent_, name_, **attr):
-        """Create an XML element using the specified tag name.
-        
-        The first argument is the instance of the parent element that this
-        subelement should be appended to; the second argument is the name of the
-        tag. All keyword arguments are added as attributes of the element.
-        """
-        Element.__init__(self, name_, **attr)
-        parent_.append(self)
-
-
 class ParseError(Exception):
     """Exception thrown when there's an error parsing an XML document."""
 

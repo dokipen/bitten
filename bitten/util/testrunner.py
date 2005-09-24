@@ -19,7 +19,8 @@ from distutils.core import Command
 from distutils.errors import DistutilsExecError, DistutilsOptionError
 from unittest import _TextTestResult, TextTestRunner
 
-from bitten.util.xmlio import Element, SubElement
+from bitten import __version__ as VERSION
+from bitten.util import xmlio
 
 
 class XMLTestResult(_TextTestResult):
@@ -65,7 +66,7 @@ class XMLTestRunner(TextTestRunner):
         if not self.xml_stream:
             return result
 
-        root = Element('unittest-results')
+        root = xmlio.Element('unittest-results')
         for testcase, filename, timetaken, stdout, stderr in result.tests:
             status = 'success'
             tb = None
@@ -90,17 +91,18 @@ class XMLTestRunner(TextTestRunner):
                     name = match.group(1)
                     fixture = match.group(2)
 
-            test_elem = SubElement(root, 'test', file=filename, name=name,
-                                   fixture=fixture, status=status,
-                                   duration=timetaken)
+            test_elem = xmlio.Element('test', file=filename, name=name,
+                                      fixture=fixture, status=status,
+                                      duration=timetaken)
             if description:
-                SubElement(test_elem, 'description')[description]
+                test_elem.append(xmlio.Element('description')[description])
             if stdout:
-                SubElement(test_elem, 'stdout')[stdout]
+                test_elem.append(xmlio.Element('stdout')[stdout])
             if stderr:
-                SubElement(test_elem, 'stdout')[stderr]
-            if tb:
-                SubElement(test_elem, 'traceback')[tb]
+                test_elem.append(xmlio.Element('stdout')[stderr])
+            if tb:         
+                test_elem.append(xmlio.Element('traceback')[tb])
+            root.append(test_elem)
 
         root.write(self.xml_stream, newlines=True)
         return result
@@ -111,16 +113,16 @@ class unittest(Command):
     user_options = [('test-suite=', 's',
                      'Name of the unittest suite to run'),
                     ('xml-output=', None,
-                     'Path of the XML file where test results are written to'),
+                     'Path to the XML file where test results are written to'),
                     ('coverage-dir=', None,
                      'Directory where coverage files are to be stored'),
-                     ('coverage-results=', None,
-                     'Name of the file where the coverage summary should be stored')]
+                     ('coverage-summary=', None,
+                     'Path to the file where the coverage summary should be stored')]
 
     def initialize_options(self):
         self.test_suite = None
         self.xml_results = None
-        self.coverage_results = None
+        self.coverage_summary = None
         self.coverage_dir = None
 
     def finalize_options(self):
@@ -141,7 +143,7 @@ class unittest(Command):
             finally:
                 results = trace.results()
                 real_stdout = sys.stdout
-                sys.stdout = open(self.coverage_results, 'w')
+                sys.stdout = open(self.coverage_summary, 'w')
                 try:
                     results.write_results(show_missing=True, summary=True,
                                           coverdir=self.coverage_dir)
@@ -160,3 +162,37 @@ class unittest(Command):
         result = runner.run(suite.suite())
         if result.failures or result.errors:
             raise DistutilsExecError, 'unit tests failed'
+
+
+def main(argv):
+    from distutils.dist import Distribution
+    from optparse import OptionParser
+
+    parser = OptionParser(usage='usage: %prog [options] test_suite ...',
+                          version='%%prog %s' % VERSION)
+    parser.add_option('-o', '--xml-results', action='store', dest='xml_results',
+                      metavar='FILE', help='write XML test results to FILE')
+    parser.add_option('-d', '--coverage-dir', action='store',
+                      dest='coverage_dir', metavar='DIR',
+                      help='store coverage results in DIR')
+    parser.add_option('-s', '--coverage-summary', action='store',
+                      dest='coverage_summary', metavar='FILE',
+                      help='write coverage summary to FILE')
+    options, args = parser.parse_args()
+    if len(args) < 1:
+        parser.error('incorrect number of arguments')
+
+    cmd = unittest(Distribution())
+    cmd.initialize_options()
+    cmd.test_suite = args[0]
+    if hasattr(options, 'xml_results'):
+        cmd.xml_results = options.xml_results
+    if hasattr(options, 'coverage_summary'):
+        cmd.coverage_summary = options.coverage_summary
+    if hasattr(options, 'coverage_dir'):
+        cmd.coverage_dir = options.coverage_dir
+    cmd.finalize_options()
+    cmd.run()
+
+if __name__ == '__main__':
+    main(sys.argv)

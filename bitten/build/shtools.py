@@ -42,12 +42,12 @@ def exec_(ctxt, executable=None, file_=None, output=None, args=None):
         for out, err in cmdline.execute():
             if out is not None:
                 log.info(out)
-                xmlio.SubElement(log_elem, 'message', level='info')[out]
+                log_elem.append(xmlio.Element('message', level='info')[out])
                 if output:
                     output_file.write(out + os.linesep)
             if err is not None:
                 log.error(err)
-                xmlio.SubElement(log_elem, 'message', level='error')[err]
+                log_elem.append(xmlio.Element('message', level='error')[err])
                 if output:
                     output_file.write(err + os.linesep)
         ctxt.log(log_elem)
@@ -92,12 +92,12 @@ def pipe(ctxt, executable=None, file_=None, input_=None, output=None,
         for out, err in cmdline.execute():
             if out is not None:
                 log.info(out)
-                xmlio.SubElement(log_elem, 'message', level='info')[out]
+                log_elem.append(xmlio.Element('message', level='info')[out])
                 if output:
                     output_file.write(out + os.linesep)
             if err is not None:
                 log.error(err)
-                xmlio.SubElement(log_elem, 'message', level='error')[err]
+                log_elem.append(xmlio.Element('message', level='error')[err])
                 if output:
                     output_file.write(err + os.linesep)
         ctxt.log(log_elem)
