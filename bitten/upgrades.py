@@ -215,7 +215,7 @@ def normalize_file_paths(env, db):
     cursor = db.cursor()
     cursor.execute("SELECT report,item,value FROM bitten_report_item "
                    "WHERE name='file'")
-    rows = cursor.fetchall()
+    rows = cursor.fetchall() or []
     for report, item, value in rows:
         if '\\' in value:
             cursor.execute("UPDATE bitten_report_item SET value=%s "
