@@ -93,9 +93,14 @@ class PackTestCase(unittest.TestCase):
         self.assertRaises(archive.Error, archive.pack, self.env, repos)
 
     def test_pack_insufficient_perms(self):
-        os.chmod(os.path.join(self.env.path, 'snapshots'), 0500)
-        repos = Mock(get_node=lambda path, rev: Mock(isdir=True))
-        self.assertRaises(archive.Error, archive.pack, self.env, repos)
+        try:
+            os.chmod(os.path.join(self.env.path, 'snapshots'), 0500)
+            repos = Mock(get_node=lambda path, rev: Mock(isdir=True))
+            self.assertRaises(archive.Error, archive.pack, self.env, repos)
+        finally:
+            # Revert permissions, otherwise the environment directory can't be
+            # deleted on windows
+            os.chmod(os.path.join(self.env.path, 'snapshots'), 0700)
 
 
 class UnpackTestCase(unittest.TestCase):
