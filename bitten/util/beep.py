@@ -805,14 +805,14 @@ class FrameProducer(object):
 
         headerbits = [self.cmd, self.channel.channelno, self.msgno,
                       self.done and '.' or '*', self.channel.seqno[1].value,
-                      len(data) + 2]
+                      len(data)]
         if self.cmd == 'ANS':
             assert self.ansno is not None
             headerbits.append(self.ansno)
         header = ' '.join([str(bit) for bit in headerbits])
         log.debug('Sending frame [%s]', header)
-        frame = '\r\n'.join((header, data, 'END', ''))
-        self.channel.seqno[1] += len(data) + 2
+        frame = '\r\n'.join((header, data + 'END', ''))
+        self.channel.seqno[1] += len(data)
 
         return frame
 
