@@ -287,7 +287,6 @@ class Session(asynchat.async_chat):
         This parses the frame header and decides which channel to pass it to.
         """
         log.debug('Handling frame [%s]', ' '.join(header))
-        log.debug('  with payload:\n%s', payload)
         msgno = None
         channel = None
         try:
