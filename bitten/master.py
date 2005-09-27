@@ -8,19 +8,19 @@
 # are also available at http://bitten.cmlenz.net/wiki/License.
 
 from datetime import datetime, timedelta
-from itertools import ifilter
 import logging
-import os.path
-import re
+import os
 try:
     set
 except NameError:
     from sets import Set as set
+import sys
 import time
 
 from trac.env import Environment
-from bitten.model import BuildConfig, TargetPlatform, Build, BuildStep, \
-                         BuildLog, Report
+from bitten.model import BuildConfig, Build, BuildStep, BuildLog, Report
+from bitten.queue import BuildQueue
+from bitten.trac_ext.main import BuildSystem
 from bitten.util import archive, beep, xmlio
 
 log = logging.getLogger('bitten.master')
@@ -30,189 +30,78 @@ DEFAULT_CHECK_INTERVAL = 120 # 2 minutes
 
 class Master(beep.Listener):
 
-    def __init__(self, env_path, ip, port, adjust_timestamps=False,
+    def __init__(self, envs, ip, port, adjust_timestamps=False,
                  check_interval=DEFAULT_CHECK_INTERVAL):
         beep.Listener.__init__(self, ip, port)
-        self.profiles[OrchestrationProfileHandler.URI] = OrchestrationProfileHandler
-        self.env = Environment(env_path)
+        self.profiles[OrchestrationProfileHandler.URI] = \
+                OrchestrationProfileHandler
         self.adjust_timestamps = adjust_timestamps
         self.check_interval = check_interval
+        self.handlers = {} # Map of connected slaves keyed by name
 
-        self.slaves = {}
+        self.queues = []
+        for env in envs:
+            self.queues.append(BuildQueue(env))
 
-        # path to generated snapshot archives, key is (config name, revision)
-        self.snapshots = {}
-        for config in BuildConfig.select(self.env):
-            snapshots = archive.index(self.env, prefix=config.name)
-            for rev, format, path in snapshots:
-                self.snapshots[(config.name, rev, format)] = path
-
-        self._cleanup_orphaned_builds()
-        self.schedule(self.check_interval, self._check_build_triggers)
+        self.schedule(self.check_interval, self._enqueue_builds)
 
     def close(self):
-        self._cleanup_orphaned_builds()
+        for queue in self.queues:
+            queue.reset_orphaned_builds()
         beep.Listener.close(self)
 
-    def _check_build_triggers(self, when):
-        self.schedule(self.check_interval, self._check_build_triggers)
+    def _cleanup(self, when):
+        for queue in self.queues:
+            queue.remove_unused_snapshots()
 
-        repos = self.env.get_repository()
-        try:
-            repos.sync()
+    def _enqueue_builds(self, when):
+        self.schedule(self.check_interval, self._enqueue_builds)
 
-            db = self.env.get_db_cnx()
-            for config in BuildConfig.select(self.env, db=db):
-                log.debug('Checking for changes to "%s" at %s', config.label,
-                          config.path)
-                node = repos.get_node(config.path)
-                for path, rev, chg in node.get_history():
+        for queue in self.queues:
+            queue.populate()
 
-                    # Don't follow moves/copies
-                    if path != repos.normalize_path(config.path):
-                        break
+        self.schedule(self.check_interval * 0.2, self._initiate_builds)
+        self.schedule(self.check_interval * 1.8, self._cleanup)
 
-                    # Make sure the repository directory isn't empty at this
-                    # revision
-                    old_node = repos.get_node(path, rev)
-                    is_empty = True
-                    for entry in old_node.get_entries():
-                        is_empty = False
-                        break
-                    if is_empty:
-                        continue
+    def _initiate_builds(self, when):
+        available_slaves = set([name for name in self.handlers
+                                if not self.handlers[name].building])
 
-                    enqueued = False
-                    for platform in TargetPlatform.select(self.env,
-                                                          config.name, db=db):
-                        # Check whether the latest revision of the configuration
-                        # has already been built on this platform
-                        builds = Build.select(self.env, config.name, rev,
-                                              platform.id, db=db)
-                        if not list(builds):
-                            log.info('Enqueuing build of configuration "%s" at '
-                                     'revision [%s] on %s', config.name, rev,
-                                     platform.name)
-                            build = Build(self.env)
-                            build.config = config.name
-                            build.rev = str(rev)
-                            build.rev_time = repos.get_changeset(rev).date
-                            build.platform = platform.id
-                            build.insert(db)
-                            enqueued = True
-                    if enqueued:
-                        db.commit()
-                        break
-        finally:
-            repos.close()
+        for queue in self.queues[:]:
+            build, slave = queue.get_next_pending_build(available_slaves)
+            if build:
+                self.handlers[slave].send_initiation(queue, build)
+                available_slaves.discard(slave)
 
-        self.schedule(self.check_interval * 0.2, self._check_build_queue)
-        self.schedule(self.check_interval * 1.8, self._cleanup_snapshots)
-
-    def _check_build_queue(self, when):
-        if not self.slaves:
-            return
-        log.debug('Checking for pending builds...')
-        for build in Build.select(self.env, status=Build.PENDING):
-            config = BuildConfig.fetch(self.env, name=build.config)
-            if not config.active:
-                continue
-            for slave in self.slaves.get(build.platform, []):
-                active_builds = Build.select(self.env, slave=slave.name,
-                                             status=Build.IN_PROGRESS)
-                if not list(active_builds):
-                    slave.send_initiation(build)
-                    return
-
-    def _cleanup_orphaned_builds(self):
-        # Reset all in-progress builds
-        db = self.env.get_db_cnx()
-        for build in Build.select(self.env, status=Build.IN_PROGRESS, db=db):
-            build.status = Build.PENDING
-            build.slave = None
-            build.slave_info = {}
-            build.started = 0
-            for step in list(BuildStep.select(self.env, build=build.id, db=db)):
-                step.delete(db=db)
-            build.update(db=db)
-        db.commit()
-
-    def _cleanup_snapshots(self, when):
-        log.debug('Checking for unused snapshot archives...')
-        for (config, rev, format), path in self.snapshots.items():
-            keep = False
-            for build in Build.select(self.env, config=config, rev=rev):
-                if build.status not in (Build.SUCCESS, Build.FAILURE):
-                    keep = True
-                    break
-            if not keep:
-                log.info('Removing unused snapshot %s', path)
-                os.unlink(path)
-                del self.snapshots[(config, rev, format)]
-
-    def get_snapshot(self, build, format):
-        snapshot = self.snapshots.get((build.config, build.rev, format))
-        if not snapshot:
-            config = BuildConfig.fetch(self.env, build.config)
-            snapshot = archive.pack(self.env, path=config.path, rev=build.rev,
-                                    prefix=config.name, format=format)
-            log.info('Prepared snapshot archive at %s' % snapshot)
-            self.snapshots[(build.config, build.rev, format)] = snapshot
-        return snapshot
+                # Round robin
+                self.queues.remove(queue)
+                self.queues.append(queue)
 
     def register(self, handler):
         any_match = False
-        for config in BuildConfig.select(self.env):
-            for platform in TargetPlatform.select(self.env, config=config.name):
-                if not platform.id in self.slaves:
-                    self.slaves[platform.id] = set()
-                match = True
-                for propname, pattern in ifilter(None, platform.rules):
-                    try:
-                        propvalue = handler.info.get(propname)
-                        if not propvalue or not re.match(pattern, propvalue):
-                            match = False
-                            break
-                    except re.error:
-                        log.error('Invalid platform matching pattern "%s"',
-                                  pattern, exc_info=True)
-                        match = False
-                        break
-                if match:
-                    log.debug('Slave %s matched target platform %s',
-                              handler.name, platform.name)
-                    self.slaves[platform.id].add(handler)
-                    any_match = True
+        for queue in self.queues:
+            if queue.register_slave(handler.name, handler.info):
+                any_match = True
 
         if not any_match:
             log.warning('Slave %s does not match any of the configured target '
                         'platforms', handler.name)
             return False
 
-        self.schedule(self.check_interval * 0.2, self._check_build_queue)
+        self.handlers[handler.name] = handler
+        self.schedule(self.check_interval * 0.2, self._initiate_builds)
 
         log.info('Registered slave "%s"', handler.name)
         return True
 
     def unregister(self, handler):
-        for slaves in self.slaves.values():
-            slaves.discard(handler)
+        if handler.name not in self.handlers:
+            return
 
-        db = self.env.get_db_cnx()
-        for build in Build.select(self.env, slave=handler.name,
-                                  status=Build.IN_PROGRESS, db=db):
-            log.info('Build %d ("%s" as of [%s]) cancelled by  %s', build.id,
-                     build.rev, build.config, handler.name)
-            for step in list(BuildStep.select(self.env, build=build.id)):
-                step.delete(db=db)
+        for queue in self.queues:
+            queue.unregister_slave(handler.name)
+        del self.handlers[handler.name]
 
-            build.slave = None
-            build.slave_info = {}
-            build.status = Build.PENDING
-            build.started = 0
-            build.update(db=db)
-            break
-        db.commit()
         log.info('Unregistered slave "%s"', handler.name)
 
 
@@ -225,9 +114,8 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
     def handle_connect(self):
         self.master = self.session.listener
         assert self.master
-        self.env = self.master.env
-        assert self.env
         self.name = None
+        self.building = False
         self.info = {}
 
     def handle_disconnect(self):
@@ -264,9 +152,10 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
             xml = xmlio.Element('ok')
             self.channel.send_rpy(msgno, beep.Payload(xml))
 
-    def send_initiation(self, build):
+    def send_initiation(self, queue, build):
         log.info('Initiating build of "%s" on slave %s', build.config,
                  self.name)
+        self.building = True
 
         def handle_reply(cmd, msgno, ansno, payload):
             if cmd == 'ERR':
@@ -276,6 +165,7 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
                         log.warning('Slave %s refused build request: %s (%d)',
                                     self.name, elem.gettext(),
                                     int(elem.attr['code']))
+                self.building = False
                 return
 
             elem = xmlio.parse(payload.body)
@@ -294,14 +184,15 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
                     'None of the accepted archive formats supported'
                 ]
                 self.channel.send_err(beep.Payload(xml))
+                self.building = False
                 return
-            self.send_snapshot(build, type, encoding)
+            self.send_snapshot(queue, build, type, encoding)
 
-        config = BuildConfig.fetch(self.env, build.config)
+        config = BuildConfig.fetch(queue.env, build.config)
         self.channel.send_msg(beep.Payload(config.recipe),
                               handle_reply=handle_reply)
 
-    def send_snapshot(self, build, type, encoding):
+    def send_snapshot(self, queue, build, type, encoding):
         timestamp_delta = 0
         if self.master.adjust_timestamps:
             d = datetime.now() - timedelta(seconds=self.master.check_interval) \
@@ -317,20 +208,25 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
                     log.warning('Slave %s refused to start build: %s (%d)',
                                 self.name, elem.gettext(),
                                 int(elem.attr['code']))
+                self.building = False
 
             elif cmd == 'ANS':
                 assert payload.content_type == beep.BEEP_XML
                 elem = xmlio.parse(payload.body)
                 if elem.name == 'started':
-                    self._build_started(build, elem, timestamp_delta)
+                    self._build_started(queue, build, elem, timestamp_delta)
                 elif elem.name == 'step':
-                    self._build_step_completed(build, elem, timestamp_delta)
+                    self._build_step_completed(queue, build, elem,
+                                               timestamp_delta)
                 elif elem.name == 'completed':
-                    self._build_completed(build, elem, timestamp_delta)
+                    self._build_completed(queue, build, elem, timestamp_delta)
                 elif elem.name == 'aborted':
-                    self._build_aborted(build)
+                    self._build_aborted(queue, build)
                 elif elem.name == 'error':
                     build.status = Build.FAILURE
+
+            elif cmd == 'NUL':
+                self.building = False
 
         snapshot_format = {
             ('application/tar', 'bzip2'): 'bzip2',
@@ -338,14 +234,14 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
             ('application/tar', None): 'tar',
             ('application/zip', None): 'zip',
         }[(type, encoding)]
-        snapshot_path = self.master.get_snapshot(build, snapshot_format)
+        snapshot_path = queue.get_snapshot(build, snapshot_format, create=True)
         snapshot_name = os.path.basename(snapshot_path)
-        message = beep.Payload(file(snapshot_path), content_type=type,
+        message = beep.Payload(file(snapshot_path, 'rb'), content_type=type,
                                content_disposition=snapshot_name,
                                content_encoding=encoding)
         self.channel.send_msg(message, handle_reply=handle_reply)
 
-    def _build_started(self, build, elem, timestamp_delta=None):
+    def _build_started(self, queue, build, elem, timestamp_delta=None):
         build.slave = self.name
         build.slave_info.update(self.info)
         build.started = int(_parse_iso_datetime(elem.attr['time']))
@@ -356,13 +252,13 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
                  self.name, build.id, build.config, build.rev)
         build.update()
 
-    def _build_step_completed(self, build, elem, timestamp_delta=None):
+    def _build_step_completed(self, queue, build, elem, timestamp_delta=None):
         log.debug('Slave %s completed step "%s" with status %s', self.name,
                   elem.attr['id'], elem.attr['result'])
 
-        db = self.env.get_db_cnx()
+        db = queue.env.get_db_cnx()
 
-        step = BuildStep(self.env, build=build.id, name=elem.attr['id'],
+        step = BuildStep(queue.env, build=build.id, name=elem.attr['id'],
                          description=elem.attr.get('description'))
         step.started = int(_parse_iso_datetime(elem.attr['time']))
         step.stopped = step.started + int(elem.attr['duration'])
@@ -377,7 +273,7 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
         step.insert(db=db)
 
         for idx, log_elem in enumerate(elem.children('log')):
-            build_log = BuildLog(self.env, build=build.id, step=step.name,
+            build_log = BuildLog(queue.env, build=build.id, step=step.name,
                                  generator=log_elem.attr.get('generator'),
                                  orderno=idx)
             for message_elem in log_elem.children('message'):
@@ -386,7 +282,7 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
             build_log.insert(db=db)
 
         for report_elem in elem.children('report'):
-            report = Report(self.env, build=build.id, step=step.name,
+            report = Report(queue.env, build=build.id, step=step.name,
                             category=report_elem.attr.get('category'),
                             generator=report_elem.attr.get('generator'))
             for item_elem in report_elem.children():
@@ -399,7 +295,7 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
 
         db.commit()
 
-    def _build_completed(self, build, elem, timestamp_delta=None):
+    def _build_completed(self, queue, build, elem, timestamp_delta=None):
         log.info('Slave %s completed build %d ("%s" as of [%s]) with status %s',
                  self.name, build.id, build.config, build.rev,
                  elem.attr['result'])
@@ -413,13 +309,13 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
             build.status = Build.SUCCESS
         build.update()
 
-    def _build_aborted(self, build):
+    def _build_aborted(self, queue, build):
         log.info('Slave %s aborted build %d ("%s" as of [%s])',
                  self.name, build.id, build.config, build.rev)
 
-        db = self.env.get_db_cnx()
+        db = queue.env.get_db_cnx()
 
-        for step in list(BuildStep.select(self.env, build=build.id, db=db)):
+        for step in list(BuildStep.select(queue.env, build=build.id, db=db)):
             step.delete(db=db)
 
         build.slave = None
@@ -451,7 +347,7 @@ def main():
     from optparse import OptionParser
 
     # Parse command-line arguments
-    parser = OptionParser(usage='usage: %prog [options] env-path',
+    parser = OptionParser(usage='usage: %prog [options] ENV_PATHS',
                           version='%%prog %s' % VERSION)
     parser.add_option('-p', '--port', action='store', type='int', dest='port',
                       help='port number to use')
@@ -478,7 +374,6 @@ def main():
 
     if len(args) < 1:
         parser.error('incorrect number of arguments')
-    env_path = args[0]
 
     # Configure logging
     logger = logging.getLogger('bitten')
@@ -513,7 +408,19 @@ def main():
             log.warning('Reverse host name lookup failed (%s)', e)
             host = ip
 
-    master = Master(env_path, host, port, adjust_timestamps=options.timewarp,
+    envs = []
+    for arg in args:
+        env = Environment(arg)
+        if BuildSystem(env):
+            if env.needs_upgrade():
+                log.warning('Environment at %s needs to be upgraded', env.path)
+                continue
+            envs.append(env)
+    if not envs:
+        log.error('None of the specified environments has support for Bitten')
+        sys.exit(2)
+
+    master = Master(envs, host, port, adjust_timestamps=options.timewarp,
                     check_interval=options.interval)
     try:
         master.run(timeout=5.0)

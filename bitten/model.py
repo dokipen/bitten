@@ -181,14 +181,14 @@ class TargetPlatform(object):
         ]
     ]
 
-    def __init__(self, env, id=None, config=None, name=None):
+    def __init__(self, env, config=None, name=None):
         """Initialize a new target platform with the specified attributes.
 
         To actually create this platform in the database, the `insert` method
         needs to be called.
         """
         self.env = env
-        self.id = id
+        self.id = None
         self.config = config
         self.name = name
         self.rules = []
@@ -272,7 +272,8 @@ class TargetPlatform(object):
         if not row:
             return None
 
-        platform = TargetPlatform(env, id=id, config=row[0], name=row[1])
+        platform = TargetPlatform(env, config=row[0], name=row[1])
+        platform.id = id
         cursor.execute("SELECT propname,pattern FROM bitten_rule "
                        "WHERE id=%s ORDER BY orderno", (id,))
         for propname, pattern in cursor:
@@ -336,25 +337,24 @@ class Build(object):
     MACHINE = 'machine'
     PROCESSOR = 'processor'
 
-    def __init__(self, env, id=None, config=None, rev=None, platform=None,
-                 slave=None, started=0, stopped=0, rev_time=0,
-                 status=PENDING):
+    def __init__(self, env, config=None, rev=None, platform=None, slave=None,
+                 started=0, stopped=0, rev_time=0, status=PENDING):
         """Initialize a new build with the specified attributes.
 
         To actually create this build in the database, the `insert` method needs
         to be called.
         """
         self.env = env
-        self.slave_info = {}
-        self.id = id
+        self.id = None
         self.config = config
-        self.rev = rev
+        self.rev = rev and str(rev) or None
         self.platform = platform
         self.slave = slave
         self.started = started or 0
         self.stopped = stopped or 0
         self.rev_time = rev_time
         self.status = status
+        self.slave_info = {}
 
     exists = property(fget=lambda self: self.id is not None)
     completed = property(fget=lambda self: self.status != Build.IN_PROGRESS)
@@ -447,10 +447,11 @@ class Build(object):
         if not row:
             return None
 
-        build = Build(env, id=int(id), config=row[0], rev=row[1],
-                      rev_time=int(row[2]), platform=int(row[3]),
-                      slave=row[4], started=row[5] and int(row[5]) or 0,
+        build = Build(env, config=row[0], rev=row[1], rev_time=int(row[2]),
+                      platform=int(row[3]), slave=row[4],
+                      started=row[5] and int(row[5]) or 0,
                       stopped=row[6] and int(row[6]) or 0, status=row[7])
+        build.id = int(id)
         cursor.execute("SELECT propname,propvalue FROM bitten_slave "
                        "WHERE build=%s", (id,))
         for propname, propvalue in cursor:
