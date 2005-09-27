@@ -287,6 +287,7 @@ class Session(asynchat.async_chat):
         This parses the frame header and decides which channel to pass it to.
         """
         log.debug('Handling frame [%s]', ' '.join(header))
+        log.debug('  with payload:\n%s', payload)
         msgno = None
         channel = None
         try:
@@ -739,7 +740,7 @@ class Payload(object):
                 hdrs.append('Content-Transfer-Encoding: ' +
                             self.content_encoding)
             hdrs.append('')
-            self._hdr_buf = '\n'.join(hdrs) + '\n'
+            self._hdr_buf = '\r\n'.join(hdrs) + '\r\n'
 
         ret_buf = ''
         if len(self._hdr_buf):
@@ -805,14 +806,14 @@ class FrameProducer(object):
 
         headerbits = [self.cmd, self.channel.channelno, self.msgno,
                       self.done and '.' or '*', self.channel.seqno[1].value,
-                      len(data)]
+                      len(data) + 2]
         if self.cmd == 'ANS':
             assert self.ansno is not None
             headerbits.append(self.ansno)
         header = ' '.join([str(bit) for bit in headerbits])
         log.debug('Sending frame [%s]', header)
         frame = '\r\n'.join((header, data, 'END', ''))
-        self.channel.seqno[1] += len(data)
+        self.channel.seqno[1] += len(data) + 2
 
         return frame
 

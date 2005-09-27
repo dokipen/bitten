@@ -51,7 +51,7 @@ class MockSession(beep.Initiator):
                 rest = rest[size:]
             self.sent_messages.append((cmd, channel, msgno, more, seqno, ansno,
                                        payload.strip()))
-            assert rest == '\r\nEND\r\n'
+            assert rest == 'END\r\n'
 
 
 class MockProfileHandler(object):
@@ -175,9 +175,9 @@ class ChannelTestCase(unittest.TestCase):
         channel = beep.Channel(self.session, 0, MockProfileHandler)
         channel.send_msg(beep.Payload('foo bar', None))
         channel.send_rpy(0, beep.Payload('nil', None))
-        self.assertEqual(('MSG', 0, 0, False, 0L, None, 'foo bar'),
+        self.assertEqual(('MSG', 0, 0, False, 0, None, 'foo bar'),
                          self.session.sent_messages[0])
-        self.assertEqual(('RPY', 0, 0, False, 8L, None, 'nil'),
+        self.assertEqual(('RPY', 0, 0, False, 11, None, 'nil'),
                          self.session.sent_messages[1])
 
     def test_send_message_msgno_incrementing(self):
@@ -188,12 +188,12 @@ class ChannelTestCase(unittest.TestCase):
         channel = beep.Channel(self.session, 0, MockProfileHandler)
         msgno = channel.send_msg(beep.Payload('foo bar', None))
         assert msgno == 0
-        self.assertEqual(('MSG', 0, msgno, False, 0L, None, 'foo bar'),
+        self.assertEqual(('MSG', 0, msgno, False, 0, None, 'foo bar'),
                          self.session.sent_messages[0])
         assert msgno in channel.msgnos
         msgno = channel.send_msg(beep.Payload('foo baz', None))
         assert msgno == 1
-        self.assertEqual(('MSG', 0, msgno, False, 8L, None, 'foo baz'),
+        self.assertEqual(('MSG', 0, msgno, False, 11, None, 'foo baz'),
                          self.session.sent_messages[1])
         assert msgno in channel.msgnos
 
@@ -271,16 +271,16 @@ class ChannelTestCase(unittest.TestCase):
         channel = beep.Channel(self.session, 0, MockProfileHandler)
         ansno = channel.send_ans(0, beep.Payload('foo bar', None))
         assert ansno == 0
-        self.assertEqual(('ANS', 0, 0, False, 0L, ansno, 'foo bar'),
+        self.assertEqual(('ANS', 0, 0, False, 0, ansno, 'foo bar'),
                          self.session.sent_messages[0])
         assert 0 in channel.ansnos
         ansno = channel.send_ans(0, beep.Payload('foo baz', None))
         assert ansno == 1
-        self.assertEqual(('ANS', 0, 0, False, 8L, ansno, 'foo baz'),
+        self.assertEqual(('ANS', 0, 0, False, 11, ansno, 'foo baz'),
                          self.session.sent_messages[1])
         assert 0 in channel.ansnos
         channel.send_nul(0)
-        self.assertEqual(('NUL', 0, 0, False, 16L, None, ''),
+        self.assertEqual(('NUL', 0, 0, False, 22, None, ''),
                          self.session.sent_messages[2])
         assert 0 not in channel.ansnos
 
