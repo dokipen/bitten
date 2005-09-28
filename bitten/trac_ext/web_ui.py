@@ -357,7 +357,7 @@ class BuildConfigController(Component):
             if idx >= page * builds_per_page:
                 more = True
                 break
-            elif idx > (page - 1) * builds_per_page:
+            elif idx >= (page - 1) * builds_per_page:
                 prefix = 'config.builds.%d' % rev
                 req.hdf[prefix + '.href'] = self.env.href.changeset(rev)
                 if build and build.status != Build.PENDING:
