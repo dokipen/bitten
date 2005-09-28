@@ -39,9 +39,9 @@ class BuildConfigControllerTestCase(unittest.TestCase):
                             'DefaultPermissionStore')
 
         # Hook up a dummy repository
-        repos = Mock(get_node=lambda path: Mock(get_history=lambda: []),
-                     sync=lambda: None)
-        self.env.get_repository = lambda x: repos
+        self.repos = Mock(get_node=lambda path: Mock(get_history=lambda: []),
+                          sync=lambda: None)
+        self.env.get_repository = lambda x: self.repos
 
     def tearDown(self):
         shutil.rmtree(self.env.path)
@@ -70,13 +70,20 @@ class BuildConfigControllerTestCase(unittest.TestCase):
         self.assertEqual('1', req.hdf.get('config.can_create'))
 
     def test_view_config(self):
-        config = BuildConfig(self.env)
-        config.name = 'test'
+        config = BuildConfig(self.env, name='test', path='trunk')
         config.insert()
+        platform = TargetPlatform(self.env, config='test', name='any')
+        platform.insert()
 
         PermissionSystem(self.env).grant_permission('joe', 'BUILD_VIEW')
         req = Mock(Request, cgi_location='', path_info='/build/test', args={},
                    hdf=HDFWrapper(), perm=PermissionCache(self.env, 'joe'))
+
+        root = Mock(get_entries=lambda: ['foo'],
+                    get_history=lambda: [('trunk', rev, 'edit') for rev in
+                                          range(123, 111, -1)])
+        self.repos = Mock(get_node=lambda path, rev=None: root,
+                          sync=lambda: None, normalize_path=lambda path: path)
 
         module = BuildConfigController(self.env)
         assert module.match_request(req)
@@ -85,6 +92,30 @@ class BuildConfigControllerTestCase(unittest.TestCase):
         self.assertEqual('view_config', req.hdf['page.mode'])
         self.assertEqual('0', req.hdf.get('build.config.can_delete', '0'))
         self.assertEqual('0', req.hdf.get('build.config.can_modify', '0'))
+        self.assertEqual(None, req.hdf.get('chrome.links.next.0.href'))
+
+    def test_view_config_paging(self):
+        config = BuildConfig(self.env, name='test', path='trunk')
+        config.insert()
+        platform = TargetPlatform(self.env, config='test', name='any')
+        platform.insert()
+
+        PermissionSystem(self.env).grant_permission('joe', 'BUILD_VIEW')
+        req = Mock(Request, cgi_location='', path_info='/build/test', args={},
+                   hdf=HDFWrapper(), perm=PermissionCache(self.env, 'joe'))
+
+        root = Mock(get_entries=lambda: ['foo'],
+                    get_history=lambda: [('trunk', rev, 'edit') for rev in
+                                          range(123, 110, -1)])
+        self.repos = Mock(get_node=lambda path, rev=None: root,
+                          sync=lambda: None, normalize_path=lambda path: path)
+
+        module = BuildConfigController(self.env)
+        assert module.match_request(req)
+        module.process_request(req)
+
+        self.assertEqual('/trac.cgi/build/test?page=2',
+                         req.hdf.get('chrome.links.next.0.href'))
 
     def test_view_config_admin(self):
         config = BuildConfig(self.env)

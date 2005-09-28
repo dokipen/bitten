@@ -354,20 +354,16 @@ class BuildConfigController(Component):
         repos.sync()
         idx = 0
         for platform, rev, build in collect_changes(repos, config):
-            if idx < (page - 1) * builds_per_page:
-                idx += 1
-                continue
-
-            prefix = 'config.builds.%d' % rev
-            req.hdf[prefix + '.href'] = self.env.href.changeset(rev)
-            if build and build.status != Build.PENDING:
-                build_hdf = _build_to_hdf(self.env, req, build)
-                req.hdf['%s.%s' % (prefix, platform.id)] = build_hdf
-
-            idx += 1
             if idx >= page * builds_per_page:
                 more = True
                 break
+            elif idx > (page - 1) * builds_per_page:
+                prefix = 'config.builds.%d' % rev
+                req.hdf[prefix + '.href'] = self.env.href.changeset(rev)
+                if build and build.status != Build.PENDING:
+                    build_hdf = _build_to_hdf(self.env, req, build)
+                    req.hdf['%s.%s' % (prefix, platform.id)] = build_hdf
+            idx += 1
 
         if page > 1:
             if page == 2:
