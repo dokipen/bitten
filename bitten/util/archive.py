@@ -74,6 +74,10 @@ def pack(env, repos=None, path=None, rev=None, prefix=None, format='gzip',
         if name.startswith('/'):
             name = name[1:]
         if node.isdir:
+            if format == 'zip':
+                dirpath = os.path.join(prefix, name).rstrip('/') + '/'
+                info = zipfile.ZipInfo(dirpath)
+                archive.writestr(info, '')
             for entry in node.get_entries():
                 _add_entry(entry)
         elif format in ('bzip2', 'gzip'):
@@ -129,6 +133,9 @@ def unpack(filename, dest_path, format=None):
                 if name.endswith('/'):
                     os.makedirs(path)
                 else:
+                    dirname = os.path.dirname(path)
+                    if not os.path.isdir(dirname):
+                        os.makedirs(dirname)
                     file(path, 'wb').write(zip_file.read(name))
         except (IOError, zipfile.error), e:
             raise Error, e

@@ -9,8 +9,10 @@
 
 import os
 import shutil
+import tarfile
 import tempfile
 import unittest
+import zipfile
 
 from trac.test import EnvironmentStub, Mock
 from bitten.util import archive
@@ -102,6 +104,38 @@ class PackTestCase(unittest.TestCase):
             # deleted on windows
             os.chmod(os.path.join(self.env.path, 'snapshots'), 0700)
 
+    def test_pack_tarbz2_empty(self):
+        root_dir = Mock(isdir=True, get_entries=lambda: [], path='', rev=123)
+        repos = Mock(get_node=lambda path, rev: root_dir)
+        path = archive.pack(self.env, repos, format='bzip2')
+        assert path.endswith('_r123.tar.bz2')
+
+    def test_pack_targz_empty(self):
+        root_dir = Mock(isdir=True, get_entries=lambda: [], path='', rev=123)
+        repos = Mock(get_node=lambda path, rev: root_dir)
+        path = archive.pack(self.env, repos, format='gzip')
+        assert path.endswith('_r123.tar.gz')
+
+    def test_pack_zip_empty(self):
+        root_dir = Mock(isdir=True, get_entries=lambda: [], path='', rev=123)
+        repos = Mock(get_node=lambda path, rev: root_dir)
+        path = archive.pack(self.env, repos, format='zip')
+        assert path.endswith('_r123.zip')
+        entries = zipfile.ZipFile(path, 'r').infolist()
+        self.assertEqual(1, len(entries))
+        self.assertEqual('_r123/', entries[0].filename)
+
+    def test_pack_zip_empty_dir(self):
+        empty_dir = Mock(isdir=True, get_entries=lambda: [], path='empty')
+        root_dir = Mock(isdir=True, get_entries=lambda: [empty_dir],
+                        path='', rev=123)
+        repos = Mock(get_node=lambda path, rev: root_dir)
+        path = archive.pack(self.env, repos, format='zip')
+        entries = zipfile.ZipFile(path, 'r').infolist()
+        self.assertEqual(2, len(entries))
+        self.assertEqual('_r123/', entries[0].filename)
+        self.assertEqual('_r123/empty/', entries[1].filename)
+
 
 class UnpackTestCase(unittest.TestCase):
 
@@ -130,9 +164,9 @@ class UnpackTestCase(unittest.TestCase):
 
     def test_unpack_invalid_tar_bz2(self):
         path = self._create_file('invalid.tar.bz2')
-        targz = file(path, 'w')
-        targz.write('INVALID')
-        targz.close()
+        tarbz2 = file(path, 'w')
+        tarbz2.write('INVALID')
+        tarbz2.close()
         self.assertRaises(archive.Error, archive.unpack, path, self.workdir)
 
     def test_unpack_invalid_zip_1(self):
@@ -145,9 +179,9 @@ class UnpackTestCase(unittest.TestCase):
         the file.
         """
         path = self._create_file('invalid.zip')
-        targz = file(path, 'w')
-        targz.write('INVALID')
-        targz.close()
+        zip = file(path, 'w')
+        zip.write('INVALID')
+        zip.close()
         self.assertRaises(archive.Error, archive.unpack, path, self.workdir)
 
     def test_unpack_invalid_zip_2(self):
@@ -156,9 +190,9 @@ class UnpackTestCase(unittest.TestCase):
         invalid ZIP file.
         """
         path = self._create_file('invalid.zip')
-        targz = file(path, 'w')
-        targz.write('INVALIDINVALIDINVALIDINVALIDINVALIDINVALID')
-        targz.close()
+        zip = file(path, 'w')
+        zip.write('INVALIDINVALIDINVALIDINVALIDINVALIDINVALID')
+        zip.close()
         self.assertRaises(archive.Error, archive.unpack, path, self.workdir)
 
 
