@@ -39,7 +39,8 @@ class BuildConfigControllerTestCase(unittest.TestCase):
                             'DefaultPermissionStore')
 
         # Hook up a dummy repository
-        repos = Mock(get_node=lambda path: Mock(get_history=lambda: []))
+        repos = Mock(get_node=lambda path: Mock(get_history=lambda: []),
+                     sync=lambda: None)
         self.env.get_repository = lambda x: repos
 
     def tearDown(self):

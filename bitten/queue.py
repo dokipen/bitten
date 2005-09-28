@@ -18,14 +18,62 @@ from bitten.util import archive
 log = logging.getLogger('bitten.queue')
 
 
+def collect_changes(repos, config):
+    """Collect all changes for a build configuration that either have already
+    been built, or still need to be built.
+    
+    This function is a generator that yields `(platform, rev, build)` tuples,
+    where `platform` is a `TargetPlatform` object, `rev` is the identifier of
+    the changeset, and `build` is a `Build` object or `None`.
+    """
+    env = config.env
+    node = repos.get_node(config.path)
+
+    for path, rev, chg in node.get_history():
+
+        # Don't follow moves/copies
+        if path != repos.normalize_path(config.path):
+            break
+
+        # Make sure the repository directory isn't empty at this
+        # revision
+        old_node = repos.get_node(path, rev)
+        is_empty = True
+        for entry in old_node.get_entries():
+            is_empty = False
+            break
+        if is_empty:
+            continue
+
+        # For every target platform, check whether there's a build
+        # of this revision
+        for platform in TargetPlatform.select(env, config.name):
+            builds = list(Build.select(env, config.name, rev, platform.id))
+            if builds:
+                build = builds[0]
+            else:
+                build = None
+
+            yield platform, rev, build
+
+
 class BuildQueue(object):
-    """Enapsulates the build queue of an environment."""
+    """Enapsulates the build queue of an environment.
+    
+    A build queue manages the the registration of build slaves, creation and
+    removal of snapshot archives, and detection of repository revisions that
+    need to be built.
+    """
 
     def __init__(self, env):
+        """Create the build queue.
+        
+        @param env: The Trac environment
+        """
         self.env = env
         self.slaves = {} # Sets of slave names keyed by target platform ID
 
-        # path to generated snapshot archives, key is (config name, revision)
+        # Paths to generated snapshot archives, key is (config name, revision)
         self.snapshots = {}
         for config in BuildConfig.select(self.env):
             snapshots = archive.index(self.env, prefix=config.name)
@@ -59,65 +107,49 @@ class BuildQueue(object):
             # Find a slave for the build platform that is not already building
             # something else
             slaves = self.slaves.get(build.platform, [])
-            for slave in [name for name in slaves if name in available_slaves]:
-                slaves.remove(slave)
-                slaves.append(slave)
+            for idx, slave in enumerate([name for name in slaves if name
+                                         in available_slaves]):
+                slaves.append(slaves.pop(idx)) # Round robin
                 return build, slave
 
         return None, None
 
     def populate(self):
+        """Add a build for the next change on each build configuration to the
+        queue.
+
+        The next change is the latest repository check-in for which there isn't
+        a corresponding build on each target platform. Repeatedly calling this
+        method will eventually result in the entire change history of the build
+        configuration being in the build queue.
+        """
         repos = self.env.get_repository()
         try:
             repos.sync()
 
-            db = self.env.get_db_cnx()
-            for config in BuildConfig.select(self.env, db=db):
-                log.debug('Checking for changes to "%s" at %s', config.label,
-                          config.path)
-                node = repos.get_node(config.path)
-                for path, rev, chg in node.get_history():
-
-                    # Don't follow moves/copies
-                    if path != repos.normalize_path(config.path):
-                        break
-
-                    # Make sure the repository directory isn't empty at this
-                    # revision
-                    old_node = repos.get_node(path, rev)
-                    is_empty = True
-                    for entry in old_node.get_entries():
-                        is_empty = False
-                        break
-                    if is_empty:
-                        continue
-
-                    enqueued = False
-                    for platform in TargetPlatform.select(self.env,
-                                                          config.name, db=db):
-                        # Check whether this revision of the configuration has
-                        # already been built on this platform
-                        builds = Build.select(self.env, config.name, rev,
-                                              platform.id, db=db)
-                        if not list(builds):
-                            log.info('Enqueuing build of configuration "%s" at '
-                                     'revision [%s] on %s', config.name, rev,
-                                     platform.name)
-                            build = Build(self.env)
-                            build.config = config.name
-                            build.rev = str(rev)
-                            build.rev_time = repos.get_changeset(rev).date
-                            build.platform = platform.id
-                            build.insert(db)
-                            enqueued = True
-                    if enqueued:
-                        db.commit()
+            for config in BuildConfig.select(self.env):
+                for platform, rev, build in collect_changes(repos, config):
+                    if build is None:
+                        log.info('Enqueuing build of configuration "%s" at '
+                                 'revision [%s] on %s', config.name, rev,
+                                 platform.name)
+                        build = Build(self.env)
+                        build.config = config.name
+                        build.rev = str(rev)
+                        build.rev_time = repos.get_changeset(rev).date
+                        build.platform = platform.id
+                        build.insert()
                         break
         finally:
             repos.close()
 
     def reset_orphaned_builds(self):
-        # Reset all in-progress builds
+        """Reset all in-progress builds to `PENDING` state.
+        
+        This is used to cleanup after a crash of the build master process,
+        which would leave in-progress builds in the database that aren't
+        actually being built because the slaves have disconnected.
+        """
         db = self.env.get_db_cnx()
         for build in Build.select(self.env, status=Build.IN_PROGRESS, db=db):
             build.status = Build.PENDING
@@ -132,6 +164,16 @@ class BuildQueue(object):
     # Snapshot management
 
     def get_snapshot(self, build, format, create=False):
+        """Return the absolute path to a snapshot archive for the given build.
+        The archive can be created if it doesn't exist yet.
+
+        @param build: The `Build` object
+        @param format: The archive format (one of `gzip`, `bzip2` or `zip`)
+        @param create: Whether the archive should be created if it doesn't exist
+                       yet
+        @return: The absolute path to the create archive file, or None if the
+                 snapshot doesn't exist and wasn't created
+        """
         snapshot = self.snapshots.get((build.config, build.rev, format))
         if create and snapshot is None:
             config = BuildConfig.fetch(self.env, build.config)
@@ -142,7 +184,14 @@ class BuildQueue(object):
         return snapshot
 
     def remove_unused_snapshots(self):
+        """Find any previously created snapshot archives that are no longer
+        needed because all corresponding builds have already been completed.
+
+        This method should be called in regular intervals to keep the total
+        disk space occupied by the snapshot archives to a minimum.
+        """
         log.debug('Checking for unused snapshot archives...')
+
         for (config, rev, format), path in self.snapshots.items():
             keep = False
             for build in Build.select(self.env, config=config, rev=rev):
@@ -157,6 +206,16 @@ class BuildQueue(object):
     # Slave registry
 
     def register_slave(self, name, properties):
+        """Register a build slave with the queue.
+        
+        @param name: The name of the slave
+        @param properties: A `dict` containing the properties of the slave
+        @return: whether the registration was successful
+
+        This method tries to match the slave against the configured target
+        platforms. Only if it matches at least one platform will the
+        registration be successful.
+        """
         any_match = False
         for config in BuildConfig.select(self.env):
             for platform in TargetPlatform.select(self.env, config=config.name):
@@ -182,6 +241,13 @@ class BuildQueue(object):
         return any_match
 
     def unregister_slave(self, name):
+        """Unregister a build slave.
+        
+        @param name: The name of the slave
+
+        This method removes the slave from the registry, and also resets any
+        in-progress builds by this slave to `PENDING` state.
+        """
         for slaves in self.slaves.values():
             if name in slaves:
                 slaves.remove(name)

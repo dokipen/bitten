@@ -67,15 +67,12 @@ class Master(beep.Listener):
         available_slaves = set([name for name in self.handlers
                                 if not self.handlers[name].building])
 
-        for queue in self.queues[:]:
+        for idx, queue in enumerate(self.queues[:]):
             build, slave = queue.get_next_pending_build(available_slaves)
             if build:
                 self.handlers[slave].send_initiation(queue, build)
                 available_slaves.discard(slave)
-
-                # Round robin
-                self.queues.remove(queue)
-                self.queues.append(queue)
+                self.queues.append(self.queues.pop(idx)) # Round robin
 
     def register(self, handler):
         any_match = False
@@ -410,6 +407,9 @@ def main():
 
     envs = []
     for arg in args:
+        if not os.path.isdir(arg):
+            log.warning('Ignoring %s: not a directory', arg)
+            continue
         env = Environment(arg)
         if BuildSystem(env):
             if env.needs_upgrade():

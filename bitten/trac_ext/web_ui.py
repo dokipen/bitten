@@ -20,6 +20,7 @@ from trac.web.chrome import INavigationContributor, ITemplateProvider, \
 from trac.wiki import wiki_to_html
 from bitten.model import BuildConfig, TargetPlatform, Build, BuildStep, \
                          BuildLog, Report
+from bitten.queue import collect_changes
 from bitten.trac_ext.api import ILogFormatter, IReportSummarizer
 
 _status_label = {Build.IN_PROGRESS: 'in progress',
@@ -325,7 +326,7 @@ class BuildConfigController(Component):
         }
         req.hdf['page.mode'] = 'view_config'
 
-        platforms = TargetPlatform.select(self.env, config=config_name)
+        platforms = list(TargetPlatform.select(self.env, config=config_name))
         req.hdf['config.platforms'] = [
             {'name': platform.name, 'id': platform.id} for platform in platforms
         ]
@@ -348,52 +349,35 @@ class BuildConfigController(Component):
         more = False
         req.hdf['page.number'] = page
 
+        builds_per_page = 12 * len(platforms)
         repos = self.env.get_repository(req.authname)
-        try:
-            root = repos.get_node(config.path)
-            idx = 0
-            for path, rev, chg in root.get_history():
-                # Don't follow moves/copies
-                if path != repos.normalize_path(config.path):
-                    break
-                # If the directory was empty at that revision, it isn't built
-                old_node = repos.get_node(path, rev)
-                is_empty = True
-                for entry in old_node.get_entries():
-                    is_empty = False
-                    break
-                if is_empty:
-                    continue
-
-                if idx < (page - 1) * 12:
-                    idx += 1
-                    continue
-
-                prefix = 'config.builds.%d' % rev
-                req.hdf[prefix + '.href'] = self.env.href.changeset(rev)
-                for build in Build.select(self.env, config=config.name, rev=rev):
-                    if build.status == Build.PENDING:
-                        continue
-                    build_hdf = _build_to_hdf(self.env, req, build)
-                    req.hdf['%s.%s' % (prefix, build.platform)] = build_hdf
-
+        repos.sync()
+        idx = 0
+        for platform, rev, build in collect_changes(repos, config):
+            if idx < (page - 1) * builds_per_page:
                 idx += 1
-                if idx >= page * 12:
-                    more = True
-                    break
+                continue
 
-            if page > 1:
-                if page == 2:
-                    prev_href = self.env.href.build(config.name)
-                else:
-                    prev_href = self.env.href.build(config.name, page=page - 1)
-                add_link(req, 'prev', prev_href, 'Previous Page')
-            if more:
-                next_href = self.env.href.build(config.name, page=page + 1)
-                add_link(req, 'next', next_href, 'Next Page')
+            prefix = 'config.builds.%d' % rev
+            req.hdf[prefix + '.href'] = self.env.href.changeset(rev)
+            if build and build.status != Build.PENDING:
+                build_hdf = _build_to_hdf(self.env, req, build)
+                req.hdf['%s.%s' % (prefix, platform.id)] = build_hdf
 
-        except TracError:
-            self.log.error('Error accessing repository info', exc_info=True)
+            idx += 1
+            if idx >= page * builds_per_page:
+                more = True
+                break
+
+        if page > 1:
+            if page == 2:
+                prev_href = self.env.href.build(config.name)
+            else:
+                prev_href = self.env.href.build(config.name, page=page - 1)
+            add_link(req, 'prev', prev_href, 'Previous Page')
+        if more:
+            next_href = self.env.href.build(config.name, page=page + 1)
+            add_link(req, 'next', next_href, 'Next Page')
 
     def _render_config_confirm(self, req, config_name):
         req.perm.assert_permission('BUILD_DELETE')
