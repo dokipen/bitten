@@ -35,6 +35,12 @@ def collect_changes(repos, config):
         if path != repos.normalize_path(config.path):
             break
 
+        # Stay within the limits of the build config
+        if config.min_rev and repos.rev_older_than(rev, config.min_rev):
+            break
+        if config.max_rev and repos.rev_older_than(config.max_rev, rev):
+            continue
+
         # Make sure the repository directory isn't empty at this
         # revision
         old_node = repos.get_node(path, rev)

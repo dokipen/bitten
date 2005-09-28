@@ -75,9 +75,16 @@
      <legend>Repository Mapping</legend>
      <table summary=""><tr>
       <th><label for="path">Path:</label></th>
-      <td><input type="text" name="path" size="48" value="<?cs
+      <td colspan="3"><input type="text" name="path" size="48" value="<?cs
         var:config.path ?>" /></td>
-     </tr></table>
+     </tr><tr>
+      <th><label for="min_rev">Oldest revision:</label></th>
+      <td><input type="text" name="min_rev" size="8" value="<?cs
+        var:config.min_rev ?>" /></td>
+      <th><label for="min_rev">Youngest revision:</label></th>
+      <td><input type="text" name="max_rev" size="8" value="<?cs
+        var:config.max_rev ?>" /></td>
+     </table>
     </fieldset>
     <div class="buttons">
      <input type="hidden" name="action" value="<?cs
