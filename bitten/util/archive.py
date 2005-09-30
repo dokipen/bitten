@@ -75,7 +75,7 @@ def pack(env, repos=None, path=None, rev=None, prefix=None, format='gzip',
             name = name[1:]
         if node.isdir:
             if format == 'zip':
-                dirpath = os.path.join(prefix, name).rstrip('/') + '/'
+                dirpath = os.path.join(prefix, name).rstrip('/\\') + '/'
                 info = zipfile.ZipInfo(dirpath)
                 archive.writestr(info, '')
             for entry in node.get_entries():
