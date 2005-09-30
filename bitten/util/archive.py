@@ -98,9 +98,10 @@ def pack(env, repos=None, path=None, rev=None, prefix=None, format='gzip',
                 archive.writestr(info, node.get_content().read())
             except zipfile.error, e:
                 raise Error, e
-    _add_entry(root)
-
-    archive.close()
+    try:
+        _add_entry(root)
+    finally:
+        archive.close()
 
     return filename
 
@@ -119,24 +120,34 @@ def unpack(filename, dest_path, format=None):
     if format in ('bzip2', 'gzip'):
         try:
             tar_file = tarfile.open(filename)
-            for tarinfo in tar_file:
-                names.append(tarinfo.name)
-                tar_file.extract(tarinfo, dest_path)
+            try:
+                for tarinfo in tar_file:
+                    names.append(tarinfo.name)
+                    tar_file.extract(tarinfo, dest_path)
+            finally:
+                tar_file.close()
         except tarfile.TarError, e:
             raise Error, e
     elif format == 'zip':
         try:
             zip_file = zipfile.ZipFile(filename, 'r')
-            for name in zip_file.namelist():
-                names.append(name)
-                path = os.path.join(dest_path, name)
-                if name.endswith('/'):
-                    os.makedirs(path)
-                else:
-                    dirname = os.path.dirname(path)
-                    if not os.path.isdir(dirname):
-                        os.makedirs(dirname)
-                    file(path, 'wb').write(zip_file.read(name))
+            try:
+                for name in zip_file.namelist():
+                    names.append(name)
+                    path = os.path.join(dest_path, name)
+                    if name.endswith('/'):
+                        os.makedirs(path)
+                    else:
+                        dirname = os.path.dirname(path)
+                        if not os.path.isdir(dirname):
+                            os.makedirs(dirname)
+                        dest_file = file(path, 'wb')
+                        try:
+                            dest_file.write(zip_file.read(name))
+                        finally:
+                            dest_file.close()
+            finally:
+                zip_file.close()
         except (IOError, zipfile.error), e:
             raise Error, e
     return os.path.commonprefix(names)

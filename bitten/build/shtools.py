@@ -56,7 +56,8 @@ def exec_(ctxt, executable=None, file_=None, output=None, args=None):
             output_file.close()
 
     if cmdline.returncode != 0:
-        ctxt.error('Executing %s failed (%s)' % (file_, cmdline.returncode))
+        ctxt.error('Executing %s failed (%s)' % (executable,
+                   cmdline.returncode))
 
 def pipe(ctxt, executable=None, file_=None, input_=None, output=None,
          args=None):
@@ -107,5 +108,5 @@ def pipe(ctxt, executable=None, file_=None, input_=None, output=None,
             output_file.close()
 
     if cmdline.returncode != 0:
-        ctxt.error('Piping through %s failed (%s)' % (file_,
+        ctxt.error('Piping through %s failed (%s)' % (executable,
                    cmdline.returncode))
