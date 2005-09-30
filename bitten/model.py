@@ -12,7 +12,7 @@ try:
 except NameError:
     from sets import Set as set
 
-from trac.db_default import Table, Column, Index
+from trac.db import Table, Column, Index
 
 
 class BuildConfig(object):
