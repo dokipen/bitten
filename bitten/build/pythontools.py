@@ -14,15 +14,31 @@ try:
     set
 except NameError:
     from sets import Set as set
+import sys
 
 from bitten.build import CommandLine, FileSet
 from bitten.util import loc, xmlio
 
 log = logging.getLogger('bitten.build.pythontools')
 
-def distutils(ctxt, command='build'):
+def _python_path(ctxt):
+    """Return the path to the Python interpreter.
+    
+    If the configuration has a `python.path` property, the value of that option
+    is returned; otherwise the path to the current Python interpreter is
+    returned.
+    """
+    python_path = ctxt.config['python.path']
+    if python_path:
+        if os.path.isfile(python_path):
+            return python_path
+        log.warning('Invalid python.path: %s is not a file')
+    return sys.executable
+
+def distutils(ctxt, command='build', file_='setup.py'):
     """Execute a `distutils` command."""
-    cmdline = CommandLine('python', ['setup.py', command], cwd=ctxt.basedir)
+    cmdline = CommandLine(_python_path(ctxt), [ctxt.resolve(file_), command],
+                          cwd=ctxt.basedir)
     log_elem = xmlio.Fragment()
     for out, err in cmdline.execute():
         if out is not None:
@@ -58,8 +74,8 @@ def exec_(ctxt, file_=None, module=None, output=None, args=None):
             return
 
     from bitten.build import shtools
-    shtools.exec_(ctxt, executable='python', file_=file_, output=output,
-                  args=args)
+    shtools.exec_(ctxt, executable=_python_path(ctxt), file_=file_,
+                  output=output, args=args)
 
 def pylint(ctxt, file_=None):
     """Extract data from a `pylint` run written to a file."""

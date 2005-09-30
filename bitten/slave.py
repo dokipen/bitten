@@ -12,10 +12,15 @@ from datetime import datetime
 import logging
 import os
 import platform
+try:
+    set
+except NameError:
+    from sets import Set as set
 import shutil
 import tempfile
 
 from bitten.build import BuildError
+from bitten.build.config import Configuration
 from bitten.recipe import Recipe, InvalidRecipeError
 from bitten.util import archive, beep, xmlio
 
@@ -65,41 +70,26 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
                 raise beep.TerminateSession, 'Registration failed!'
             log.info('Registration successful')
 
-        family = os.name
-        system, node, release, version, machine, processor = platform.uname()
-        system, release, version = platform.system_alias(system, release,
-                                                         version)
+        self.config = Configuration(self.session.config)
         if self.session.name is not None:
             node = self.session.name
         else:
-            node = node.split('.', 1)[0].lower()
-
-        packages = []
-        if self.session.config is not None:
-            log.debug('Merging configuration from %s', self.session.config)
-            config = ConfigParser()
-            config.read(self.session.config)
-            for section in config.sections():
-                if section == 'machine':
-                    machine = config.get(section, 'name', machine)
-                    processor = config.get(section, 'processor', processor)
-                elif section == 'os':
-                    system = config.get(section, 'name', system)
-                    family = config.get(section, 'family', os.name)
-                    release = config.get(section, 'version', release)
-                else: # a package
-                    attrs = {}
-                    for option in config.options(section):
-                        attrs[option] = config.get(section, option)
-                    packages.append(xmlio.Element('package', name=section,
-                                                  **attrs))
+            node = platform.node().split('.', 1)[0].lower()
 
         log.info('Registering with build master as %s', node)
+        log.debug('Properties: %s', self.config.properties)
         xml = xmlio.Element('register', name=node)[
-            xmlio.Element('platform', processor=processor)[machine],
-            xmlio.Element('os', family=family, version=release)[system],
-            xmlio.Fragment()[packages]
+            xmlio.Element('platform', processor=self.config['processor'])[
+                self.config['machine']
+            ],
+            xmlio.Element('os', family=self.config['family'],
+                                version=self.config['release'])[
+                self.config['os']
+            ],
         ]
+        for package, properties in self.config.packages.items():
+            xml.append(xmlio.Element('package', name=package, **properties))
+
         self.channel.send_msg(beep.Payload(xml), handle_reply)
 
     def handle_msg(self, msgno, payload):
@@ -157,7 +147,8 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
                 return
 
             try:
-                self.execute_build(msgno, Recipe(self.recipe_xml, path))
+                recipe = Recipe(self.recipe_xml, path, self.config)
+                self.execute_build(msgno, recipe)
             finally:
                 shutil.rmtree(path)
                 os.unlink(archive_path)

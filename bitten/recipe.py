@@ -10,6 +10,7 @@
 import keyword
 import logging
 import os
+import re
 
 from pkg_resources import WorkingSet
 from bitten.build import BuildError
@@ -30,8 +31,9 @@ class Context(object):
     step = None # The current step
     generator = None # The current generator (namespace#name)
 
-    def __init__(self, basedir):
+    def __init__(self, basedir, config=None):
         self.basedir = os.path.realpath(basedir)
+        self.config = config or {}
         self.output = []
 
     def run(self, step, namespace, name, attr):
@@ -53,7 +55,8 @@ class Context(object):
             if keyword.iskeyword(name) or name in __builtins__:
                 name = name + '_'
             return name
-        args = dict([(escape(name), attr[name]) for name in attr])
+        args = dict([(escape(name), self.config.interpolate(attr[name]))
+                     for name in attr])
 
         self.step = step
         self.generator = qname
@@ -116,9 +119,9 @@ class Recipe(object):
     LOG = 'log'
     REPORT = 'report'
 
-    def __init__(self, xml, basedir=os.getcwd()):
+    def __init__(self, xml, basedir=os.getcwd(), config=None):
         assert isinstance(xml, xmlio.ParsedElement)
-        self.ctxt = Context(basedir)
+        self.ctxt = Context(basedir, config)
         self._root = xml
         self.description = self._root.attr.get('description')
 
