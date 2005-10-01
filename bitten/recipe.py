@@ -14,6 +14,7 @@ import re
 
 from pkg_resources import WorkingSet
 from bitten.build import BuildError
+from bitten.build.config import Configuration
 from bitten.util import xmlio
 
 __all__ = ['Recipe']
@@ -33,7 +34,7 @@ class Context(object):
 
     def __init__(self, basedir, config=None):
         self.basedir = os.path.realpath(basedir)
-        self.config = config or {}
+        self.config = config or Configuration()
         self.output = []
 
     def run(self, step, namespace, name, attr):

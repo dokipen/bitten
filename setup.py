@@ -44,6 +44,7 @@ setup(
         'bitten.recipe_commands': [
             NS + 'sh#exec = bitten.build.shtools:exec_',
             NS + 'sh#pipe = bitten.build.shtools:pipe',
+            NS + 'c#configure = bitten.build.ctools:configure',
             NS + 'c#make = bitten.build.ctools:make',
             NS + 'python#distutils = bitten.build.pythontools:distutils',
             NS + 'python#exec = bitten.build.pythontools:exec_',
