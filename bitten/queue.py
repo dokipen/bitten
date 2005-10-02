@@ -81,10 +81,27 @@ class BuildQueue(object):
 
         # Paths to generated snapshot archives, key is (config name, revision)
         self.snapshots = {}
+
+        # Populate the snapshots index with existing archive files
         for config in BuildConfig.select(self.env):
             snapshots = archive.index(self.env, prefix=config.name)
             for rev, format, path in snapshots:
                 self.snapshots[(config.name, rev, format)] = path
+
+        # Clear any files in the snapshots directory that aren't in the archive
+        # index. Those may be archives without corresponding checksum files,
+        # i.e. here the creation of the snapshot was interrupted
+        snapshots_dir = os.path.join(self.env.path, 'snapshots')
+        for filename in os.listdir(snapshots_dir):
+            filepath = os.path.join(snapshots_dir, filename)
+            if filepath.endswith('.md5'):
+                if filepath[:-4] not in self.snapshots.values():
+                    os.remove(filepath)
+            else:
+                if filepath not in self.snapshots.values():
+                    log.info('Removing file %s (not a valid snapshot archive)',
+                             filename)
+                    os.remove(filepath)
 
         self.reset_orphaned_builds()
         self.remove_unused_snapshots()
@@ -183,8 +200,11 @@ class BuildQueue(object):
         snapshot = self.snapshots.get((build.config, build.rev, format))
         if create and snapshot is None:
             config = BuildConfig.fetch(self.env, build.config)
+            log.debug('Preparing snapshot archive for %s@%s' % (config.path,
+                      build.rev))
             snapshot = archive.pack(self.env, path=config.path, rev=build.rev,
-                                    prefix=config.name, format=format)
+                                    prefix=config.name, format=format,
+                                    overwrite=True)
             log.info('Prepared snapshot archive at %s' % snapshot)
             self.snapshots[(build.config, build.rev, format)] = snapshot
         return snapshot
@@ -207,6 +227,8 @@ class BuildQueue(object):
             if not keep:
                 log.info('Removing unused snapshot %s', path)
                 os.remove(path)
+                if os.path.isfile(path + '.md5'):
+                    os.remove(path + '.md5')
                 del self.snapshots[(config, rev, format)]
 
     # Slave registry

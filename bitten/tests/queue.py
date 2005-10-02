@@ -15,6 +15,7 @@ import unittest
 from trac.test import EnvironmentStub
 from bitten.model import BuildConfig, TargetPlatform, Build, BuildStep, schema
 from bitten.queue import BuildQueue
+from bitten.util import archive
 
 
 class BuildQueueTestCase(unittest.TestCase):
@@ -178,6 +179,11 @@ class BuildQueueTestCase(unittest.TestCase):
         snapshot = os.path.join(self.env.path, 'snapshots', 'test_r123.zip')
         snapshot_file = file(snapshot, 'w')
         snapshot_file.close()
+        md5sum_file = file(snapshot + '.md5', 'w')
+        try:
+            md5sum_file.write(archive._make_md5sum(snapshot))
+        finally:
+            md5sum_file.close()
 
         queue = BuildQueue(self.env)
         self.assertEqual(snapshot, queue.get_snapshot(build, 'zip'))

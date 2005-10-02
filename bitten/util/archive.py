@@ -7,16 +7,19 @@
 # you should have received as part of this distribution. The terms
 # are also available at http://bitten.cmlenz.net/wiki/License.
 
+import md5
 import os
 import tarfile
 import time
 import zipfile
 
-_formats = {'gzip': ('.tar.gz', 'gz'), 'bzip2': ('.tar.bz2', 'bz2'),
-            'zip': ('.zip', None)}
 
 class Error(Exception):
     """Error raised when packing or unpacking a snapshot archive fails."""
+
+
+_formats = {'gzip': ('.tar.gz', 'gz'), 'bzip2': ('.tar.bz2', 'bz2'),
+            'zip': ('.zip', None)}
 
 def index(env, prefix):
     """Generator that yields `(rev, format, path)` tuples for every archive in
@@ -39,7 +42,33 @@ def index(env, prefix):
             continue
         rev = rest[2:]
 
+        expected_md5sum = _make_md5sum(os.path.join(filedir, filename))
+        md5sum_path = os.path.join(filedir, filename + '.md5')
+        if not os.path.isfile(md5sum_path):
+            continue
+        md5sum_file = file(md5sum_path)
+        try:
+            existing_md5sum = md5sum_file.read()
+            if existing_md5sum != expected_md5sum:
+                continue
+        finally:
+            md5sum_file.close()
+
         yield rev, format, os.path.join(filedir, filename)
+
+def _make_md5sum(filename):
+    """Generate an MD5 checksum for the specified file."""
+    md5sum = md5.new()
+    fileobj = file(filename, 'rb')
+    try:
+        while True:
+            chunk = fileobj.read(4096)
+            if not chunk:
+                break
+            md5sum.update(chunk)
+    finally:
+        fileobj.close()
+    return md5sum.hexdigest() + '  ' + filename
 
 def pack(env, repos=None, path=None, rev=None, prefix=None, format='gzip',
          overwrite=False):
@@ -102,6 +131,14 @@ def pack(env, repos=None, path=None, rev=None, prefix=None, format='gzip',
         _add_entry(root)
     finally:
         archive.close()
+
+    # Create MD5 checksum
+    md5sum = _make_md5sum(filename)
+    md5sum_file = file(filename + '.md5', 'w')
+    try:
+        md5sum_file.write(md5sum)
+    finally:
+        md5sum_file.close()
 
     return filename
 
