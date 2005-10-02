@@ -356,8 +356,7 @@ def main():
     parser.add_option('-i', '--interval', dest='interval', metavar='SECONDS',
                       default=DEFAULT_CHECK_INTERVAL, type='int',
                       help='poll interval for changeset detection')
-    parser.add_option('--timewarp', action='store_const', dest='timewarp',
-                      const=True,
+    parser.add_option('--timewarp', action='store_true', dest='timewarp',
                       help='adjust timestamps of builds to be neat the '
                            'timestamps of the corresponding changesets')
     parser.add_option('--debug', action='store_const', dest='loglevel',

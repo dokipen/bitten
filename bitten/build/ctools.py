@@ -32,12 +32,12 @@ def configure(ctxt, file_='configure', enable=None, disable=None, with=None,
     if without:
         args += ['--without-%s' % pkg for pkg in without.split()]
     if cflags:
-        args.append('CFLAGS="%s"' % cflags)
+        args.append('CFLAGS=%s' % cflags)
     if cxxflags:
-        args.append('CXXFLAGS="%s"' % cflags)
+        args.append('CXXFLAGS=%s' % cxxflags)
 
     log_elem = xmlio.Fragment()
-    cmdline = CommandLine(ctxt.resolve(file_), args)
+    cmdline = CommandLine(ctxt.resolve(file_), args, cwd=ctxt.basedir)
     for out, err in cmdline.execute():
         if out is not None:
             log.info(out)

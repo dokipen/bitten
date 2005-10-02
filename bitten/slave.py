@@ -246,18 +246,19 @@ def main():
                       metavar='FILE', help='path to configuration file')
     parser.add_option('-d', '--work-dir', action='store', dest='work_dir',
                       metavar='DIR', help='working directory for builds')
-    parser.add_option('-k', '--keep-files', action='store_const',
-                      dest='keep_files', const=True,
+    parser.add_option('-k', '--keep-files', action='store_true',
+                      dest='keep_files', 
                       help='don\'t delete files after builds')
-    parser.add_option('-n', '--dry-run', action='store_const', dest='dry_run',
-                      const=True, help='don\'t report results back to master')
+    parser.add_option('-n', '--dry-run', action='store_true', dest='dry_run',
+                      help='don\'t report results back to master')
     parser.add_option('--debug', action='store_const', dest='loglevel',
                       const=logging.DEBUG, help='enable debugging output')
     parser.add_option('-v', '--verbose', action='store_const', dest='loglevel',
                       const=logging.INFO, help='print as much as possible')
     parser.add_option('-q', '--quiet', action='store_const', dest='loglevel',
                       const=logging.ERROR, help='print as little as possible')
-    parser.set_defaults(dry_run=False, loglevel=logging.WARNING)
+    parser.set_defaults(dry_run=False, keep_files=False,
+                        loglevel=logging.WARNING)
     options, args = parser.parse_args()
 
     if len(args) < 1:
