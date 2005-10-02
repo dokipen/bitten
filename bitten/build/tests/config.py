@@ -45,9 +45,8 @@ class ConfigurationTestCase(unittest.TestCase):
         self.assertEqual('VERSION', config['version'])
 
     def test_sysinfo_configfile_override(self):
-        inifile, ininame = tempfile.mkstemp(prefix='bitten_test')
-        try:
-            os.write(inifile, """
+        inifile = tempfile.NamedTemporaryFile(prefix='bitten_test')
+        inifile.write("""
 [machine]
 name = MACHINE
 processor = PROCESSOR
@@ -57,16 +56,14 @@ name = OS
 family = FAMILY
 version = VERSION
 """)
-            os.close(inifile)
-            config = Configuration(ininame)
+        inifile.seek(0)
+        config = Configuration(inifile.name)
 
-            self.assertEqual('MACHINE', config['machine'])
-            self.assertEqual('PROCESSOR', config['processor'])
-            self.assertEqual('OS', config['os'])
-            self.assertEqual('FAMILY', config['family'])
-            self.assertEqual('VERSION', config['version'])
-        finally:
-            os.remove(ininame)
+        self.assertEqual('MACHINE', config['machine'])
+        self.assertEqual('PROCESSOR', config['processor'])
+        self.assertEqual('OS', config['os'])
+        self.assertEqual('FAMILY', config['family'])
+        self.assertEqual('VERSION', config['version'])
 
     def test_package_properties(self):
         config = Configuration(properties={
@@ -78,21 +75,44 @@ version = VERSION
         self.assertEqual('2.3.5', config['python.version'])
 
     def test_package_configfile(self):
-        inifile, ininame = tempfile.mkstemp(prefix='bitten_test')
-        try:
-            os.write(inifile, """
+        inifile = tempfile.NamedTemporaryFile(prefix='bitten_test')
+        inifile.write("""
 [python]
 path = /usr/local/bin/python2.3
 version = 2.3.5
 """)
-            os.close(inifile)
-            config = Configuration(ininame)
+        inifile.seek(0)
+        config = Configuration(inifile.name)
 
-            self.assertEqual(True, 'python' in config.packages)
-            self.assertEqual('/usr/local/bin/python2.3', config['python.path'])
-            self.assertEqual('2.3.5', config['python.version'])
+        self.assertEqual(True, 'python' in config.packages)
+        self.assertEqual('/usr/local/bin/python2.3', config['python.path'])
+        self.assertEqual('2.3.5', config['python.version'])
+
+    def test_get_dirpath_non_existant(self):
+        tempdir = tempfile.mkdtemp()
+        os.rmdir(tempdir)
+        config = Configuration(properties={'somepkg.home': tempdir})
+        self.assertEqual(None, config.get_dirpath('somepkg.home'))
+
+    def test_get_dirpath(self):
+        tempdir = tempfile.mkdtemp()
+        try:
+            config = Configuration(properties={'somepkg.home': tempdir})
+            self.assertEqual(tempdir, config.get_dirpath('somepkg.home'))
         finally:
-            os.remove(ininame)
+            os.rmdir(tempdir)
+
+    def test_get_filepath_non_existant(self):
+        testfile, testname = tempfile.mkstemp(prefix='bitten_test')
+        os.close(testfile)
+        os.remove(testname)
+        config = Configuration(properties={'somepkg.path': testname})
+        self.assertEqual(None, config.get_filepath('somepkg.path'))
+
+    def test_get_filepath(self):
+        testfile = tempfile.NamedTemporaryFile(prefix='bitten_test')
+        config = Configuration(properties={'somepkg.path': testfile.name})
+        self.assertEqual(testfile.name, config.get_filepath('somepkg.path'))
 
     def test_interpolate(self):
         config = Configuration(properties={

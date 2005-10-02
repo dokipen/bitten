@@ -24,6 +24,9 @@ def main():
                           version='%%prog %s' % VERSION)
     parser.add_option('-f', '--recipe-file', action='store', dest='recipe_file',
                       metavar='FILE', help='read build recipe from FILE')
+    parser.add_option('--print-logs', action='store_const',
+                      dest='print_logs', const=True,
+                      help='print build logs')
     parser.add_option('--print-reports', action='store_const',
                       dest='print_reports', const=True,
                       help='print generated reports')
@@ -54,6 +57,8 @@ def main():
                 for type, category, generator, output in step.execute(recipe.ctxt):
                     if type == Recipe.ERROR:
                         log.error('Failure in step "%s": %s', step.id, output)
+                    elif type == Recipe.LOG and options.print_logs:
+                        output.write(sys.stdout, newlines=True)
                     elif type == Recipe.REPORT and options.print_reports:
                         output.write(sys.stdout, newlines=True)
                 if step.id in steps_to_run:

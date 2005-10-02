@@ -28,11 +28,9 @@ def _python_path(ctxt):
     is returned; otherwise the path to the current Python interpreter is
     returned.
     """
-    python_path = ctxt.config['python.path']
+    python_path = ctxt.config.get_filepath('python.path')
     if python_path:
-        if os.path.isfile(python_path):
-            return python_path
-        log.warning('Invalid python.path: %s is not a file')
+        return python_path
     return sys.executable
 
 def distutils(ctxt, command='build', file_='setup.py'):

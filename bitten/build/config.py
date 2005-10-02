@@ -8,9 +8,12 @@
 # are also available at http://bitten.cmlenz.net/wiki/License.
 
 from ConfigParser import SafeConfigParser
+import logging
 import os
 import platform
 import re
+
+log = logging.getLogger('bitten.config')
 
 
 class Configuration(object):
@@ -100,6 +103,22 @@ class Configuration(object):
         return str({'properties': self.properties, 'packages': self.packages})
 
     _VAR_RE = re.compile(r'\$\{(?P<ref>\w[\w.]*?\w)(?:\:(?P<def>.+))?\}')
+
+    def get_dirpath(self, key):
+        dirpath = self[key]
+        if dirpath:
+            if os.path.isdir(dirpath):
+                return dirpath
+            log.warning('Invalid %s: %s is not a directory', key, dirpath)
+        return None
+
+    def get_filepath(self, key):
+        filepath = self[key]
+        if filepath:
+            if os.path.isfile(filepath):
+                return filepath
+            log.warning('Invalid %s: %s is not a file', key, filepath)
+        return None
 
     def interpolate(self, text):
         """Interpolate configuration properties into a string.
