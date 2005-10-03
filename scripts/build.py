@@ -56,7 +56,7 @@ def main():
                 print '-->', step.id
                 for type, category, generator, output in step.execute(recipe.ctxt):
                     if type == Recipe.ERROR:
-                        log.error('Failure in step "%s": %s', step.id, output)
+                        log.error(output)
                     elif type == Recipe.LOG and options.print_logs:
                         output.write(sys.stdout, newlines=True)
                     elif type == Recipe.REPORT and options.print_reports:

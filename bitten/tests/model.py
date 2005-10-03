@@ -340,6 +340,21 @@ class BuildStepTestCase(unittest.TestCase):
         self.assertEqual('Foo bar', step.description)
         self.assertEqual(BuildStep.SUCCESS, step.status)
 
+    def test_fetch_with_errors(self):
+        db = self.env.get_db_cnx()
+        cursor = db.cursor()
+        cursor.execute("INSERT INTO bitten_step VALUES (%s,%s,%s,%s,%s,%s)",
+                       (1, 'test', 'Foo bar', BuildStep.SUCCESS, 0, 0))
+        cursor.executemany("INSERT INTO bitten_error VALUES (%s,%s,%s,%s)",
+                           [(1, 'test', 'Foo', 0), (1, 'test', 'Bar', 1)])
+
+        step = BuildStep.fetch(self.env, build=1, name='test')
+        self.assertEqual(1, step.build)
+        self.assertEqual('test', step.name)
+        self.assertEqual('Foo bar', step.description)
+        self.assertEqual(BuildStep.SUCCESS, step.status)
+        self.assertEqual(['Foo', 'Bar'], step.errors)
+
 
 class BuildLogTestCase(unittest.TestCase):
 

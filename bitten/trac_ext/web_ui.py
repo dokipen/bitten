@@ -483,6 +483,7 @@ class BuildController(Component):
                 'name': step.name, 'description': step.description,
                 'duration': pretty_timedelta(step.started, step.stopped),
                 'failed': step.status == BuildStep.FAILURE,
+                'errors': step.errors,
                 'log': self._render_log(req, build, step),
                 'reports': self._render_reports(req, config, build, step)
             })

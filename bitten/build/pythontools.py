@@ -38,6 +38,7 @@ def distutils(ctxt, command='build', file_='setup.py'):
     cmdline = CommandLine(_python_path(ctxt), [ctxt.resolve(file_), command],
                           cwd=ctxt.basedir)
     log_elem = xmlio.Fragment()
+    error_logged = False
     for out, err in cmdline.execute():
         if out is not None:
             log.info(out)
@@ -48,11 +49,15 @@ def distutils(ctxt, command='build', file_='setup.py'):
                 err = err[9:]
                 level = 'warning'
                 log.warning(err)
+            elif err.startswith('error: '):
+                ctxt.error(err[7:])
+                error_logged = True
             else:
                 log.error(err)
             log_elem.append(xmlio.Element('message', level=level)[err])
     ctxt.log(log_elem)
-    if cmdline.returncode != 0:
+
+    if not error_logged and cmdline.returncode != 0:
         ctxt.error('distutils failed (%s)' % cmdline.returncode)
 
 def exec_(ctxt, file_=None, module=None, function=None, output=None, args=None):

@@ -501,6 +501,10 @@ class BuildStep(object):
             Column('build', type='int'), Column('name'), Column('description'),
             Column('status', size=1), Column('started', type='int'),
             Column('stopped', type='int')
+        ],
+        Table('bitten_error', key=('build', 'step', 'orderno'))[
+            Column('build', type='int'), Column('step'), Column('message'),
+            Column('orderno', type='int')
         ]
     ]
 
@@ -509,7 +513,7 @@ class BuildStep(object):
     FAILURE = 'F'
 
     def __init__(self, env, build=None, name=None, description=None,
-                 status=None, started=None, stopped=None):
+                 status=None, started=None, stopped=None, errors=None):
         """Initialize a new build step with the specified attributes.
 
         To actually create this build step in the database, the `insert` method
@@ -522,8 +526,10 @@ class BuildStep(object):
         self.status = status
         self.started = started
         self.stopped = stopped
+        self.errors = errors or []
+        self._exists = False
 
-    exists = property(fget=lambda self: self.build is not None)
+    exists = property(fget=lambda self: self._exists)
     successful = property(fget=lambda self: self.status == BuildStep.SUCCESS)
 
     def delete(self, db=None):
@@ -544,8 +550,12 @@ class BuildStep(object):
         cursor = db.cursor()
         cursor.execute("DELETE FROM bitten_step WHERE build=%s AND name=%s",
                        (self.build, self.name))
+        cursor.execute("DELETE FROM bitten_error WHERE build=%s AND step=%s",
+                       (self.build, self.name))
+
         if handle_ta:
             db.commit()
+        self._exists = False
 
     def insert(self, db=None):
         """Insert a new build step into the database."""
@@ -563,8 +573,16 @@ class BuildStep(object):
                        "started,stopped) VALUES (%s,%s,%s,%s,%s,%s)",
                        (self.build, self.name, self.description or '',
                         self.status, self.started or 0, self.stopped or 0))
+        step_id = db.get_last_id(cursor, 'bitten_step')
+        if self.errors:
+            cursor.executemany("INSERT INTO bitten_error (build,step,message,"
+                               "orderno) VALUES (%s,%s,%s,%s)",
+                               [(self.build, self.name, message, idx)
+                                for idx, message in enumerate(self.errors)])
+
         if handle_ta:
             db.commit()
+        self._exists = True
 
     def fetch(cls, env, build, name, db=None):
         """Retrieve an existing build from the database by build ID and step
@@ -579,9 +597,16 @@ class BuildStep(object):
         row = cursor.fetchone()
         if not row:
             return None
-
-        return BuildStep(env, build, name, row[0] or '', row[1],
+        step = BuildStep(env, build, name, row[0] or '', row[1],
                          row[2] and int(row[2]), row[3] and int(row[3]))
+        step._exists = True
+
+        cursor.execute("SELECT message FROM bitten_error WHERE build=%s "
+                       "AND step=%s ORDER BY orderno", (build, name))
+        for row in cursor:
+            step.errors.append(row[0] or '')
+        return step
+
     fetch = classmethod(fetch)
 
     def select(cls, env, build=None, name=None, db=None):
@@ -602,12 +627,11 @@ class BuildStep(object):
             where = ""
 
         cursor = db.cursor()
-        cursor.execute("SELECT build,name,description,status,started,stopped "
-                       "FROM bitten_step %s ORDER BY stopped"
+        cursor.execute("SELECT build,name FROM bitten_step %s ORDER BY stopped"
                        % where, [wc[1] for wc in where_clauses])
-        for build, name, description, status, started, stopped in cursor:
-            yield BuildStep(env, build, name, description or '', status,
-                            started and int(started), stopped and int(stopped))
+        for build, name in cursor:
+            yield BuildStep.fetch(env, build, name, db=db)
+
     select = classmethod(select)
 
 
@@ -883,4 +907,4 @@ class Report(object):
 
 schema = BuildConfig._schema + TargetPlatform._schema + Build._schema + \
          BuildStep._schema + BuildLog._schema + Report._schema
-schema_version = 6
+schema_version = 7

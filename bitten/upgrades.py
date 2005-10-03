@@ -252,10 +252,23 @@ def fixup_generators(env, db):
         cursor.execute("UPDATE bitten_report SET generator=%s "
                        "WHERE id=%s", (mapping[generator], report_id))
 
+def add_error_table(env, db):
+    """Add the bitten_error table for recording step failure reasons."""
+    from trac.db import Table, Column
+
+    table = Table('bitten_error', key=('build', 'step', 'orderno'))[
+                Column('build', type='int'), Column('step'), Column('message'),
+                Column('orderno', type='int')
+            ]
+    cursor = db.cursor()
+    for stmt in db.to_sql(table):
+        cursor.execute(stmt)
+
 map = {
     2: [add_log_table],
     3: [add_recipe_to_config],
     4: [add_config_to_reports],
     5: [add_order_to_log, add_report_tables, xmldb_to_db],
-    6: [normalize_file_paths, fixup_generators]
+    6: [normalize_file_paths, fixup_generators],
+    7: [add_error_table]
 }

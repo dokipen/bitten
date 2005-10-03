@@ -41,6 +41,7 @@ def ant(ctxt, file_=None, target=None, keep_going=False):
         if err is not None:
             log.error(err)
 
+    error_logged = False
     log_elem = xmlio.Fragment()
     try:
         xml_log = xmlio.parse(logfile)
@@ -57,9 +58,14 @@ def ant(ctxt, file_=None, target=None, keep_going=False):
                 else:
                     collect_log_messages(child)
         collect_log_messages(xml_log)
+
+        if 'error' in xml_log.attr:
+            ctxt.error(xml_log.attr['error'])
+            error_logged = True
+
     except xmlio.ParseError, e:
         log.warning('Error parsing Ant XML log file (%s)', e)
     ctxt.log(log_elem)
 
-    if cmdline.returncode != 0:
+    if not error_logged and cmdline.returncode != 0:
         ctxt.error('Ant failed (%s)' % cmdline.returncode)

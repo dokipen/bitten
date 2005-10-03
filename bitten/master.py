@@ -267,6 +267,7 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
             step.status = BuildStep.FAILURE
         else:
             step.status = BuildStep.SUCCESS
+        step.errors += [err.gettext() for err in elem.children('error')]
         step.insert(db=db)
 
         for idx, log_elem in enumerate(elem.children('log')):
