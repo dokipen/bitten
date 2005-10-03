@@ -55,21 +55,29 @@ def distutils(ctxt, command='build', file_='setup.py'):
     if cmdline.returncode != 0:
         ctxt.error('distutils failed (%s)' % cmdline.returncode)
 
-def exec_(ctxt, file_=None, module=None, output=None, args=None):
+def exec_(ctxt, file_=None, module=None, function=None, output=None, args=None):
     """Execute a python script."""
     assert file_ or module, 'Either "file" or "module" attribute required'
+    if function:
+        assert module and not file_, '"module" attribute required for use of ' \
+                                     '"function" attribute'
 
     if module:
-        # Script specified as module name, need to resolve that to a file
-        try:
-            mod = __import__(module, globals(), locals(), [])
-            components = module.split('.')
-            for comp in components[1:]:
-                mod = getattr(mod, comp)
-            file_ = mod.__file__.replace('\\', '/')
-        except ImportError, e:
-            ctxt.error('Cannot execute Python module %s: %s' % (module, e))
-            return
+        # Script specified as module name, need to resolve that to a file,
+        # or use the function name if provided
+        if function:
+            args = '-c "import sys; from %s import %s; %s(sys.argv)" %s' % (
+                   module, function, function, args)
+        else:
+            try:
+                mod = __import__(module, globals(), locals(), [])
+                components = module.split('.')
+                for comp in components[1:]:
+                    mod = getattr(mod, comp)
+                file_ = mod.__file__.replace('\\', '/')
+            except ImportError, e:
+                ctxt.error('Cannot execute Python module %s: %s' % (module, e))
+                return
 
     from bitten.build import shtools
     shtools.exec_(ctxt, executable=_python_path(ctxt), file_=file_,

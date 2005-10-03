@@ -52,7 +52,7 @@ setup(
             NS + 'python#pylint = bitten.build.pythontools:pylint',
             NS + 'python#trace = bitten.build.pythontools:trace',
             NS + 'python#unittest = bitten.build.pythontools:unittest',
-            NS + 'x#transform = bitten.build.xmltools:transform'
+            NS + 'xml#transform = bitten.build.xmltools:transform'
         ]
     },
     test_suite='bitten.tests.suite', zip_safe=True

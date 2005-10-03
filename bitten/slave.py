@@ -84,7 +84,7 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
                 self.config['machine']
             ],
             xmlio.Element('os', family=self.config['family'],
-                                version=self.config['release'])[
+                                version=self.config['version'])[
                 self.config['os']
             ],
         ]
