@@ -306,6 +306,7 @@ class BuildStepTestCase(unittest.TestCase):
 
     def test_new(self):
         step = BuildStep(self.env)
+        self.assertEqual(False, step.exists)
         self.assertEqual(None, step.build)
         self.assertEqual(None, step.name)
 
@@ -313,6 +314,7 @@ class BuildStepTestCase(unittest.TestCase):
         step = BuildStep(self.env, build=1, name='test', description='Foo bar',
                          status=BuildStep.SUCCESS)
         step.insert()
+        self.assertEqual(True, step.exists)
 
         db = self.env.get_db_cnx()
         cursor = db.cursor()
@@ -320,6 +322,23 @@ class BuildStepTestCase(unittest.TestCase):
                        "FROM bitten_step")
         self.assertEqual((1, 'test', 'Foo bar', BuildStep.SUCCESS, 0, 0),
                          cursor.fetchone())
+
+    def test_insert_with_errors(self):
+        step = BuildStep(self.env, build=1, name='test', description='Foo bar',
+                         status=BuildStep.SUCCESS)
+        step.errors += ['Foo', 'Bar']
+        step.insert()
+        self.assertEqual(True, step.exists)
+
+        db = self.env.get_db_cnx()
+        cursor = db.cursor()
+        cursor.execute("SELECT build,name,description,status,started,stopped "
+                       "FROM bitten_step")
+        self.assertEqual((1, 'test', 'Foo bar', BuildStep.SUCCESS, 0, 0),
+                         cursor.fetchone())
+        cursor.execute("SELECT message FROM bitten_error ORDER BY orderno")
+        self.assertEqual(('Foo',), cursor.fetchone())
+        self.assertEqual(('Bar',), cursor.fetchone())
 
     def test_insert_no_build_or_name(self):
         step = BuildStep(self.env, name='test')
@@ -354,6 +373,23 @@ class BuildStepTestCase(unittest.TestCase):
         self.assertEqual('Foo bar', step.description)
         self.assertEqual(BuildStep.SUCCESS, step.status)
         self.assertEqual(['Foo', 'Bar'], step.errors)
+
+    def test_select(self):
+        db = self.env.get_db_cnx()
+        cursor = db.cursor()
+        cursor.executemany("INSERT INTO bitten_step VALUES (%s,%s,%s,%s,%s,%s)",
+                           [(1, 'test', 'Foo bar', BuildStep.SUCCESS, 0, 0),
+                            (1, 'dist', 'Foo baz', BuildStep.FAILURE, 0, 0)])
+
+        steps = list(BuildStep.select(self.env, build=1))
+        self.assertEqual(1, steps[0].build)
+        self.assertEqual('test', steps[0].name)
+        self.assertEqual('Foo bar', steps[0].description)
+        self.assertEqual(BuildStep.SUCCESS, steps[0].status)
+        self.assertEqual(1, steps[1].build)
+        self.assertEqual('dist', steps[1].name)
+        self.assertEqual('Foo baz', steps[1].description)
+        self.assertEqual(BuildStep.FAILURE, steps[1].status)
 
 
 class BuildLogTestCase(unittest.TestCase):

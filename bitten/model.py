@@ -513,7 +513,7 @@ class BuildStep(object):
     FAILURE = 'F'
 
     def __init__(self, env, build=None, name=None, description=None,
-                 status=None, started=None, stopped=None, errors=None):
+                 status=None, started=None, stopped=None):
         """Initialize a new build step with the specified attributes.
 
         To actually create this build step in the database, the `insert` method
@@ -526,7 +526,7 @@ class BuildStep(object):
         self.status = status
         self.started = started
         self.stopped = stopped
-        self.errors = errors or []
+        self.errors = []
         self._exists = False
 
     exists = property(fget=lambda self: self._exists)
