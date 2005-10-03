@@ -43,9 +43,12 @@ class IndexTestCase(unittest.TestCase):
         return filename
 
     def test_index_formats(self):
-        targz_path = self._create_file('snapshots/foo_r123.tar.gz')
-        tarbz2_path = self._create_file('snapshots/foo_r123.tar.bz2')
-        zip_path = self._create_file('snapshots/foo_r123.zip')
+        targz_path = self._create_file(os.path.join('snapshots',
+                                                    'foo_r123.tar.gz'))
+        tarbz2_path = self._create_file(os.path.join('snapshots',
+                                                     'foo_r123.tar.bz2'))
+        zip_path = self._create_file(os.path.join('snapshots',
+                                                  'foo_r123.zip'))
         index = list(archive.index(self.env, 'foo'))
         self.assertEqual(3, len(index))
         assert ('123', 'gzip', targz_path) in index
@@ -53,8 +56,10 @@ class IndexTestCase(unittest.TestCase):
         assert ('123', 'zip', zip_path) in index
 
     def test_index_revs(self):
-        rev123_path = self._create_file('snapshots/foo_r123.tar.gz')
-        rev124_path = self._create_file('snapshots/foo_r124.tar.gz')
+        rev123_path = self._create_file(os.path.join('snapshots',
+                                                     'foo_r123.tar.gz'))
+        rev124_path = self._create_file(os.path.join('snapshots',
+                                                     'foo_r124.tar.gz'))
         index = list(archive.index(self.env, 'foo'))
         self.assertEqual(2, len(index))
         assert ('123', 'gzip', rev123_path) in index
@@ -65,26 +70,27 @@ class IndexTestCase(unittest.TestCase):
         self.assertEqual(0, len(index))
 
     def test_index_prefix(self):
-        path = self._create_file('snapshots/foo_r123.tar.gz')
-        self._create_file('snapshots/bar_r123.tar.gz')
+        path = self._create_file(os.path.join('snapshots', 'foo_r123.tar.gz'))
+        self._create_file(os.path.join('snapshots', 'bar_r123.tar.gz'))
         index = list(archive.index(self.env, 'foo'))
         self.assertEqual(1, len(index))
         assert ('123', 'gzip', path) in index
 
     def test_index_no_rev(self):
-        path = self._create_file('snapshots/foo_r123.tar.gz')
-        self._create_file('snapshots/foo_map.tar.gz')
+        path = self._create_file(os.path.join('snapshots', 'foo_r123.tar.gz'))
+        self._create_file(os.path.join('snapshots', 'foo_map.tar.gz'))
         index = list(archive.index(self.env, 'foo'))
         self.assertEqual(1, len(index))
         assert ('123', 'gzip', path) in index
 
     def test_index_missing_md5sum(self):
-        self._create_file('snapshots/foo_r123.tar.gz', create_md5sum=False)
+        self._create_file(os.path.join('snapshots', 'foo_r123.tar.gz'),
+                          create_md5sum=False)
         index = list(archive.index(self.env, 'foo'))
         self.assertEqual(0, len(index))
 
     def test_index_nonmatching_md5sum(self):
-        path = self._create_file('snapshots/foo_r123.tar.gz',
+        path = self._create_file(os.path.join('snapshots', 'foo_r123.tar.gz'),
                                  create_md5sum=False)
         md5sum = md5.new('Foo bar')
         md5sum_file = file(path + '.md5', 'w')

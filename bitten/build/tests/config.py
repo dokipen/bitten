@@ -45,8 +45,8 @@ class ConfigurationTestCase(unittest.TestCase):
         self.assertEqual('VERSION', config['version'])
 
     def test_sysinfo_configfile_override(self):
-        inifile = tempfile.NamedTemporaryFile(prefix='bitten_test')
-        inifile.write("""
+        inifd, ininame = tempfile.mkstemp(prefix='bitten_test')
+        os.write(inifd, """
 [machine]
 name = MACHINE
 processor = PROCESSOR
@@ -56,8 +56,8 @@ name = OS
 family = FAMILY
 version = VERSION
 """)
-        inifile.seek(0)
-        config = Configuration(inifile.name)
+        os.close(inifd)
+        config = Configuration(ininame)
 
         self.assertEqual('MACHINE', config['machine'])
         self.assertEqual('PROCESSOR', config['processor'])
@@ -75,14 +75,14 @@ version = VERSION
         self.assertEqual('2.3.5', config['python.version'])
 
     def test_package_configfile(self):
-        inifile = tempfile.NamedTemporaryFile(prefix='bitten_test')
-        inifile.write("""
+        inifd, ininame = tempfile.mkstemp(prefix='bitten_test')
+        os.write(inifd, """
 [python]
 path = /usr/local/bin/python2.3
 version = 2.3.5
 """)
-        inifile.seek(0)
-        config = Configuration(inifile.name)
+        os.close(inifd)
+        config = Configuration(ininame)
 
         self.assertEqual(True, 'python' in config.packages)
         self.assertEqual('/usr/local/bin/python2.3', config['python.path'])

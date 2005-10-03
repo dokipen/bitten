@@ -9,13 +9,14 @@
 
 import unittest
 
-from bitten.build.tests import api, config, pythontools
+from bitten.build.tests import api, config, pythontools, xmltools
 
 def suite():
     suite = unittest.TestSuite()
     suite.addTest(api.suite())
     suite.addTest(config.suite())
     suite.addTest(pythontools.suite())
+    suite.addTest(xmltools.suite())
     return suite
 
 if __name__ == '__main__':
