@@ -609,18 +609,22 @@ class BuildStep(object):
 
     fetch = classmethod(fetch)
 
-    def select(cls, env, build=None, name=None, db=None):
+    def select(cls, env, build=None, name=None, status=None, db=None):
         """Retrieve existing build steps from the database that match the
         specified criteria.
         """
         if not db:
             db = env.get_db_cnx()
 
+        assert status in (None, BuildStep.SUCCESS, BuildStep.FAILURE)
+
         where_clauses = []
         if build is not None:
             where_clauses.append(("build=%s", build))
         if name is not None:
             where_clauses.append(("name=%s", name))
+        if status is not None:
+            where_clauses.append(("status=%s", status))
         if where_clauses:
             where = "WHERE " + " AND ".join([wc[0] for wc in where_clauses])
         else:

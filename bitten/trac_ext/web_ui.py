@@ -7,13 +7,18 @@
 # you should have received as part of this distribution. The terms
 # are also available at http://bitten.cmlenz.net/wiki/License.
 
+from datetime import datetime, timedelta
 import re
-from time import localtime, strftime
+try:
+    set
+except NameError:
+    from sets import Set as set
+from StringIO import StringIO
 
 import pkg_resources
 from trac.core import *
 from trac.Timeline import ITimelineEventProvider
-from trac.util import escape, pretty_timedelta
+from trac.util import escape, pretty_timedelta, format_date, format_datetime
 from trac.web import IRequestHandler
 from trac.web.chrome import INavigationContributor, ITemplateProvider, \
                             add_link, add_stylesheet
@@ -36,16 +41,16 @@ def _build_to_hdf(env, req, build):
            'href': env.href.build(build.config, build.id),
            'chgset_href': env.href.changeset(build.rev)}
     if build.started:
-        hdf['started'] = strftime('%x %X', localtime(build.started))
+        hdf['started'] = format_datetime(build.started)
         hdf['started_delta'] = pretty_timedelta(build.started)
     if build.stopped:
-        hdf['stopped'] = strftime('%x %X', localtime(build.stopped))
+        hdf['stopped'] = format_datetime(build.stopped)
         hdf['stopped_delta'] = pretty_timedelta(build.stopped)
         hdf['duration'] = pretty_timedelta(build.stopped, build.started)
     hdf['slave'] = {
         'name': build.slave,
-        'ip_address': build.slave_info.get(Build.IP_ADDRESS),
-        'os': build.slave_info.get(Build.OS_NAME),
+        'ipnr': build.slave_info.get(Build.IP_ADDRESS),
+        'os.name': build.slave_info.get(Build.OS_NAME),
         'os.family': build.slave_info.get(Build.OS_FAMILY),
         'os.version': build.slave_info.get(Build.OS_VERSION),
         'machine': build.slave_info.get(Build.MACHINE),
@@ -339,7 +344,9 @@ class BuildConfigController(Component):
         req.hdf['config.can_create'] = req.perm.has_permission('BUILD_CREATE')
 
     def _render_config(self, req, config_name):
-        config = BuildConfig.fetch(self.env, config_name)
+        db = self.env.get_db_cnx()
+
+        config = BuildConfig.fetch(self.env, config_name, db=db)
         req.hdf['title'] = 'Build Configuration "%s"' \
                            % escape(config.label or config.name)
         add_link(req, 'up', self.env.href.build(), 'Build Status')
@@ -348,6 +355,10 @@ class BuildConfigController(Component):
             description = wiki_to_html(description, self.env, req)
         req.hdf['config'] = {
             'name': config.name, 'label': config.label, 'path': config.path,
+            'min_rev': config.min_rev,
+            'min_rev_href': self.env.href.changeset(config.min_rev),
+            'max_rev': config.max_rev,
+            'max_rev_href': self.env.href.changeset(config.max_rev),
             'active': config.active, 'description': description,
             'browser_href': self.env.href.browser(config.path),
             'can_modify': req.perm.has_permission('BUILD_MODIFY'),
@@ -355,13 +366,14 @@ class BuildConfigController(Component):
         }
         req.hdf['page.mode'] = 'view_config'
 
-        platforms = list(TargetPlatform.select(self.env, config=config_name))
+        platforms = list(TargetPlatform.select(self.env, config=config_name,
+                                               db=db))
         req.hdf['config.platforms'] = [
             {'name': platform.name, 'id': platform.id} for platform in platforms
         ]
 
         has_reports = False
-        for report in Report.select(self.env, config=config.name):
+        for report in Report.select(self.env, config=config.name, db=db):
             has_reports = True
             break
 
@@ -392,6 +404,17 @@ class BuildConfigController(Component):
                 if build and build.status != Build.PENDING:
                     build_hdf = _build_to_hdf(self.env, req, build)
                     req.hdf['%s.%s' % (prefix, platform.id)] = build_hdf
+                    for step in BuildStep.select(self.env, build=build.id,
+                                                 db=db):
+                        req.hdf['%s.%s.steps.%s' % (prefix, platform.id,
+                                                    step.name)] = {
+                            'description': escape(step.description),
+                            'duration': datetime.fromtimestamp(step.stopped) - \
+                                        datetime.fromtimestamp(step.started),
+                            'failed': not step.successful,
+                            'errors': step.errors,
+                            'href': build_hdf['href'] + '#step_' + step.name,
+                        }
             idx += 1
 
         if page > 1:
@@ -519,6 +542,10 @@ class BuildController(Component):
         req.hdf['build.steps'] = steps
         req.hdf['build.can_delete'] = req.perm.has_permission('BUILD_DELETE')
 
+        repos = self.env.get_repository(req.authname)
+        chgset = repos.get_changeset(build.rev)
+        req.hdf['build.chgset_author'] = chgset.author
+
         add_stylesheet(req, 'bitten/bitten.css')
         return 'bitten_build.cs', None
 
@@ -531,26 +558,65 @@ class BuildController(Component):
     def get_timeline_events(self, req, start, stop, filters):
         if 'build' in filters:
             add_stylesheet(req, 'bitten/bitten.css')
+
             db = self.env.get_db_cnx()
             cursor = db.cursor()
             cursor.execute("SELECT b.id,b.config,c.label,b.rev,p.name,"
                            "b.stopped,b.status FROM bitten_build AS b"
-                           "  INNER JOIN bitten_config AS c ON (c.name=b.config)"
+                           "  INNER JOIN bitten_config AS c ON (c.name=b.config) "
                            "  INNER JOIN bitten_platform AS p ON (p.id=b.platform) "
                            "WHERE b.stopped>=%s AND b.stopped<=%s "
                            "AND b.status IN (%s, %s) ORDER BY b.stopped",
                            (start, stop, Build.SUCCESS, Build.FAILURE))
+
             event_kinds = {Build.SUCCESS: 'successbuild',
                            Build.FAILURE: 'failedbuild'}
             for id, config, label, rev, platform, stopped, status in cursor:
+
+                errors = []
+                if status == Build.FAILURE:
+                    for step in BuildStep.select(self.env, build=id,
+                                                 status=BuildStep.FAILURE,
+                                                 db=db):
+                        errors += [(escape(step.name), escape(error)) for error
+                                   in step.errors]
+
                 title = 'Build of <em>%s [%s]</em> on %s %s' \
                         % (escape(label), escape(rev), escape(platform),
                            _status_label[status])
+                message = ''
                 if req.args.get('format') == 'rss':
                     href = self.env.abs_href.build(config, id)
+                    if errors:
+                        buf = StringIO()
+                        prev_step = None
+                        for step, error in errors:
+                            if step != prev_step:
+                                if prev_step is not None:
+                                    buf.write('</ul>')
+                                buf.write('<p>Step %s failed:</p><ul>' % step)
+                                prev_step = step
+                            buf.write('<li>%s</li>' % escape(error))
+                        buf.write('</ul>')
+                        message = buf.getvalue()
                 else:
                     href = self.env.href.build(config, id)
-                yield event_kinds[status], href, title, stopped, None, ''
+                    if errors:
+                        steps = []
+                        for step, error in errors:
+                            if step not in steps:
+                                steps.append(step)
+                        steps = ['<em>%s</em>' % step for step in steps]
+                        if len(steps) < 2:
+                            message = steps[0]
+                        elif len(steps) == 2:
+                            message = ' and '.join(steps)
+                        elif len(steps) > 2:
+                            message = ', '.join(steps[:-1]) + ', and ' + \
+                                      steps[-1]
+                        message = 'Step%s ' % (len(steps) != 1 and 's' or '') \
+                                  + message + ' failed'
+                yield event_kinds[status], href, title, stopped, None, message
 
     # Internal methods
 

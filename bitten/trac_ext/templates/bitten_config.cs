@@ -33,8 +33,10 @@
     </div>
    </form><?cs
    each:config = configs ?>
-    <h2<?cs if:!config.active ?> class="deactivated"<?cs /if ?>><a href="<?cs
-      var:config.href ?>"><?cs var:config.label ?></a></h2><?cs
+    <h2 class="config <?cs
+     if:!config.active ?>deactivated<?cs
+     /if ?>"><a href="<?cs var:config.href ?>"><?cs
+     var:config.label ?></a></h2><?cs
     if:config.description ?><div class="description"><?cs
      var:config.description ?></div><?cs
     /if ?><?cs
@@ -139,9 +141,20 @@
      /if ?>
     </div></form><?cs
    /if ?>
-   <ul><li>Path: <?cs if:config.path ?><a href="<?cs
+   <p class="path">
+    Repository path: <?cs if:config.path ?><a href="<?cs
      var:config.browser_href ?>"><?cs
-     var:config.path ?></a></li><?cs /if ?></ul><?cs
+     var:config.path ?></a><?cs else ?>&mdash;<?cs /if ?><?cs
+     if:config.min_rev || config.max_rev ?> (<?cs
+      if:config.min_rev ?>starting at <a href="<?cs
+       var:config.min_rev_href ?>">[<?cs var:config.min_rev ?>]</a><?cs
+      /if ?><?cs
+      if:config.min_rev && config.max_rev ?>, <?cs /if ?><?cs
+      if:config.max_rev ?>up to <a href="<?cs
+       var:config.max_rev_href ?>">[<?cs var:config.max_rev ?>]</a><?cs
+      /if ?>)<?cs
+     /if ?>
+   </p><?cs
    if:config.description ?><div class="description"><?cs
      var:config.description ?></div><?cs
    /if ?>
@@ -183,16 +196,38 @@
       each:platform = config.platforms ?><?cs
        if:len(rev[platform.id]) ?><?cs
         with:build = rev[platform.id] ?><td class="<?cs
-         var:build.cls ?>"><a href="<?cs
-         var:build.href ?>" title="View build results"><?cs
-         var:build.slave.name ?></a> (<?cs
-         var:build.slave.os ?> <?cs
-         var:build.slave.os.version ?>)<br /><?cs
-         if:build.status == 'in progress' ?>started <?cs
-          var:build.started_delta ?> ago<?cs
-         else ?>took <?cs
-          var:build.duration ?></td><?cs
-         /if ?><?cs
+         var:build.cls ?>"><div class="info"><a href="<?cs
+         var:build.href ?>" title="View build results"><?cs var:build.id ?>:
+         <strong class="status"><?cs
+         if:build.status == 'completed' ?>Success<?cs
+         elif:build.status == 'failed' ?>Failed<?cs
+         else ?>In-progress<?cs
+         /if ?></strong></a>
+         <div class="system">
+          <strong class="ipnr"><?cs var:build.slave.name ?></strong> (<?cs
+           var:build.slave.ipnr ?>)<br />
+          <?cs var:build.slave.os.name ?> <?cs var:build.slave.os.version ?><?cs
+          if:build.slave.machine || build.slave.processor ?> / <?cs
+           alt:build.slave.processor ?><?cs
+            var:build.slave.machine ?><?cs
+           /alt ?><?cs
+          /if ?></div></div><?cs
+         if:len(build.steps) ?><ul class="steps"><?cs
+          each:step = build.steps ?><li class="<?cs
+           if:step.failed ?>failed<?cs else ?>success<?cs /if ?>">
+           <span class="duration"><?cs var:step.duration ?></span> <a href="<?cs
+           var:step.href ?>"<?cs
+           if:step.description ?> title="<?cs
+            var:step.description ?>"<?cs
+           /if ?>><?cs
+           var:name(step) ?></a><?cs
+           if:step.failed && len(step.errors) ?><ul><?cs
+            each:error = step.errors ?><li><?cs
+             var:error ?></li><?cs
+            /each ?></ul><?cs
+           /if ?></li><?cs
+          /each ?></ul><?cs
+         /if ?></td><?cs
         /with ?><?cs
        else ?><td>&mdash;</td><?cs
        /if ?><?cs

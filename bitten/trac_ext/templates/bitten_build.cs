@@ -4,16 +4,42 @@
  <div id="ctxtnav" class="nav"></div>
  <div id="content" class="build">
   <h1><?cs var:title ?></h1>
-  <p class="trigger">Triggered by: Changeset <a href="<?cs
-    var:build.chgset_href ?>">[<?cs var:build.rev ?>]</a> of <a href="<?cs
-    var:build.config.href ?>"><?cs var:build.config.name ?></a></p>
-  <p class="slave">Built by: <strong title="<?cs
-    var:build.slave.ip_address ?>"><?cs var:build.slave.name ?></strong> (<?cs
-    var:build.slave.os ?> <?cs var:build.slave.os.version ?><?cs
-    if:build.slave.machine ?> on <?cs var:build.slave.machine ?><?cs
-    /if ?>)</p>
-  <p class="time">Completed: <?cs var:build.started ?> (<?cs
-    var:build.started_delta ?> ago)<br />Took: <?cs var:build.duration ?></p><?cs
+  <dl id="overview">
+   <dt class="config">Configuration:</dt>
+   <dd class="config"><a href="<?cs var:build.config.href ?>"><?cs
+    var:build.config.name ?></a>
+   </dd>
+   <dt class="trigger">Triggered by:</dt>
+   <dd class="trigger">Changeset <a href="<?cs
+    var:build.chgset_href ?>">[<?cs var:build.rev ?>]</a> by <?cs
+    var:build.chgset_author ?>
+   </dd>
+   <dt class="slave">Built by:</dt>
+   <dd class="slave"><code><?cs var:build.slave.name ?></code> (<?cs
+    var:build.slave.ipnr ?>)
+   </dd>
+   <dt class="os">Operating system:</dt>
+   <dd><?cs var:build.slave.os.name ?> <?cs var:build.slave.os.version ?> (<?cs
+    var:build.slave.os.family ?>)
+   </dd><?cs
+   if:build.slave.machine ?>
+    <dt class="machine">Hardware:</dt>
+    <dd class="machine"><?cs
+     var:build.slave.machine ?><?cs
+     if:build.slave.processor ?> (<?cs
+      var:build.slave.processor ?>)<?cs
+     /if ?>
+    </dd><?cs
+   /if ?>
+   <dt class="time">Completed:</dt>
+   <dd class="time"><?cs var:build.started ?> (<?cs
+    var:build.started_delta ?> ago)
+   </dd>
+   <dt class="duration">Took:</dt>
+   <dd class="duration"><?cs
+    var:build.duration ?>
+   </dd>
+  </dl><?cs
   if:build.can_delete ?>
    <div class="buttons">
     <form method="post" action=""><div>
@@ -23,7 +49,7 @@
    </div><?cs
   /if ?><?cs
   each:step = build.steps ?>
-   <h2 id="<?cs var:step.name ?>"><?cs var:step.name ?> (<?cs
+   <h2 class="step" id="step_<?cs var:step.name ?>"><?cs var:step.name ?> (<?cs
      var:step.duration ?>)</h2>
    <p><?cs var:step.description ?></p><?cs
    if:len(step.errors) ?>
