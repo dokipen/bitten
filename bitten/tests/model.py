@@ -378,8 +378,8 @@ class BuildStepTestCase(unittest.TestCase):
         db = self.env.get_db_cnx()
         cursor = db.cursor()
         cursor.executemany("INSERT INTO bitten_step VALUES (%s,%s,%s,%s,%s,%s)",
-                           [(1, 'test', 'Foo bar', BuildStep.SUCCESS, 0, 0),
-                            (1, 'dist', 'Foo baz', BuildStep.FAILURE, 0, 0)])
+                           [(1, 'test', 'Foo bar', BuildStep.SUCCESS, 1, 2),
+                            (1, 'dist', 'Foo baz', BuildStep.FAILURE, 2, 3)])
 
         steps = list(BuildStep.select(self.env, build=1))
         self.assertEqual(1, steps[0].build)

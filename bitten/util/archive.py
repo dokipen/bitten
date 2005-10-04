@@ -157,8 +157,8 @@ def unpack(filename, dest_path, format=None):
     if format in ('bzip2', 'gzip'):
         try:
             tar_file = tarfile.open(filename)
-            tar_file.chown = lambda *args: None # Don't chown extracted members
             try:
+                tar_file.chown = lambda *args: None # Don't chown extracted members
                 for tarinfo in tar_file:
                     if tarinfo.isfile() or tarinfo.isdir():
                         if tarinfo.name.startswith('/') or '..' in tarinfo.name:

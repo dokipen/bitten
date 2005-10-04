@@ -71,7 +71,7 @@ def transform(ctxt, src=None, dest=None, stylesheet=None):
         # MSXML seems to always write produce the resulting XML document using
         # UTF-16 encoding, regardless of the encoding specified in the
         # stylesheet. For better interoperability, recode to UTF-8 here.
-        result = result.encode('utf-8').replace('  encoding="UTF-16"?>', '?>')
+        result = result.encode('utf-8').replace(' encoding="UTF-16"?>', '?>')
 
         dest_file = file(ctxt.resolve(dest), 'w')
         try:
