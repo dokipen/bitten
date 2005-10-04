@@ -229,6 +229,7 @@ def unittest(ctxt, file_=None):
     try:
         fd = open(ctxt.resolve(file_), 'r')
         try:
+            total, failed = 0, 0
             results = xmlio.Fragment()
             for child in xmlio.parse(fd).children():
                 test = xmlio.Element('test')
@@ -241,11 +242,17 @@ def unittest(ctxt, file_=None):
                         else:
                             continue
                     test.attr[name] = value
+                    if name == 'status' and value in ('error', 'failure'):
+                        failed += 1
                 for grandchild in child.children():
                     test.append(xmlio.Element(grandchild.name)[
                         grandchild.gettext()
                     ])
                 results.append(test)
+                total += 1
+            if failed:
+                ctxt.error('%d of %d test%s failed' % (failed, total,
+                           total != 1 and 's' or ''))
             ctxt.report('test', results)
         finally:
             fd.close()
