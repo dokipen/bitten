@@ -50,15 +50,14 @@
   /if ?><?cs
   each:step = build.steps ?>
    <h2 class="step" id="step_<?cs var:step.name ?>"><?cs var:step.name ?> (<?cs
-     var:step.duration ?>)</h2>
-   <p><?cs var:step.description ?></p><?cs
+     var:step.duration ?>)</h2><?cs
    if:len(step.errors) ?>
     <div class="errors">
-     <h3>Errors:</h3><ul class="errors"><?cs
+     <h3>Errors</h3><ul><?cs
      each:error = step.errors ?><li><?cs var:error ?></li><?cs
      /each ?></ul>
     </div><?cs
-   /if ?>
+   /if ?><p><?cs var:step.description ?></p>
    <div id="<?cs var:step.name ?>_tabs">
     <div class="tab"><h3>Log</h3><div class="log"><?cs
      each:item = step.log ?><code class="<?cs var:item.level ?>"><?cs

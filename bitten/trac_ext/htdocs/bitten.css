@@ -91,8 +91,18 @@
 #content.build #overview .slave { margin-top: 1em; }
 #content.build #overview .time { margin-top: 1em; }
 
-#content.build .tabs { list-style: none; float: left; width: 100%; margin: 0;
- padding: 0; }
+#content.build div.errors { background: #d99; border: 1px solid #966;
+ color: #933; float: right; margin: 1em;
+}
+#content.build div.errors h3 { background: #966; color: #fff; margin: 0;
+ padding: 0 .3em;
+}
+#content.build div.errors ul { list-style-image: url(failure.png); margin: 0;
+ padding: .5em 1.75em;
+}
+
+#content.build .tabs { clear: right; list-style: none; float: left; width: 100%;
+ margin: 0; padding: 0; }
 #content.build .tabs li { cursor: pointer; float: left; }
 #content.build .tabs li a { background: #b9b9b9; color: #666; display: block;
  margin: 2px 2px 0; padding: 3px 2em 0; }
