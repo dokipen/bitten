@@ -11,6 +11,10 @@ import keyword
 import logging
 import os
 import re
+try:
+    set
+except NameError:
+    from sets import Set as set
 
 from pkg_resources import WorkingSet
 from bitten.build import BuildError
@@ -124,9 +128,37 @@ class Recipe(object):
         assert isinstance(xml, xmlio.ParsedElement)
         self.ctxt = Context(basedir, config)
         self._root = xml
-        self.description = self._root.attr.get('description')
 
     def __iter__(self):
         """Provide an iterator over the individual steps of the recipe."""
         for child in self._root.children('step'):
             yield Step(child)
+
+    def validate(self):
+        if self._root.name != 'build':
+            raise InvalidRecipeError, 'Root element must be <build>'
+        steps = list(self._root.children())
+        if not steps:
+            raise InvalidRecipeError, 'Recipe defines no build steps'
+
+        step_ids = set()
+        for step in steps:
+            if step.name != 'step':
+                raise InvalidRecipeError, 'Only <step> elements allowed ' \
+                                          'at top level of recipe'
+            if not step.attr.get('id'):
+                raise InvalidRecipeError, 'Steps must have an "id" attribute'
+
+            if step.attr['id'] in step_ids:
+                raise InvalidRecipeError, 'Duplicate step ID "%s"' \
+                                          % step.attr['id']
+            step_ids.add(step.attr['id'])
+
+            cmds = list(step.children())
+            if not cmds:
+                raise InvalidRecipeError, 'Step "%s" has no recipe commands' \
+                                          % step.attr['id']
+            for cmd in cmds:
+                if len(list(cmd.children())):
+                    raise InvalidRecipeError, 'Recipe command <%s> has ' \
+                                              'nested content' % cmd.name

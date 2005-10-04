@@ -12,7 +12,7 @@ import shutil
 import tempfile
 import unittest
 
-from bitten.recipe import Recipe
+from bitten.recipe import Recipe, InvalidRecipeError
 from bitten.util import xmlio
 
 
@@ -25,9 +25,8 @@ class RecipeTestCase(unittest.TestCase):
         shutil.rmtree(self.basedir)
 
     def test_empty_recipe(self):
-        xml = xmlio.parse('<build description="test"/>')
+        xml = xmlio.parse('<build/>')
         recipe = Recipe(xml, basedir=self.basedir)
-        self.assertEqual('test', recipe.description)
         self.assertEqual(self.basedir, recipe.ctxt.basedir)
         steps = list(recipe)
         self.assertEqual(0, len(steps))
@@ -43,6 +42,63 @@ class RecipeTestCase(unittest.TestCase):
         self.assertEqual('Bar', steps[0].description)
         self.assertEqual('fail', steps[0].onerror)
 
+    def test_validate_bad_root(self):
+        xml = xmlio.parse('<foo></foo>')
+        recipe = Recipe(xml, basedir=self.basedir)
+        self.assertRaises(InvalidRecipeError, recipe.validate)
+
+    def test_validate_no_steps(self):
+        xml = xmlio.parse('<build></build>')
+        recipe = Recipe(xml, basedir=self.basedir)
+        self.assertRaises(InvalidRecipeError, recipe.validate)
+
+    def test_validate_child_not_step(self):
+        xml = xmlio.parse('<build><foo/></build>')
+        recipe = Recipe(xml, basedir=self.basedir)
+        self.assertRaises(InvalidRecipeError, recipe.validate)
+
+    def test_validate_child_not_step(self):
+        xml = xmlio.parse('<build><foo/></build>')
+        recipe = Recipe(xml, basedir=self.basedir)
+        self.assertRaises(InvalidRecipeError, recipe.validate)
+
+    def test_validate_step_without_id(self):
+        xml = xmlio.parse('<build><step><cmd/></step></build>')
+        recipe = Recipe(xml, basedir=self.basedir)
+        self.assertRaises(InvalidRecipeError, recipe.validate)
+
+    def test_validate_step_with_empty_id(self):
+        xml = xmlio.parse('<build><step id=""><cmd/></step></build>')
+        recipe = Recipe(xml, basedir=self.basedir)
+        self.assertRaises(InvalidRecipeError, recipe.validate)
+
+    def test_validate_step_without_commands(self):
+        xml = xmlio.parse('<build><step id="test"/></build>')
+        recipe = Recipe(xml, basedir=self.basedir)
+        self.assertRaises(InvalidRecipeError, recipe.validate)
+
+    def test_validate_step_with_command_children(self):
+        xml = xmlio.parse('<build><step id="test">'
+                          '<somecmd><child1/><child2/></somecmd>'
+                          '</step></build>')
+        recipe = Recipe(xml, basedir=self.basedir)
+        self.assertRaises(InvalidRecipeError, recipe.validate)
+
+    def test_validate_step_with_duplicate_id(self):
+        xml = xmlio.parse('<build>'
+                          '<step id="test"><somecmd></somecmd></step>'
+                          '<step id="test"><othercmd></othercmd></step>'
+                          '</build>')
+        recipe = Recipe(xml, basedir=self.basedir)
+        self.assertRaises(InvalidRecipeError, recipe.validate)
+
+    def test_validate_successful(self):
+        xml = xmlio.parse('<build>'
+                          '<step id="foo"><somecmd></somecmd></step>'
+                          '<step id="bar"><othercmd></othercmd></step>'
+                          '</build>')
+        recipe = Recipe(xml, basedir=self.basedir)
+        recipe.validate()
 
 def suite():
     return unittest.makeSuite(RecipeTestCase, 'test')

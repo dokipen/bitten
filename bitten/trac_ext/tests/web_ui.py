@@ -11,6 +11,7 @@ import shutil
 import tempfile
 import unittest
 
+from trac.core import TracError
 from trac.perm import PermissionCache, PermissionSystem
 from trac.test import EnvironmentStub, Mock
 from trac.versioncontrol import Repository
@@ -39,9 +40,13 @@ class BuildConfigControllerTestCase(unittest.TestCase):
                             'DefaultPermissionStore')
 
         # Hook up a dummy repository
-        self.repos = Mock(get_node=lambda path: Mock(get_history=lambda: []),
-                          sync=lambda: None)
-        self.env.get_repository = lambda x: self.repos
+        self.repos = Mock(
+            get_node=lambda path, rev=None: Mock(get_history=lambda: [],
+                                                 isdir=True),
+            normalize_path=lambda path: path,
+            sync=lambda: None
+        )
+        self.env.get_repository = lambda authname=None: self.repos
 
     def tearDown(self):
         shutil.rmtree(self.env.path)
@@ -168,6 +173,56 @@ class BuildConfigControllerTestCase(unittest.TestCase):
         self.assertEqual('Test', config.label)
         self.assertEqual('test/trunk', config.path)
         self.assertEqual('Bla bla', config.description)
+
+    def test_new_config_submit_without_name(self):
+        PermissionSystem(self.env).grant_permission('joe', 'BUILD_ADMIN')
+        req = Mock(Request, method='POST', cgi_location='', path_info='/build',
+                   hdf=HDFWrapper(), perm=PermissionCache(self.env, 'joe'),
+                   args={'action': 'new', 'name': '', 'path': 'test/trunk',
+                         'label': 'Test', 'description': 'Bla bla'})
+
+        module = BuildConfigController(self.env)
+        assert module.match_request(req)
+        self.assertRaises(TracError, module.process_request, req)
+
+    def test_new_config_submit_invalid_path(self):
+        PermissionSystem(self.env).grant_permission('joe', 'BUILD_ADMIN')
+        req = Mock(Request, method='POST', cgi_location='', path_info='/build',
+                   hdf=HDFWrapper(), perm=PermissionCache(self.env, 'joe'),
+                   args={'action': 'new', 'name': 'test', 'path': 'test/trunk',
+                         'label': 'Test', 'description': 'Bla bla'})
+
+        def get_node(path, rev=None):
+            raise TracError, 'No such node'
+        self.repos = Mock(get_node=get_node)
+
+        module = BuildConfigController(self.env)
+        assert module.match_request(req)
+        self.assertRaises(TracError, module.process_request, req)
+
+    def test_new_config_submit_with_non_wellformed_recipe(self):
+        PermissionSystem(self.env).grant_permission('joe', 'BUILD_ADMIN')
+        req = Mock(Request, method='POST', cgi_location='', path_info='/build',
+                   hdf=HDFWrapper(), perm=PermissionCache(self.env, 'joe'),
+                   args={'action': 'new', 'name': 'test', 'path': 'test/trunk',
+                         'label': 'Test', 'description': 'Bla bla',
+                         'recipe': '<build><step>'})
+
+        module = BuildConfigController(self.env)
+        assert module.match_request(req)
+        self.assertRaises(TracError, module.process_request, req)
+
+    def test_new_config_submit_with_invalid_recipe(self):
+        PermissionSystem(self.env).grant_permission('joe', 'BUILD_ADMIN')
+        req = Mock(Request, method='POST', cgi_location='', path_info='/build',
+                   hdf=HDFWrapper(), perm=PermissionCache(self.env, 'joe'),
+                   args={'action': 'new', 'name': 'test', 'path': 'test/trunk',
+                         'label': 'Test', 'description': 'Bla bla',
+                         'recipe': '<build><step/></build>'})
+
+        module = BuildConfigController(self.env)
+        assert module.match_request(req)
+        self.assertRaises(TracError, module.process_request, req)
 
     def test_new_config_cancel(self):
         PermissionSystem(self.env).grant_permission('joe', 'BUILD_ADMIN')

@@ -21,7 +21,9 @@ from trac.wiki import wiki_to_html
 from bitten.model import BuildConfig, TargetPlatform, Build, BuildStep, \
                          BuildLog, Report
 from bitten.queue import collect_changes
+from bitten.recipe import Recipe, InvalidRecipeError
 from bitten.trac_ext.api import ILogFormatter, IReportSummarizer
+from bitten.util import xmlio
 
 _status_label = {Build.IN_PROGRESS: 'in progress',
                  Build.SUCCESS: 'completed',
@@ -156,17 +158,12 @@ class BuildConfigController(Component):
 
         config_name = req.args.get('name')
 
-        assert not BuildConfig.fetch(self.env, config_name), \
-            'A build configuration with the name "%s" already exists' \
-            % config_name
+        if BuildConfig.fetch(self.env, config_name):
+            raise TracError('A build configuration with the name "%s" already '
+                            'exists' % config_name, 'Duplicate name')
 
-        config = BuildConfig(self.env, name=config_name,
-                             path=req.args.get('path', ''),
-                             recipe=req.args.get('recipe', ''),
-                             min_rev=req.args.get('min_rev', ''),
-                             max_rev=req.args.get('max_rev', ''),
-                             label=req.args.get('label', ''),
-                             description=req.args.get('description'))
+        config = BuildConfig(self.env)
+        self._process_config(req, config)
         config.insert()
 
         req.redirect(self.env.href.build(config.name))
@@ -197,7 +194,10 @@ class BuildConfigController(Component):
             req.redirect(self.env.href.build(config_name))
 
         config = BuildConfig.fetch(self.env, config_name)
-        assert config, 'Build configuration "%s" does not exist' % config_name
+        if not config:
+            # FIXME: 404
+            raise TracError('Build configuration "%s" does not exist'
+                            % config_name, 'Object not found')
 
         if 'activate' in req.args:
             config.active = True
@@ -206,17 +206,46 @@ class BuildConfigController(Component):
             config.active = False
 
         else:
-            # TODO: Validate recipe, repository path, etc
-            config.name = req.args.get('name')
-            config.path = req.args.get('path', '')
-            config.recipe = req.args.get('recipe', '')
-            config.min_rev = req.args.get('min_rev')
-            config.max_rev = req.args.get('max_rev')
-            config.label = req.args.get('label', '')
-            config.description = req.args.get('description', '')
+            self._process_config(req, config)
 
         config.update()
         req.redirect(self.env.href.build(config.name))
+
+    def _process_config(self, req, config):
+        if not req.args.get('name'):
+            raise TracError('Missing required field "name"', 'Missing field')
+
+        path = req.args.get('path', '')
+        repos = self.env.get_repository(req.authname)
+        max_rev = req.args.get('max_rev') or None
+        try:
+            node = repos.get_node(path, max_rev)
+            assert node.isdir, '%s is not a directory' % node.path
+        except (AssertionError, TracError), e:
+            raise TracError(e, 'Invalid repository path')
+        if req.args.get('min_rev'):
+            try:
+                repos.get_node(path, req.args.get('min_rev'))
+            except TracError, e:
+                raise TracError(e, 'Invalid value for oldest revision')
+
+        recipe_xml = req.args.get('recipe', '')
+        if recipe_xml:
+            try:
+                Recipe(xmlio.parse(recipe_xml)).validate()
+            except xmlio.ParseError, e:
+                raise TracError('Failure parsing recipe: %s' % e,
+                                'Invalid recipe')
+            except InvalidRecipeError, e:
+                raise TracError(e, 'Invalid recipe')
+
+        config.name = req.args.get('name')
+        config.path = repos.normalize_path(path)
+        config.recipe = recipe_xml
+        config.min_rev = req.args.get('min_rev')
+        config.max_rev = req.args.get('max_rev')
+        config.label = req.args.get('label', '')
+        config.description = req.args.get('description', '')
 
     def _do_create_platform(self, req, config_name):
         """Create a new target platform."""
