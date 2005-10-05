@@ -80,7 +80,7 @@ ORDER BY build.rev_time""", (config.name,))
         req.hdf['chart.title'] = 'Unit Tests'
         req.hdf['chart.data'] = [
             [''] + ['[%s]' % item[0] for item in tests],
-            ['Total'] + [item[1] for item in tests],
+            ['Total'] + [sum(item[1:]) for item in tests],
             ['Failures'] + [item[2] for item in tests]
         ]
 
