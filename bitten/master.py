@@ -96,7 +96,11 @@ class Master(beep.Listener):
             return
 
         for queue in self.queues:
-            queue.unregister_slave(handler.name)
+            if queue.unregister_slave(handler.name):
+                for build in list(Build.select(queue.env, slave=handler.name,
+                                               status=Build.IN_PROGRESS)):
+                    handler._build_aborted(queue, build)
+
         del self.handlers[handler.name]
 
         log.info('Unregistered slave "%s"', handler.name)
@@ -245,9 +249,12 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
         if timestamp_delta:
             build.started -= timestamp_delta
         build.status = Build.IN_PROGRESS
+        build.update()
+
         log.info('Slave %s started build %d ("%s" as of [%s])',
                  self.name, build.id, build.config, build.rev)
-        build.update()
+        for listener in BuildSystem(queue.env).listeners:
+            listener.build_started(build)
 
     def _build_step_completed(self, queue, build, elem, timestamp_delta=None):
         log.debug('Slave %s completed step "%s" with status %s', self.name,
@@ -294,10 +301,6 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
         db.commit()
 
     def _build_completed(self, queue, build, elem, timestamp_delta=None):
-        log.info('Slave %s completed build %d ("%s" as of [%s]) with status %s',
-                 self.name, build.id, build.config, build.rev,
-                 elem.attr['result'])
-
         build.stopped = int(_parse_iso_datetime(elem.attr['time']))
         if timestamp_delta:
             build.stopped -= timestamp_delta
@@ -307,9 +310,17 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
             build.status = Build.SUCCESS
         build.update()
 
+        log.info('Slave %s completed build %d ("%s" as of [%s]) with status %s',
+                 self.name, build.id, build.config, build.rev,
+                 build.status == Build.FAILURE and 'FAILURE' or 'SUCCESS')
+        for listener in BuildSystem(queue.env).listeners:
+            listener.build_completed(build)
+
     def _build_aborted(self, queue, build):
         log.info('Slave %s aborted build %d ("%s" as of [%s])',
                  self.name, build.id, build.config, build.rev)
+        for listener in BuildSystem(queue.env).listeners:
+            listener.build_aborted(build)
 
         db = queue.env.get_db_cnx()
 
@@ -317,9 +328,9 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
             step.delete(db=db)
 
         build.slave = None
+        build.slave_info = {}
         build.started = 0
         build.status = Build.PENDING
-        build.slave_info = {}
         build.update(db=db)
 
         db.commit()

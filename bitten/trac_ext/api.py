@@ -10,6 +10,32 @@
 from trac.core import *
 
 
+class IBuildListener(Interface):
+    """Extension point interface for components that need to be notified of
+    build events.
+    
+    Note that these will be notified in the process running the build master."""
+
+    def build_started(build):
+        """Called when a build slave has accepted a build initiation.
+        
+        @param build: The `bitten.model.Build` instance representing the build
+        """
+
+    def build_aborted(config, build):
+        """Called when a build slave cancels a build or disconnects.
+        
+        @param build: The `bitten.model.Build` instance representing the build
+        """
+
+    def build_completed(config, build):
+        """Called when a build slave has completed a build, regardless of the
+        outcome.
+        
+        @param build: The `bitten.model.Build` instance representing the build
+        """
+
+
 class ILogFormatter(Interface):
     """Extension point interface for components that format build log
     messages."""

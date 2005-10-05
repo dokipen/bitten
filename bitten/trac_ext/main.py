@@ -15,6 +15,7 @@ from trac.core import *
 from trac.env import IEnvironmentSetupParticipant
 from trac.perm import IPermissionRequestor
 from trac.wiki import IWikiSyntaxProvider
+from bitten.trac_ext.api import IBuildListener
 from bitten.model import schema, schema_version, Build, BuildConfig
 
 
@@ -22,6 +23,8 @@ class BuildSystem(Component):
 
     implements(IEnvironmentSetupParticipant, IPermissionRequestor,
                IWikiSyntaxProvider)
+
+    listeners = ExtensionPoint(IBuildListener)
 
     # IEnvironmentSetupParticipant methods
 

@@ -272,6 +272,8 @@ class BuildQueue(object):
         """Unregister a build slave.
         
         @param name: The name of the slave
+        @return: `True` if the slave was registered for this build queue,
+                 `False` otherwise
 
         This method removes the slave from the registry, and also resets any
         in-progress builds by this slave to `PENDING` state.
@@ -279,20 +281,5 @@ class BuildQueue(object):
         for slaves in self.slaves.values():
             if name in slaves:
                 slaves.remove(name)
-
-        db = self.env.get_db_cnx()
-        for build in Build.select(self.env, slave=name,
-                                  status=Build.IN_PROGRESS, db=db):
-            log.info('Build %d ("%s" as of [%s]) cancelled by  %s', build.id,
-                     build.rev, build.config, name)
-            for step in list(BuildStep.select(self.env, build=build.id)):
-                step.delete(db=db)
-
-            build.slave = None
-            build.slave_info = {}
-            build.status = Build.PENDING
-            build.started = 0
-            build.update(db=db)
-            break
-
-        db.commit()
+                return True
+        return False
