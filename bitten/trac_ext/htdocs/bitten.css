@@ -17,10 +17,12 @@
 #content.build h2.deactivated { text-decoration: line-through; }
 #content.build #prefs { line-height: 1.4em; }
 
+#content.build h3.builds { font-weight: bold; text-align: left;
+ margin: 2em 0 0 2em;
+}
 #content.build table.builds { border-collapse: separate;
  border-top: 1px solid #666; margin-left: 2em; table-layout: fixed;
 }
-#content.build table.builds caption { font-weight: bold; text-align: left; }
 #content.build table.builds th { padding: 0 1em 0 .25em; text-align: left;
  vertical-align: top;
 }
