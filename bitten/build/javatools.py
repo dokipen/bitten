@@ -10,13 +10,16 @@
 import logging
 import os
 import tempfile
+import shlex
+import posixpath
+from glob import glob
 
 from bitten.build import CommandLine
 from bitten.util import xmlio
 
 log = logging.getLogger('bitten.build.javatools')
 
-def ant(ctxt, file_=None, target=None, keep_going=False):
+def ant(ctxt, file_=None, target=None, keep_going=False, args=None):
     """Run an Ant build."""
     executable = 'ant'
     ant_home = ctxt.config.get_dirpath('ant.home')
@@ -24,9 +27,13 @@ def ant(ctxt, file_=None, target=None, keep_going=False):
         executable = os.path.join(ant_home, 'bin', 'ant')
 
     logfile = tempfile.NamedTemporaryFile(prefix='ant_log', suffix='.xml')
-    args = ['-noinput', '-listener', 'org.apache.tools.ant.XmlLogger',
-            '-Dant.XmlLogger.stylesheet.uri', '""',
-            '-DXmlLogger.file', logfile.name]
+    if args:
+        args = shlex.split(args)
+    else:
+        args = []
+    args += ['-noinput', '-listener', 'org.apache.tools.ant.XmlLogger',
+             '-Dant.XmlLogger.stylesheet.uri', '""',
+             '-DXmlLogger.file', logfile.name]
     if file_:
         args += ['-buildfile', ctxt.resolve(file_)]
     if keep_going:
@@ -69,3 +76,46 @@ def ant(ctxt, file_=None, target=None, keep_going=False):
 
     if not error_logged and cmdline.returncode != 0:
         ctxt.error('Ant failed (%s)' % cmdline.returncode)
+
+def java_src(src, cls):
+    return posixpath.join(src, *cls.split('.')) + '.java'
+
+def junit(ctxt, file_=None, src=None):
+    assert file_, 'Missing required attribute "file"'
+    try:
+        total, failed = 0, 0
+        results = xmlio.Fragment()
+        for f in glob(ctxt.resolve(file_)):
+            fd = open(f, 'r')
+            try:
+                for testcase in xmlio.parse(fd).children('testcase'):
+                    test = xmlio.Element('test')
+                    test.attr['fixture'] = testcase.attr['classname']
+                    test.attr['duration'] = testcase.attr['time']
+                    if src:
+                        test.attr['file'] = java_src(src,
+                                testcase.attr['classname'])
+
+                    result = list(testcase.children())
+                    if result:
+                        test.attr['status'] = result[0].name
+                        test.append(xmlio.Element('traceback')[
+                                result[0].gettext()
+                            ])
+                        failed += 1
+                    else:
+                        test.attr['status'] = 'success'
+
+                    results.append(test)
+                    total += 1
+            finally:
+                fd.close()
+        if failed:
+            ctxt.error('%d of %d test%s failed' % (failed, total,
+                       total != 1 and 's' or ''))
+        ctxt.report('test', results)
+    except IOError, e:
+        log.warning('Error opening junit results file (%s)', e)
+    except xmlio.ParseError, e:
+        log.warning('Error parsing junit results file (%s)', e)
+
