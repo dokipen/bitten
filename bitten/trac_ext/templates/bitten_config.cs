@@ -40,6 +40,38 @@
     if:config.description ?><div class="description"><?cs
      var:config.description ?></div><?cs
     /if ?><?cs
+    if:len(config.builds) ?>
+     <table class="builds"><caption>Latest builds</caption><tr>
+      <th><a href="<?cs var:config.youngest_rev.href ?>">[<?cs
+       var:config.youngest_rev.id ?>]</a> by <?cs
+       var:config.youngest_rev.author ?><p class="date"><?cs
+       var:config.youngest_rev.date ?></p><p class="message"><?cs
+       var:config.youngest_rev.message ?></p>
+      </th><?cs
+      each:build = config.builds ?><td class="<?cs
+       var:build.cls ?>"><?cs
+        if:build.status != 'pending' ?><a href="<?cs var:build.href ?>"><?cs
+         var:name(build) ?></a><p class="date"><?cs
+         var:build.stopped ?></p><div class="system">
+         <strong class="ipnr"><?cs var:build.slave.name ?></strong> (<?cs
+         var:build.slave.ipnr ?>)<br /><?cs
+         var:build.slave.os.name ?> <?cs var:build.slave.os.version ?><?cs
+         if:build.slave.machine || build.slave.processor ?> / <?cs
+          alt:build.slave.processor ?><?cs
+           var:build.slave.machine ?><?cs
+          /alt ?><?cs
+         /if ?></div><strong class="status"><?cs
+         if:build.status == 'completed' ?>Success<?cs
+         elif:build.status == 'failed' ?>Failed<?cs
+         elif:build.status == 'in-progress' ?>In-progress<?cs
+         /if ?></strong><?cs
+        else ?><?cs var:name(build) ?><br />
+         <p class="nobuild">No build yet</p><?cs
+        /if ?>
+       </td><?cs
+      /each ?>
+     </tr></table><?cs
+    /if ?><?cs
    /each ?><?cs
    if:config.can_create ?><div class="buttons">
     <form method="get" action=""><div>

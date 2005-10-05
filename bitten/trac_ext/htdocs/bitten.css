@@ -17,6 +17,38 @@
 #content.build h2.deactivated { text-decoration: line-through; }
 #content.build #prefs { line-height: 1.4em; }
 
+#content.build table.builds { border-collapse: separate;
+ border-top: 1px solid #666; table-layout: fixed;
+}
+#content.build table.builds caption { font-weight: bold; text-align: left; }
+#content.build table.builds th { padding: 0 .25em; text-align: left;
+ vertical-align: top;
+}
+#content.build table.builds th p { color: #666; font-size: smaller;
+ margin-top: 0;
+}
+#content.build table.builds th p.message { font-style: italic; }
+#content.build table.builds td { color: #999; border: 1px solid;
+ padding: .25em .5em; vertical-align: top;
+}
+#content.build table.builds td :link, #content.build table.builds td :visited {
+ font-weight: bold;
+}
+#content.build table.builds td.completed { background: #9d9; border-color: #696;
+ color: #393;
+}
+#content.build table.builds td.failed { background: #d99; border-color: #966;
+ color: #933;
+}
+#content.build table.builds td.in-progress { background: #dd9;
+ border-color: #996; color: #993;
+}
+#content.build table.builds td p { font-size: smaller; margin-top: 0; }
+#content.build table.builds .status { color: #000; }
+#content.build table.builds .system { font-size: smaller; line-height: 1.2em;
+ margin: .5em 0;
+}
+
 #content.build form.config { margin-top: 1em; }
 #content.build form.config th { text-align: left; }
 #content.build form.config fieldset { margin-bottom: 1em; }

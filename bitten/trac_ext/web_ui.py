@@ -18,11 +18,12 @@ from StringIO import StringIO
 import pkg_resources
 from trac.core import *
 from trac.Timeline import ITimelineEventProvider
-from trac.util import escape, pretty_timedelta, format_date, format_datetime
+from trac.util import escape, pretty_timedelta, format_date, format_datetime, \
+                      shorten_line
 from trac.web import IRequestHandler
 from trac.web.chrome import INavigationContributor, ITemplateProvider, \
                             add_link, add_stylesheet
-from trac.wiki import wiki_to_html
+from trac.wiki import wiki_to_html, wiki_to_oneliner
 from bitten.model import BuildConfig, TargetPlatform, Build, BuildStep, \
                          BuildLog, Report
 from bitten.queue import collect_changes
@@ -30,7 +31,8 @@ from bitten.recipe import Recipe, InvalidRecipeError
 from bitten.trac_ext.api import ILogFormatter, IReportSummarizer
 from bitten.util import xmlio
 
-_status_label = {Build.IN_PROGRESS: 'in progress',
+_status_label = {Build.PENDING: 'pending',
+                 Build.IN_PROGRESS: 'in progress',
                  Build.SUCCESS: 'completed',
                  Build.FAILURE: 'failed'}
 
@@ -329,17 +331,42 @@ class BuildConfigController(Component):
             show_all = True
         req.hdf['config.show_all'] = show_all
 
-        configurations = BuildConfig.select(self.env, include_inactive=show_all)
-        for idx, config in enumerate(configurations):
+        configs = BuildConfig.select(self.env, include_inactive=show_all)
+        for idx, config in enumerate(configs):
+            prefix = 'configs.%d' % idx
             description = config.description
             if description:
                 description = wiki_to_html(description, self.env, req)
-            req.hdf['configs.%d' % idx] = {
+            req.hdf[prefix] = {
                 'name': config.name, 'label': config.label or config.name,
                 'active': config.active, 'path': config.path,
                 'description': description,
                 'href': self.env.href.build(config.name),
             }
+            if not config.active:
+                continue
+
+            repos = self.env.get_repository(req.authname)
+            repos.sync()
+            prev_rev = None
+            for platform, rev, build in collect_changes(repos, config):
+                if rev != prev_rev:
+                    if prev_rev is None:
+                        chgset = repos.get_changeset(rev)
+                        req.hdf[prefix + '.youngest_rev'] = {
+                            'id': rev, 'href': self.env.href.changeset(rev),
+                            'author': escape(chgset.author),
+                            'date': format_datetime(chgset.date),
+                            'message': wiki_to_oneliner(
+                                shorten_line(chgset.message), self.env)
+                        }
+                    else:
+                        break
+                    prev_rev = rev
+                if build:
+                    build_hdf = _build_to_hdf(self.env, req, build)
+                    req.hdf[prefix + '.builds.%s' % platform.name] = build_hdf
+
         req.hdf['page.mode'] = 'overview'
         req.hdf['config.can_create'] = req.perm.has_permission('BUILD_CREATE')
 
