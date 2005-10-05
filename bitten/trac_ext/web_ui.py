@@ -365,7 +365,12 @@ class BuildConfigController(Component):
                     prev_rev = rev
                 if build:
                     build_hdf = _build_to_hdf(self.env, req, build)
-                    req.hdf[prefix + '.builds.%s' % platform.name] = build_hdf
+                    build_hdf['platform'] = escape(platform.name)
+                    req.hdf[prefix + '.builds.%d' % platform.id] = build_hdf
+                else:
+                    req.hdf[prefix + '.builds.%d' % platform.id] = {
+                        'platform': escape(platform.name), 'status': 'pending'
+                    }
 
         req.hdf['page.mode'] = 'overview'
         req.hdf['config.can_create'] = req.perm.has_permission('BUILD_CREATE')
