@@ -155,7 +155,7 @@ class BuildQueue(object):
 
             db = self.env.get_db_cnx()
             build = None
-            insert_build = False
+            builds = []
             for config in BuildConfig.select(self.env, db=db):
                 for platform, rev, build in collect_changes(repos, config, db):
                     if build is None:
@@ -167,9 +167,9 @@ class BuildQueue(object):
                         build.rev = str(rev)
                         build.rev_time = repos.get_changeset(rev).date
                         build.platform = platform.id
-                        insert_build = True
+                        builds.append(build)
                         break
-            if insert_build:
+            for build in builds:
                 build.insert(db=db)
                 db.commit()
         finally:
