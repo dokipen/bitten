@@ -119,7 +119,7 @@ option:
 
   $ bitten-slave --help
 
-To run the build slave against a slave installed on myproject.example.org,
+To run the build slave against a master installed on myproject.example.org,
 you'd run:
 
   $ bitten-slave myproject.example.org

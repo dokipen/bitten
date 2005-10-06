@@ -227,11 +227,11 @@ def unittest(ctxt, file_=None):
     assert file_, 'Missing required attribute "file"'
 
     try:
-        fd = open(ctxt.resolve(file_), 'r')
+        fileobj = file(ctxt.resolve(file_), 'r')
         try:
             total, failed = 0, 0
             results = xmlio.Fragment()
-            for child in xmlio.parse(fd).children():
+            for child in xmlio.parse(fileobj).children():
                 test = xmlio.Element('test')
                 for name, value in child.attr.items():
                     if name == 'file':
@@ -255,7 +255,7 @@ def unittest(ctxt, file_=None):
                            total != 1 and 's' or ''))
             ctxt.report('test', results)
         finally:
-            fd.close()
+            fileobj.close()
     except IOError, e:
         log.warning('Error opening unittest results file (%s)', e)
     except xmlio.ParseError, e:

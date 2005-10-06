@@ -369,7 +369,7 @@ def main():
                       default=DEFAULT_CHECK_INTERVAL, type='int',
                       help='poll interval for changeset detection')
     parser.add_option('--timewarp', action='store_true', dest='timewarp',
-                      help='adjust timestamps of builds to be neat the '
+                      help='adjust timestamps of builds to be near the '
                            'timestamps of the corresponding changesets')
     parser.add_option('--debug', action='store_const', dest='loglevel',
                       const=logging.DEBUG, help='enable debugging output')

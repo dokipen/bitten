@@ -64,7 +64,6 @@ class Context(object):
                 return name
             args = dict([(escape(name), self.config.interpolate(attr[name]))
                          for name in attr])
-            print args
 
             self.generator = qname
             log.debug('Executing %s with arguments: %s', function, args)
