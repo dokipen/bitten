@@ -57,6 +57,8 @@
 #content.build div.platforms { margin-top: 2em; }
 #content.build form.platforms ul { list-style-type: none; padding-left: 1em; }
 
+#content.build p.path { color: #999; font-size: smaller; margin-top: 0; }
+
 #content.build #charts { clear: right; float: right; width: 44%; }
 
 #content.build #builds { clear: none; margin-top: 2em; table-layout: fixed;

@@ -8,6 +8,7 @@
 # are also available at http://bitten.cmlenz.net/wiki/License.
 
 from datetime import datetime, timedelta
+import posixpath
 import re
 try:
     set
@@ -560,6 +561,15 @@ class BuildController(Component):
             'href': self.env.href.build(config.name)
         }
 
+        formatters = []
+        for formatter in self.log_formatters:
+            formatters.append(formatter.get_formatter(req, build))
+
+        summarizers = {} # keyed by report type
+        for summarizer in self.report_summarizers:
+            categories = summarizer.get_supported_categories()
+            summarizers.update(dict([(cat, summarizer) for cat in categories]))
+
         req.hdf['build'] = _build_to_hdf(self.env, req, build)
         steps = []
         for step in BuildStep.select(self.env, build=build.id, db=db):
@@ -568,8 +578,9 @@ class BuildController(Component):
                 'duration': pretty_timedelta(step.started, step.stopped),
                 'failed': step.status == BuildStep.FAILURE,
                 'errors': step.errors,
-                'log': self._render_log(req, build, step),
-                'reports': self._render_reports(req, config, build, step)
+                'log': self._render_log(req, build, formatters, step),
+                'reports': self._render_reports(req, config, build, summarizers,
+                                                step)
             })
         req.hdf['build.steps'] = steps
         req.hdf['build.can_delete'] = req.perm.has_permission('BUILD_DELETE')
@@ -668,25 +679,16 @@ class BuildController(Component):
 
         req.redirect(self.env.href.build(build.config))
 
-    def _render_log(self, req, build, step):
+    def _render_log(self, req, build, formatters, step):
         items = []
         for log in BuildLog.select(self.env, build=build.id, step=step.name):
-            formatters = []
-            for formatter in self.log_formatters:
-                formatters.append(formatter.get_formatter(req, build, step,
-                                                          log.generator))
             for level, message in log.messages:
                 for format in formatters:
-                    message = format(level, message)
+                    message = format(step, log.generator, level, message)
                 items.append({'level': level, 'message': message})
         return items
 
-    def _render_reports(self, req, config, build, step):
-        summarizers = {} # keyed by report type
-        for summarizer in self.report_summarizers:
-            categories = summarizer.get_supported_categories()
-            summarizers.update(dict([(cat, summarizer) for cat in categories]))
-
+    def _render_reports(self, req, config, build, summarizers, step):
         reports = []
         for report in Report.select(self.env, build=build.id, step=step.name):
             summarizer = summarizers.get(report.category)
@@ -700,33 +702,39 @@ class BuildController(Component):
 
 
 class SourceFileLinkFormatter(Component):
-    """Finds references to files and directories in the repository in the build
-    log and renders them as links to the repository browser."""
+    """Detects references to files in the build log and renders them as links
+    to the repository browser."""
 
     implements(ILogFormatter)
 
-    def get_formatter(self, req, build, step, type):
-        config = BuildConfig.fetch(self.env, build.config)
-        repos = self.env.get_repository(req.authname)
-        nodes = []
-        def _walk(node):
-            for child in node.get_entries():
-                path = child.path[len(config.path) + 1:]
-                pattern = re.compile("([\s'\"])(%s|%s)([\s'\"])"
-                                     % (re.escape(path),
-                                        re.escape(path.replace('/', '\\'))))
-                nodes.append((child.path, pattern))
-                if child.isdir:
-                    _walk(child)
-        _walk(repos.get_node(config.path, build.rev))
-        nodes.sort(lambda x, y: -cmp(len(x[0]), len(y[0])))
+    _fileref_re = re.compile('(?P<path>[\w.-]+(?:/[\w.-]+)+)(?P<line>(:\d+))')
 
-        def _formatter(level, message):
-            for path, pattern in nodes:
-                def _replace(m):
-                    return '%s<a href="%s">%s</a>%s' % (m.group(1),
-                           self.env.href.browser(path, rev=build.rev),
-                           m.group(2), m.group(3))
-                message = pattern.sub(_replace, message)
-            return message
+    def get_formatter(self, req, build):
+        """Return the log message formatter function."""
+        config = BuildConfig.fetch(self.env, name=build.config)
+        repos = self.env.get_repository(req.authname)
+        href = self.env.href.browser
+        cache = {}
+        def _replace(m):
+            filepath = posixpath.normpath(m.group('path').replace('\\', '/'))
+            if not cache.get(filepath) is True:
+                parts = filepath.split('/')
+                path = ''
+                for part in parts:
+                    path = posixpath.join(path, part)
+                    if not path in cache:
+                        try:
+                            self.log.debug('Cache miss for "%s" (%s)' % (path, m.group(0)))
+                            repos.get_node(posixpath.join(config.path, path),
+                                           build.rev)
+                            cache[path] = True
+                        except TracError:
+                            cache[path] = False
+                    if cache[path] is False:
+                        return m.group(0)
+            return '<a href="%s">%s</a>' % (
+                   href(m.group('path')) + '#L' + m.group('line')[1:],
+                   m.group(0))
+        def _formatter(step, type, level, message):
+            return self._fileref_re.sub(_replace, message)
         return _formatter

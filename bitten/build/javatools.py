@@ -77,31 +77,31 @@ def ant(ctxt, file_=None, target=None, keep_going=False, args=None):
     if not error_logged and cmdline.returncode != 0:
         ctxt.error('Ant failed (%s)' % cmdline.returncode)
 
-def java_src(src, cls):
-    return posixpath.join(src, *cls.split('.')) + '.java'
-
-def junit(ctxt, file_=None, src=None):
+def junit(ctxt, file_=None, srcdir=None):
+    """Extract test results from a JUnit XML report."""
     assert file_, 'Missing required attribute "file"'
     try:
         total, failed = 0, 0
         results = xmlio.Fragment()
-        for f in glob(ctxt.resolve(file_)):
-            fd = open(f, 'r')
+        for path in glob(ctxt.resolve(file_)):
+            fileobj = file(path, 'r')
             try:
-                for testcase in xmlio.parse(fd).children('testcase'):
+                for testcase in xmlio.parse(fileobj).children('testcase'):
                     test = xmlio.Element('test')
                     test.attr['fixture'] = testcase.attr['classname']
-                    test.attr['duration'] = testcase.attr['time']
-                    if src:
-                        test.attr['file'] = java_src(src,
-                                testcase.attr['classname'])
+                    if 'time' in testcase.attr:
+                        test.attr['duration'] = testcase.attr['time']
+                    if srcdir:
+                        cls = testcase.attr['classname'].split('.')
+                        test.attr['file'] = posixpath.join(srcdir, *cls) + \
+                                            '.java'
 
                     result = list(testcase.children())
                     if result:
                         test.attr['status'] = result[0].name
                         test.append(xmlio.Element('traceback')[
-                                result[0].gettext()
-                            ])
+                            result[0].gettext()
+                        ])
                         failed += 1
                     else:
                         test.attr['status'] = 'success'
@@ -109,13 +109,12 @@ def junit(ctxt, file_=None, src=None):
                     results.append(test)
                     total += 1
             finally:
-                fd.close()
+                fileobj.close()
         if failed:
             ctxt.error('%d of %d test%s failed' % (failed, total,
                        total != 1 and 's' or ''))
         ctxt.report('test', results)
     except IOError, e:
-        log.warning('Error opening junit results file (%s)', e)
+        log.warning('Error opening JUnit results file (%s)', e)
     except xmlio.ParseError, e:
-        log.warning('Error parsing junit results file (%s)', e)
-
+        log.warning('Error parsing JUnit results file (%s)', e)

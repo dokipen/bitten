@@ -18,7 +18,7 @@ from bitten.util import archive
 log = logging.getLogger('bitten.queue')
 
 
-def collect_changes(repos, config):
+def collect_changes(repos, config, db=None):
     """Collect all changes for a build configuration that either have already
     been built, or still need to be built.
     
@@ -27,6 +27,8 @@ def collect_changes(repos, config):
     the changeset, and `build` is a `Build` object or `None`.
     """
     env = config.env
+    if not db:
+        db = env.get_db_cnx()
     node = repos.get_node(config.path)
 
     for path, rev, chg in node.get_history():
@@ -53,8 +55,9 @@ def collect_changes(repos, config):
 
         # For every target platform, check whether there's a build
         # of this revision
-        for platform in TargetPlatform.select(env, config.name):
-            builds = list(Build.select(env, config.name, rev, platform.id))
+        for platform in TargetPlatform.select(env, config.name, db=db):
+            builds = list(Build.select(env, config.name, rev, platform.id,
+                                       db=db))
             if builds:
                 build = builds[0]
             else:
@@ -150,8 +153,11 @@ class BuildQueue(object):
         try:
             repos.sync()
 
-            for config in BuildConfig.select(self.env):
-                for platform, rev, build in collect_changes(repos, config):
+            db = self.env.get_db_cnx()
+            build = None
+            insert_build = False
+            for config in BuildConfig.select(self.env, db=db):
+                for platform, rev, build in collect_changes(repos, config, db):
                     if build is None:
                         log.info('Enqueuing build of configuration "%s" at '
                                  'revision [%s] on %s', config.name, rev,
@@ -161,8 +167,10 @@ class BuildQueue(object):
                         build.rev = str(rev)
                         build.rev_time = repos.get_changeset(rev).date
                         build.platform = platform.id
-                        build.insert()
+                        insert_build = True
                         break
+            if insert_build:
+                build.insert(db=db)
         finally:
             repos.close()
 

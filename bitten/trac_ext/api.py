@@ -40,11 +40,11 @@ class ILogFormatter(Interface):
     """Extension point interface for components that format build log
     messages."""
 
-    def get_formatter(req, build, step, type):
+    def get_formatter(req, build):
         """Return a function that gets called for every log message.
         
-        The function must take two positional arguments, `level` and `message`,
-        and return the formatted message.
+        The function must take four positional arguments, `step`, `generator`,
+        `level` and `message`, and return the formatted message.
         """
 
 

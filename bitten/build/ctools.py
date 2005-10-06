@@ -36,18 +36,9 @@ def configure(ctxt, file_='configure', enable=None, disable=None, with=None,
     if cxxflags:
         args.append('CXXFLAGS=%s' % cxxflags)
 
-    log_elem = xmlio.Fragment()
-    cmdline = CommandLine(ctxt.resolve(file_), args, cwd=ctxt.basedir)
-    for out, err in cmdline.execute():
-        if out is not None:
-            log.info(out)
-            log_elem.append(xmlio.Element('message', level='info')[out])
-        if err is not None:
-            log.error(err)
-            log_elem.append(xmlio.Element('message', level='error')[err])
-    ctxt.log(log_elem)
-
-    if cmdline.returncode != 0:
+    from bitten.build import shtools
+    returncode = shtools.execute(ctxt, file_=file_, args=args)
+    if returncode != 0:
         ctxt.error('configure failed (%s)' % cmdline.returncode)
 
 def make(ctxt, target=None, file_=None, keep_going=False):
@@ -60,16 +51,7 @@ def make(ctxt, target=None, file_=None, keep_going=False):
     if target:
         args.append(target)
 
-    log_elem = xmlio.Fragment()
-    cmdline = CommandLine('make', args)
-    for out, err in cmdline.execute():
-        if out is not None:
-            log.info(out)
-            log_elem.append(xmlio.Element('message', level='info')[out])
-        if err is not None:
-            log.error(err)
-            log_elem.append(xmlio.Element('message', level='error')[err])
-    ctxt.log(log_elem)
-
-    if cmdline.returncode != 0:
+    from bitten.build import shtools
+    returncode = shtools.execute(ctxt, executable='make', args=args)
+    if returncode != 0:
         ctxt.error('make failed (%s)' % cmdline.returncode)
