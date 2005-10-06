@@ -125,6 +125,17 @@ class BuildQueueTestCase(unittest.TestCase):
         assert queue.register_slave('foo', {'version': '8.2.0'})
         self.assertEqual(['foo'], queue.slaves[platform.id])
 
+    def test_register_slave_match_regexp_multi(self):
+        BuildConfig(self.env, 'test', active=True).insert()
+        platform = TargetPlatform(self.env, config='test', name="Unix")
+        platform.rules.append(('os', '^Linux'))
+        platform.rules.append(('processor', '^[xi]\d?86$'))
+        platform.insert()
+
+        queue = BuildQueue(self.env)
+        assert queue.register_slave('foo', {'os': 'Linux', 'processor': 'i686'})
+        self.assertEqual(['foo'], queue.slaves[platform.id])
+
     def test_register_slave_match_regexp_fail(self):
         BuildConfig(self.env, 'test', active=True).insert()
         platform = TargetPlatform(self.env, config='test', name="Unix")
