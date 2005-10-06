@@ -732,7 +732,7 @@ class SourceFileLinkFormatter(Component):
                     if cache[path] is False:
                         return m.group(0)
             return '<a href="%s">%s</a>' % (
-                   href(m.group('path')) + '#L' + m.group('line')[1:],
+                   href(config.path, filepath) + '#L' + m.group('line')[1:],
                    m.group(0))
         def _formatter(step, type, level, message):
             return self._fileref_re.sub(_replace, message)

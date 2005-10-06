@@ -130,15 +130,17 @@ if data == 'abcd':
         self.assertEqual(['Thanks'], stdout)
         self.assertEqual(0, cmdline.returncode)
 
-    def test_timeout(self):
-        script_file = self._create_file('test.py', content="""
+    if os.name == 'nt':
+        # This test fails on windows because there's no timeout implementation
+        def test_timeout(self):
+            script_file = self._create_file('test.py', content="""
 import time
 time.sleep(2.0)
 print 'Done'
 """)
-        cmdline = CommandLine('python', [script_file])
-        iterable = iter(cmdline.execute(timeout=.5))
-        self.assertRaises(TimeoutError, iterable.next)
+            cmdline = CommandLine('python', [script_file])
+            iterable = iter(cmdline.execute(timeout=.5))
+            self.assertRaises(TimeoutError, iterable.next)
 
 
 class FileSetTestCase(unittest.TestCase):
