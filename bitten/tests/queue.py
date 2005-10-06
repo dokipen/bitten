@@ -12,10 +12,108 @@ import shutil
 import tempfile
 import unittest
 
-from trac.test import EnvironmentStub
+from trac.test import EnvironmentStub, Mock
 from bitten.model import BuildConfig, TargetPlatform, Build, BuildStep, schema
-from bitten.queue import BuildQueue
+from bitten.queue import BuildQueue, collect_changes
 from bitten.util import archive
+
+
+class CollectChangesTestCase(unittest.TestCase):
+    """
+    Unit tests for the `bitten.queue.collect_changes` function.
+    """
+
+    def setUp(self):
+        self.env = EnvironmentStub()
+        self.env.path = tempfile.mkdtemp()
+        db = self.env.get_db_cnx()
+        cursor = db.cursor()
+        for table in schema:
+            for stmt in db.to_sql(table):
+                cursor.execute(stmt)
+        self.config = BuildConfig(self.env, name='test', path='somepath')
+        self.config.insert(db=db)
+        self.platform = TargetPlatform(self.env, config='test', name='Foo')
+        self.platform.insert(db=db)
+        db.commit()
+
+    def tearDown(self):
+        shutil.rmtree(self.env.path)
+
+    def test_stop_on_copy(self):
+        self.env.get_repository = lambda authname=None: Mock(
+            get_node=lambda path, rev=None: Mock(
+                get_history=lambda: [('otherpath', 123, 'copy')]
+            ),
+            normalize_path=lambda path: path
+        )
+
+        retval = list(collect_changes(self.env.get_repository(), self.config))
+        self.assertEqual(0, len(retval))
+
+    def test_stop_on_minrev(self):
+        self.env.get_repository = lambda authname=None: Mock(
+            get_node=lambda path, rev=None: Mock(
+                get_entries=lambda: [Mock(), Mock()],
+                get_history=lambda: [('somepath', 123, 'edit'),
+                                     ('somepath', 121, 'edit'),
+                                     ('somepath', 120, 'edit')]
+            ),
+            normalize_path=lambda path: path,
+            rev_older_than=lambda rev1, rev2: rev1 < rev2
+        )
+
+        self.config.min_rev = 123
+        self.config.update()
+
+        retval = list(collect_changes(self.env.get_repository(), self.config))
+        self.assertEqual(1, len(retval))
+        self.assertEqual(123, retval[0][1])
+
+    def test_skip_until_maxrev(self):
+        self.env.get_repository = lambda authname=None: Mock(
+            get_node=lambda path, rev=None: Mock(
+                get_entries=lambda: [Mock(), Mock()],
+                get_history=lambda: [('somepath', 123, 'edit'),
+                                     ('somepath', 121, 'edit'),
+                                     ('somepath', 120, 'edit')]
+            ),
+            normalize_path=lambda path: path,
+            rev_older_than=lambda rev1, rev2: rev1 < rev2
+        )
+
+        self.config.max_rev=121
+        self.config.update()
+
+        retval = list(collect_changes(self.env.get_repository(), self.config))
+        self.assertEqual(2, len(retval))
+        self.assertEqual(121, retval[0][1])
+        self.assertEqual(120, retval[1][1])
+
+    def test_skip_empty_dir(self):
+        def _mock_get_node(path, rev=None):
+            if rev and rev == 121:
+                return Mock(
+                    get_entries=lambda: []
+                )
+            else:
+                return Mock(
+                    get_entries=lambda: [Mock(), Mock()],
+                    get_history=lambda: [('somepath', 123, 'edit'),
+                                         ('somepath', 121, 'edit'),
+                                         ('somepath', 120, 'edit')]
+                )
+
+        self.env.get_repository = lambda authname=None: Mock(
+            get_node=_mock_get_node,
+            normalize_path=lambda path: path,
+            rev_older_than=lambda rev1, rev2: rev1 < rev2
+        )
+
+        retval = list(collect_changes(self.env.get_repository(), self.config))
+        self.assertEqual(2, len(retval))
+        self.assertEqual(123, retval[0][1])
+        self.assertEqual(120, retval[1][1])
 
 
 class BuildQueueTestCase(unittest.TestCase):
@@ -202,6 +300,7 @@ class BuildQueueTestCase(unittest.TestCase):
 
 def suite():
     suite = unittest.TestSuite()
+    suite.addTest(unittest.makeSuite(CollectChangesTestCase, 'test'))
     suite.addTest(unittest.makeSuite(BuildQueueTestCase, 'test'))
     return suite
 

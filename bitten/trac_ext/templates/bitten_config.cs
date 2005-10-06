@@ -64,7 +64,7 @@
          /if ?></div><strong class="status"><?cs
          if:build.status == 'completed' ?>Success<?cs
          elif:build.status == 'failed' ?>Failed<?cs
-         elif:build.status == 'in-progress' ?>In-progress<?cs
+         elif:build.status == 'in progress' ?>In-progress<?cs
          /if ?></strong><?cs
         else ?><strong><?cs var:build.platform ?></strong>
          <p class="nobuild">No build yet</p><?cs

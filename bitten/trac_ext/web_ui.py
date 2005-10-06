@@ -356,7 +356,7 @@ class BuildConfigController(Component):
                         chgset = repos.get_changeset(rev)
                         req.hdf[prefix + '.youngest_rev'] = {
                             'id': rev, 'href': self.env.href.changeset(rev),
-                            'author': escape(chgset.author),
+                            'author': escape(chgset.author) or 'anonymous',
                             'date': format_datetime(chgset.date),
                             'message': wiki_to_oneliner(
                                 shorten_line(chgset.message), self.env)
@@ -724,7 +724,6 @@ class SourceFileLinkFormatter(Component):
                     path = posixpath.join(path, part)
                     if not path in cache:
                         try:
-                            self.log.debug('Cache miss for "%s" (%s)' % (path, m.group(0)))
                             repos.get_node(posixpath.join(config.path, path),
                                            build.rev)
                             cache[path] = True
