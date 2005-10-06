@@ -171,6 +171,7 @@ class BuildQueue(object):
                         break
             if insert_build:
                 build.insert(db=db)
+                db.commit()
         finally:
             repos.close()
 
