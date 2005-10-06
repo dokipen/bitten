@@ -42,33 +42,37 @@ class Context(object):
         self.output = []
 
     def run(self, step, namespace, name, attr):
-        if not namespace:
-            log.warn('Ignoring element <%s> without namespace', name)
-            return
-
-        group = 'bitten.recipe_commands'
-        qname = namespace + '#' + name
-        function = None
-        for entry_point in WorkingSet().iter_entry_points(group, qname):
-            function = entry_point.load()
-            break
-        else:
-            raise InvalidRecipeError, 'Unknown recipe command %s' % qname
-
-        def escape(name):
-            name = name.replace('-', '_')
-            if keyword.iskeyword(name) or name in __builtins__:
-                name = name + '_'
-            return name
-        args = dict([(escape(name), self.config.interpolate(attr[name]))
-                     for name in attr])
-
         self.step = step
-        self.generator = qname
-        log.debug('Executing %s with arguments: %s', function, args)
-        function(self, **args)
-        self.generator = None
-        self.step = None
+
+        try:
+            function = None
+            qname = '#'.join(filter(None, [namespace, name]))
+            if namespace:
+                group = 'bitten.recipe_commands'
+                for entry_point in WorkingSet().iter_entry_points(group, qname):
+                    function = entry_point.load()
+                    break
+            elif name == 'report':
+                function = Context.report_file
+            if not function:
+                raise InvalidRecipeError, 'Unknown recipe command %s' % qname
+
+            def escape(name):
+                name = name.replace('-', '_')
+                if keyword.iskeyword(name) or name in __builtins__:
+                    name = name + '_'
+                return name
+            args = dict([(escape(name), self.config.interpolate(attr[name]))
+                         for name in attr])
+            print args
+
+            self.generator = qname
+            log.debug('Executing %s with arguments: %s', function, args)
+            function(self, **args)
+
+        finally:
+            self.generator = None
+            self.step = None
 
     def error(self, message):
         self.output.append((Recipe.ERROR, None, self.generator, message))
@@ -78,6 +82,26 @@ class Context(object):
 
     def report(self, category, xml_elem):
         self.output.append((Recipe.REPORT, category, self.generator, xml_elem))
+
+    def report_file(self, category=None, file_=None):
+        try:
+            fileobj = file(self.resolve(file_), 'r')
+            try:
+                xml_elem = xmlio.Fragment()
+                for child in xmlio.parse(fileobj).children():
+                    xml_elem.append(xmlio.Element(child.name, **child.attr)[
+                        [xmlio.Element(grandchild.name)[grandchild.gettext()]
+                        for grandchild in child.children()]
+                    ])
+                self.output.append((Recipe.REPORT, category, None, xml_elem))
+            finally:
+                fileobj.close()
+        except xmlio.ParseError, e:
+            self.error('Failed to parse %s report at %s: %s'
+                       % (category, filename, e))
+        except IOError, e:
+            self.error('Failed to read %s report at %s: %s'
+                       % (category, filename, e))
 
     def resolve(self, *path):
         return os.path.normpath(os.path.join(self.basedir, *path))
