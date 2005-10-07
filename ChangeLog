@@ -9,14 +9,14 @@ http://bitten.cmlenz.net/repos/bitten/tags/0.5
  * Improvements to the build status presentation in Trac.
  * Changes to the build recipe format. See the documentation on the web
    site for details.
- * New recipe commands: <sh:pipe>, <c:configure>, <java:ant>,
-   <java:junit>, and <x:transform>. Various improvements to the
-   existing commands.
+ * New recipe commands: <sh:pipe>, <c:configure>, <c:cppunit>,
+   <java:ant>, <java:junit>, and <x:transform>. Various improvements to
+   the existing commands.
  * Recipe commands and command attributes in recipes can now reference
    slave configuration values.
  * The names of the master and slaves scripts have changed: `bittend`
    is now `bitten-master`, `bitten` is now `bitten-slave`.
- * The build master can now handle multiple Trac environments (projects).
+ * The build master can now handle multiple Trac environments.
  * The build slave now by default removes any working directories when
    done.
  * Build configurations can now be completely deleted.

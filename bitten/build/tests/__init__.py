@@ -9,12 +9,13 @@
 
 import unittest
 
-from bitten.build.tests import api, config, pythontools, xmltools
+from bitten.build.tests import api, config, ctools, pythontools, xmltools
 
 def suite():
     suite = unittest.TestSuite()
     suite.addTest(api.suite())
     suite.addTest(config.suite())
+    suite.addTest(ctools.suite())
     suite.addTest(pythontools.suite())
     suite.addTest(xmltools.suite())
     return suite

@@ -7,12 +7,12 @@
 # you should have received as part of this distribution. The terms
 # are also available at http://bitten.cmlenz.net/wiki/License.
 
+from glob import glob
 import logging
 import os
-import tempfile
-import shlex
 import posixpath
-from glob import glob
+import shlex
+import tempfile
 
 from bitten.build import CommandLine
 from bitten.util import xmlio
@@ -91,7 +91,7 @@ def junit(ctxt, file_=None, srcdir=None):
                     test.attr['fixture'] = testcase.attr['classname']
                     if 'time' in testcase.attr:
                         test.attr['duration'] = testcase.attr['time']
-                    if srcdir:
+                    if srcdir is not None:
                         cls = testcase.attr['classname'].split('.')
                         test.attr['file'] = posixpath.join(srcdir, *cls) + \
                                             '.java'
