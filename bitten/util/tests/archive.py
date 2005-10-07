@@ -126,15 +126,16 @@ class PackTestCase(unittest.TestCase):
         repos = Mock(get_node=lambda path, rev: Mock(isdir=False))
         self.assertRaises(archive.Error, archive.pack, self.env, repos)
 
-    def test_pack_insufficient_perms(self):
-        try:
-            os.chmod(os.path.join(self.env.path, 'snapshots'), 0500)
-            repos = Mock(get_node=lambda path, rev: Mock(isdir=True))
-            self.assertRaises(archive.Error, archive.pack, self.env, repos)
-        finally:
-            # Revert permissions, otherwise the environment directory can't be
-            # deleted on windows
-            os.chmod(os.path.join(self.env.path, 'snapshots'), 0700)
+    if not hasattr(os, 'geteuid') or os.geteuid() != 0:
+        def test_pack_insufficient_perms(self):
+            try:
+                os.chmod(os.path.join(self.env.path, 'snapshots'), 0500)
+                repos = Mock(get_node=lambda path, rev: Mock(isdir=True))
+                self.assertRaises(archive.Error, archive.pack, self.env, repos)
+            finally:
+                # Revert permissions, otherwise the environment directory can't
+                # be deleted on windows
+                os.chmod(os.path.join(self.env.path, 'snapshots'), 0700)
 
     def test_pack_tarbz2_empty(self):
         root_dir = Mock(isdir=True, get_entries=lambda: [], path='', rev=123)
