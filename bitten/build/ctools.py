@@ -39,7 +39,7 @@ def configure(ctxt, file_='configure', enable=None, disable=None, with=None,
     from bitten.build import shtools
     returncode = shtools.execute(ctxt, file_=file_, args=args)
     if returncode != 0:
-        ctxt.error('configure failed (%s)' % cmdline.returncode)
+        ctxt.error('configure failed (%s)' % returncode)
 
 def make(ctxt, target=None, file_=None, keep_going=False):
     """Execute a Makefile target."""
@@ -54,7 +54,7 @@ def make(ctxt, target=None, file_=None, keep_going=False):
     from bitten.build import shtools
     returncode = shtools.execute(ctxt, executable='make', args=args)
     if returncode != 0:
-        ctxt.error('make failed (%s)' % cmdline.returncode)
+        ctxt.error('make failed (%s)' % returncode)
 
 def cppunit(ctxt, file_=None, srcdir=None):
     """Collect CppUnit XML data."""
