@@ -46,7 +46,8 @@ class ConfigurationTestCase(unittest.TestCase):
 
     def test_sysinfo_configfile_override(self):
         inifd, ininame = tempfile.mkstemp(prefix='bitten_test')
-        os.write(inifd, """
+        try:
+            os.write(inifd, """
 [machine]
 name = MACHINE
 processor = PROCESSOR
@@ -56,14 +57,16 @@ name = OS
 family = FAMILY
 version = VERSION
 """)
-        os.close(inifd)
-        config = Configuration(ininame)
+            os.close(inifd)
+            config = Configuration(ininame)
 
-        self.assertEqual('MACHINE', config['machine'])
-        self.assertEqual('PROCESSOR', config['processor'])
-        self.assertEqual('OS', config['os'])
-        self.assertEqual('FAMILY', config['family'])
-        self.assertEqual('VERSION', config['version'])
+            self.assertEqual('MACHINE', config['machine'])
+            self.assertEqual('PROCESSOR', config['processor'])
+            self.assertEqual('OS', config['os'])
+            self.assertEqual('FAMILY', config['family'])
+            self.assertEqual('VERSION', config['version'])
+        finally:
+            os.remove(ininame)
 
     def test_package_properties(self):
         config = Configuration(properties={
@@ -76,17 +79,20 @@ version = VERSION
 
     def test_package_configfile(self):
         inifd, ininame = tempfile.mkstemp(prefix='bitten_test')
-        os.write(inifd, """
+        try:
+            os.write(inifd, """
 [python]
 path = /usr/local/bin/python2.3
 version = 2.3.5
 """)
-        os.close(inifd)
-        config = Configuration(ininame)
+            os.close(inifd)
+            config = Configuration(ininame)
 
-        self.assertEqual(True, 'python' in config.packages)
-        self.assertEqual('/usr/local/bin/python2.3', config['python.path'])
-        self.assertEqual('2.3.5', config['python.version'])
+            self.assertEqual(True, 'python' in config.packages)
+            self.assertEqual('/usr/local/bin/python2.3', config['python.path'])
+            self.assertEqual('2.3.5', config['python.version'])
+        finally:
+            os.remove(ininame)
 
     def test_get_dirpath_non_existant(self):
         tempdir = tempfile.mkdtemp()
