@@ -44,7 +44,8 @@ def execute(ctxt, executable=None, file_=None, input_=None, output=None,
             args=None):
     """Generic external program execution."""
     if args:
-        args = shlex.split(args)
+        if isinstance(args, basestring):
+            args = shlex.split(args)
     else:
         args = []
 
