@@ -99,6 +99,7 @@ class Listener(asyncore.dispatcher):
         asyncore.dispatcher.__init__(self)
         self.create_socket(socket.AF_INET, socket.SOCK_STREAM)
         self.set_reuse_addr()
+        self.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
         self.bind((ip, port))
         self.sessions = []
         self.profiles = {} # Mapping from URIs to ProfileHandler sub-classes
@@ -198,6 +199,9 @@ class Session(asynchat.async_chat):
                                 peer in the listening role, 1 for initiators
         """
         asynchat.async_chat.__init__(self, conn)
+        if conn:
+            self.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
+
         self.listener = listener
         self.addr = addr
         self.set_terminator('\r\n')
