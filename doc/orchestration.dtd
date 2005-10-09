@@ -1,29 +1,29 @@
 <!--
 DTD for the Bitten build orchestration BEEP profile.
+
+This schema is informative and should not be used to actually validate
+messages. Due to the limitations of DTDs, it does not completely capture
+the schema for messages exchanged using the Bitten BEEP orchestration
+profile.
 -->
 
 <!--
 Slave registration.
 -->
-<!ELEMENT register    (platform, os)>
+<!ELEMENT register    (platform, os, package*)>
 <!ATTLIST register
           name        CDATA             #REQUIRED
           maintainer  CDATA             #IMPLIED>
-
-<!--
-Platform/machine information for slave registration.
--->
 <!ELEMENT platform    #PCDATA>
-<!ATTLIST os
+<!ATTLIST platform
           processor   CDATA             #IMPLIED>
-
-<!--
-Operating system information for slave registration.
--->
 <!ELEMENT os          #PCDATA>
 <!ATTLIST os
           family      CDATA             #REQUIRED
           version     CDATA             #IMPLIED>
+<!ELEMENT package     EMPTY>
+<!ATTLIST package
+          name        CDATA             #REQUIRED>
 
 <!--
 Reply message from the master when registration of a slave was successful
@@ -39,11 +39,15 @@ initiation.
           code        CDATA             #REQUIRED>
 
 <!--
-Build initiation request sent by the master to a slave.
+Build initiation request sent by the master to a slave. Contains the build
+recipe.
 -->
-<!ELEMENT build       #PCDATA>
-<!ATTLIST build
-          recipe      CDATA             #REQUIRED>
+<!ELEMENT build       (step+)>
+<!ELEMENT step        ANY>
+<!ATTLIST step
+          id          ID                #REQUIRED
+          title       CDATA             #IMPLIED
+          onerror     (fail|ignore)     #IMPLIED>
 
 <!--
 Build request acknowledgement.
@@ -56,13 +60,25 @@ Build request acknowledgement.
 Build status reporting: ANS payload sent by the slave for every build step
 processed.
 -->
-<!ELEMENT step        #PCDATA>
+<!ELEMENT step        (error|log|report)*>
 <!ATTLIST step
           id          ID                #REQUIRED
           result      (success|failure) #REQUIRED
           description CDATA             #IMPLIED
           time        CDATA             #REQUIRED
           duration    CDATA             #REQUIRED>
+
+<!ELEMENT log         (message+)>
+<!ATTLIST log
+          generator   CDATA             #IMPLIED>
+<!ELEMENT message     #PCDATA>
+<!ATTLIST message
+          level       (debug|info|warning|error) #IMPLIED>
+
+<!ELEMENT report      ANY>
+<!ATTLIST report
+          category    CDATA             #REQUIRED
+          generator   CDATA             #IMPLIED>
 
 <!--
 Completion of a build by the slave, independent of outcome.
