@@ -147,7 +147,13 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
     def send_initiation(self, queue, build):
         log.info('Initiating build of "%s" on slave %s', build.config,
                  self.name)
+
+        build.slave = self.name
+        build.slave_info.update(self.info)
+        build.status = Build.IN_PROGRESS
+        build.update()
         self.building = True
+
         config = BuildConfig.fetch(queue.env, build.config)
 
         def handle_reply(cmd, msgno, ansno, payload):
@@ -159,6 +165,7 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
                                     self.name, elem.gettext(),
                                     int(elem.attr['code']))
                 self.building = False
+                self._build_aborted(queue, build)
                 return
 
             elem = xmlio.parse(payload.body)
@@ -212,6 +219,7 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
                                 self.name, elem.gettext(),
                                 int(elem.attr['code']))
                 self.building = False
+                self._build_aborted(queue, build)
 
             elif cmd == 'ANS':
                 if payload.content_type != beep.BEEP_XML:
@@ -239,12 +247,9 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
         self.channel.send_msg(message, handle_reply=handle_reply)
 
     def _build_started(self, queue, build, elem, timestamp_delta=None):
-        build.slave = self.name
-        build.slave_info.update(self.info)
         build.started = int(_parse_iso_datetime(elem.attr['time']))
         if timestamp_delta:
             build.started -= timestamp_delta
-        build.status = Build.IN_PROGRESS
         build.update()
 
         log.info('Slave %s started build %d ("%s" as of [%s])',
