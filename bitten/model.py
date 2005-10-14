@@ -573,7 +573,6 @@ class BuildStep(object):
                        "started,stopped) VALUES (%s,%s,%s,%s,%s,%s)",
                        (self.build, self.name, self.description or '',
                         self.status, self.started or 0, self.stopped or 0))
-        step_id = db.get_last_id(cursor, 'bitten_step')
         if self.errors:
             cursor.executemany("INSERT INTO bitten_error (build,step,message,"
                                "orderno) VALUES (%s,%s,%s,%s)",
