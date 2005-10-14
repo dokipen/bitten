@@ -99,6 +99,8 @@ class SnapshotManager(object):
         self._lock = threading.RLock()
         self._cleanup()
 
+        self._workers = {}
+
     def _scan(self):
         """Find all existing snapshots in the directory."""
         for filename in [f for f in os.listdir(self.directory)
@@ -150,23 +152,31 @@ class SnapshotManager(object):
         function is the thread object. The caller may use this object to check
         for completion of the operation.
         """
-        prefix = self.prefix + '_r' + str(rev)
-        filename = prefix + '.zip'
-        filepath = os.path.join(self.directory, filename)
-        if os.path.exists(filepath):
-            raise IOError, 'Snapshot file already exists at %s' % filepath
+        self._lock.acquire()
+        try:
+            repos = self.env.get_repository()
+            root = repos.get_node(self.config.path or '/', rev)
+            assert root.isdir, '"%s" is not a directory' % self.config.path
 
-        repos = self.env.get_repository()
-        root = repos.get_node(self.config.path or '/', rev)
-        assert root.isdir, '"%s" is not a directory' % self.config.path
+            if root.rev in self._workers:
+                return self._workers[root.rev]
 
-        self._cleanup(self.limit - 1)
+            prefix = self.prefix + '_r' + str(rev)
+            filename = prefix + '.zip'
+            filepath = os.path.join(self.directory, filename)
+            if os.path.exists(filepath):
+                raise IOError, 'Snapshot file already exists at %s' % filepath
 
-        worker = threading.Thread(target=self._create,
-                                  args=(prefix, root, filepath),
-                                  name='Create snapshot %s' % filename)
-        worker.start()
-        return worker
+            self._cleanup(self.limit - 1)
+
+            worker = threading.Thread(target=self._create,
+                                      args=(prefix, root, filepath),
+                                      name='Create snapshot %s' % filename)
+            worker.start()
+            self._workers[root.rev] = worker
+            return worker
+        finally:
+            self._lock.release()
 
     def _create(self, prefix, root, filepath):
         """Actually create a snapshot archive.
@@ -185,6 +195,7 @@ class SnapshotManager(object):
                 path = os.path.join(prefix, name).rstrip('/\\') + '/'
                 info = zipfile.ZipInfo(path)
                 zip.writestr(info, '')
+                log.debug('Adding directory %s to archive' % name)
                 for entry in node.get_entries():
                     _add_entry(entry)
                 time.sleep(.5) # be nice
@@ -211,6 +222,7 @@ class SnapshotManager(object):
         self._lock.acquire()
         try:
             self._index.append((os.path.getmtime(filepath), root.rev, filepath))
+            del self._workers[root.rev]
         finally:
             self._lock.release()
         log.info('Prepared snapshot archive at %s', filepath)

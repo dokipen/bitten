@@ -177,6 +177,10 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
                     if worker.isAlive():
                         self.master.schedule(2, _check_snapshot)
                     else:
+                        if self.name not in self.master.handlers:
+                            # The slave disconnected while we were building
+                            # the archive
+                            return
                         snapshot = snapshots.get(build.rev)
                         if snapshot is None:
                             log.error('Failed to create snapshot archive for '
