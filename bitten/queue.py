@@ -13,7 +13,7 @@ import os
 import re
 
 from bitten.model import BuildConfig, TargetPlatform, Build, BuildStep
-from bitten.util import archive
+from bitten.snapshot import SnapshotManager
 
 log = logging.getLogger('bitten.queue')
 
@@ -82,32 +82,12 @@ class BuildQueue(object):
         self.env = env
         self.slaves = {} # Sets of slave names keyed by target platform ID
 
-        # Paths to generated snapshot archives, key is (config name, revision)
+        # Snapshot managers, keyed by build config name
         self.snapshots = {}
-
-        # Populate the snapshots index with existing archive files
-        for config in BuildConfig.select(self.env):
-            snapshots = archive.index(self.env, prefix=config.name)
-            for rev, format, path in snapshots:
-                self.snapshots[(config.name, rev, format)] = path
-
-        # Clear any files in the snapshots directory that aren't in the archive
-        # index. Those may be archives without corresponding checksum files,
-        # i.e. here the creation of the snapshot was interrupted
-        snapshots_dir = os.path.join(self.env.path, 'snapshots')
-        for filename in os.listdir(snapshots_dir):
-            filepath = os.path.join(snapshots_dir, filename)
-            if filepath.endswith('.md5'):
-                if filepath[:-4] not in self.snapshots.values():
-                    os.remove(filepath)
-            else:
-                if filepath not in self.snapshots.values():
-                    log.info('Removing file %s (not a valid snapshot archive)',
-                             filename)
-                    os.remove(filepath)
+        for config in BuildConfig.select(self.env, include_inactive=True):
+            self.snapshots[config.name] = SnapshotManager(config)
 
         self.reset_orphaned_builds()
-        self.remove_unused_snapshots()
 
     # Build scheduling
 
@@ -192,53 +172,6 @@ class BuildQueue(object):
                 step.delete(db=db)
             build.update(db=db)
         db.commit()
-
-    # Snapshot management
-
-    def get_snapshot(self, build, format, create=False):
-        """Return the absolute path to a snapshot archive for the given build.
-        The archive can be created if it doesn't exist yet.
-
-        @param build: The `Build` object
-        @param format: The archive format (one of `gzip`, `bzip2` or `zip`)
-        @param create: Whether the archive should be created if it doesn't exist
-                       yet
-        @return: The absolute path to the create archive file, or None if the
-                 snapshot doesn't exist and wasn't created
-        """
-        snapshot = self.snapshots.get((build.config, build.rev, format))
-        if create and snapshot is None:
-            config = BuildConfig.fetch(self.env, build.config)
-            log.debug('Preparing snapshot archive for %s@%s' % (config.path,
-                      build.rev))
-            snapshot = archive.pack(self.env, path=config.path, rev=build.rev,
-                                    prefix=config.name, format=format,
-                                    overwrite=True)
-            log.info('Prepared snapshot archive at %s' % snapshot)
-            self.snapshots[(build.config, build.rev, format)] = snapshot
-        return snapshot
-
-    def remove_unused_snapshots(self):
-        """Find any previously created snapshot archives that are no longer
-        needed because all corresponding builds have already been completed.
-
-        This method should be called in regular intervals to keep the total
-        disk space occupied by the snapshot archives to a minimum.
-        """
-        log.debug('Checking for unused snapshot archives...')
-
-        for (config, rev, format), path in self.snapshots.items():
-            keep = False
-            for build in Build.select(self.env, config=config, rev=rev):
-                if build.status not in (Build.SUCCESS, Build.FAILURE):
-                    keep = True
-                    break
-            if not keep:
-                log.info('Removing unused snapshot %s', path)
-                os.remove(path)
-                if os.path.isfile(path + '.md5'):
-                    os.remove(path + '.md5')
-                del self.snapshots[(config, rev, format)]
 
     # Slave registry
 

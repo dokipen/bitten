@@ -21,7 +21,7 @@ from trac.env import Environment
 from bitten.model import BuildConfig, Build, BuildStep, BuildLog, Report
 from bitten.queue import BuildQueue
 from bitten.trac_ext.main import BuildSystem
-from bitten.util import archive, beep, xmlio
+from bitten.util import beep, xmlio
 
 log = logging.getLogger('bitten.master')
 
@@ -50,23 +50,17 @@ class Master(beep.Listener):
             queue.reset_orphaned_builds()
         beep.Listener.close(self)
 
-    def _cleanup(self, when):
-        for queue in self.queues:
-            queue.remove_unused_snapshots()
-
-    def _enqueue_builds(self, when):
+    def _enqueue_builds(self):
         self.schedule(self.check_interval, self._enqueue_builds)
 
         for queue in self.queues:
             queue.populate()
 
         self.schedule(self.check_interval * 0.2, self._initiate_builds)
-        self.schedule(self.check_interval * 1.8, self._cleanup)
 
-    def _initiate_builds(self, when):
+    def _initiate_builds(self):
         available_slaves = set([name for name in self.handlers
                                 if not self.handlers[name].building])
-
         for idx, queue in enumerate(self.queues[:]):
             build, slave = queue.get_next_pending_build(available_slaves)
             if build:
@@ -144,11 +138,8 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
                         self.info[child.attr['name'] + '.' + name] = value
 
             if not self.master.register(self):
-                xml = xmlio.Element('error', code=550)[
-                    'Nothing for you to build here, please move along'
-                ]
-                self.channel.send_err(msgno, beep.Payload(xml))
-                return
+                raise beep.ProtocolError(550, 'Nothing for you to build here, '
+                                         'please move along')
 
             xml = xmlio.Element('ok')
             self.channel.send_rpy(msgno, beep.Payload(xml))
@@ -157,6 +148,7 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
         log.info('Initiating build of "%s" on slave %s', build.config,
                  self.name)
         self.building = True
+        config = BuildConfig.fetch(queue.env, build.config)
 
         def handle_reply(cmd, msgno, ansno, payload):
             if cmd == 'ERR':
@@ -170,40 +162,46 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
                 return
 
             elem = xmlio.parse(payload.body)
-            assert elem.name == 'proceed'
-            type = encoding = None
-            for child in elem.children('accept'):
-                type, encoding = child.attr['type'], child.attr.get('encoding')
-                if (type, encoding) in (('application/tar', 'gzip'),
-                                        ('application/tar', 'bzip2'),
-                                        ('application/tar', None),
-                                        ('application/zip', None)):
-                    break
-                type = None
-            if not type:
-                xml = xmlio.Element('error', code=550)[
-                    'None of the accepted archive formats supported'
-                ]
-                self.channel.send_err(beep.Payload(xml))
-                self.building = False
-                return
-            self.send_snapshot(queue, build, type, encoding)
+            if elem.name != 'proceed':
+                raise beep.ProtocolError(500)
 
-        config = BuildConfig.fetch(queue.env, build.config)
+            snapshots = queue.snapshots[config.name]
+            snapshot = snapshots.get(build.rev)
+            if not snapshot:
+                # Request a snapshot for this build, and schedule a poll
+                # function that kicks off the snapshot transmission once the
+                # archive has been completely built
+                worker = snapshots.create(build.rev)
+                def _check_snapshot():
+                    worker.join(.5)
+                    if worker.isAlive():
+                        self.master.schedule(2, _check_snapshot)
+                    else:
+                        snapshot = snapshots.get(build.rev)
+                        if snapshot is None:
+                            log.error('Failed to create snapshot archive for '
+                                      '%s@%s', config.path, build.rev)
+                            return
+                        self.send_snapshot(queue, build, snapshot)
+                _check_snapshot()
+            else:
+                self.send_snapshot(queue, build, snapshot)
+
         self.channel.send_msg(beep.Payload(config.recipe),
                               handle_reply=handle_reply)
 
-    def send_snapshot(self, queue, build, type, encoding):
+    def send_snapshot(self, queue, build, snapshot):
         timestamp_delta = 0
         if self.master.adjust_timestamps:
             d = datetime.now() - timedelta(seconds=self.master.check_interval) \
                 - datetime.fromtimestamp(build.rev_time)
-            log.info('Warping timestamps by %s' % d)
+            log.info('Warping timestamps by %s', d)
             timestamp_delta = d.days * 86400 + d.seconds
 
         def handle_reply(cmd, msgno, ansno, payload):
             if cmd == 'ERR':
-                assert payload.content_type == beep.BEEP_XML
+                if payload.content_type != beep.BEEP_XML:
+                    raise beep.ProtocolError(500)
                 elem = xmlio.parse(payload.body)
                 if elem.name == 'error':
                     log.warning('Slave %s refused to start build: %s (%d)',
@@ -212,7 +210,8 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
                 self.building = False
 
             elif cmd == 'ANS':
-                assert payload.content_type == beep.BEEP_XML
+                if payload.content_type != beep.BEEP_XML:
+                    raise beep.ProtocolError(500)
                 elem = xmlio.parse(payload.body)
                 if elem.name == 'started':
                     self._build_started(queue, build, elem, timestamp_delta)
@@ -229,17 +228,10 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
             elif cmd == 'NUL':
                 self.building = False
 
-        snapshot_format = {
-            ('application/tar', 'bzip2'): 'bzip2',
-            ('application/tar', 'gzip'): 'gzip',
-            ('application/tar', None): 'tar',
-            ('application/zip', None): 'zip',
-        }[(type, encoding)]
-        snapshot_path = queue.get_snapshot(build, snapshot_format, create=True)
-        snapshot_name = os.path.basename(snapshot_path)
-        message = beep.Payload(file(snapshot_path, 'rb'), content_type=type,
-                               content_disposition=snapshot_name,
-                               content_encoding=encoding)
+        snapshot_name = os.path.basename(snapshot)
+        message = beep.Payload(file(snapshot, 'rb'),
+                               content_type='application/zip',
+                               content_disposition=snapshot_name)
         self.channel.send_msg(message, handle_reply=handle_reply)
 
     def _build_started(self, queue, build, elem, timestamp_delta=None):
@@ -274,7 +266,7 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
             step.status = BuildStep.FAILURE
         else:
             step.status = BuildStep.SUCCESS
-        step.errors += [err.gettext() for err in elem.children('error')]
+        step.errors += [error.gettext() for error in elem.children('error')]
         step.insert(db=db)
 
         for idx, log_elem in enumerate(elem.children('log')):

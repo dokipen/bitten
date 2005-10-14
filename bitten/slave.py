@@ -18,11 +18,12 @@ except NameError:
     from sets import Set as set
 import shutil
 import tempfile
+import zipfile
 
 from bitten.build import BuildError
 from bitten.build.config import Configuration
 from bitten.recipe import Recipe, InvalidRecipeError
-from bitten.util import archive, beep, xmlio
+from bitten.util import beep, xmlio
 
 log = logging.getLogger('bitten.slave')
 
@@ -99,28 +100,14 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
             if elem.name == 'build':
                 self.recipe_xml = elem
                 # Received a build request
-                xml = xmlio.Element('proceed')[
-                    xmlio.Element('accept', type='application/tar',
-                                  encoding='bzip2'),
-                    xmlio.Element('accept', type='application/tar',
-                                  encoding='gzip'),
-                    xmlio.Element('accept', type='application/zip')
-                ]
+                xml = xmlio.Element('proceed')
                 self.channel.send_rpy(msgno, beep.Payload(xml))
 
-        elif payload.content_type in ('application/tar', 'application/zip'):
+        elif payload.content_type == 'application/zip':
             # Received snapshot archive for build
             archive_name = payload.content_disposition
             if not archive_name:
-                if payload.content_type == 'application/tar':
-                    if payload.content_encoding == 'gzip':
-                        archive_name = 'snapshot.tar.gz'
-                    elif payload.content_encoding == 'bzip2':
-                        archive_name = 'snapshot.tar.bz2'
-                    elif not payload.content_encoding:
-                        archive_name = 'snapshot.tar'
-                else:
-                    archive_name = 'snapshot.zip'
+                archive_name = 'snapshot.zip'
             archive_path = os.path.join(self.session.work_dir, archive_name)
 
             archive_file = file(archive_path, 'wb')
@@ -129,31 +116,53 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
             finally:
                 archive_file.close()
             os.chmod(archive_path, 0400)
-
-            log.debug('Received snapshot archive: %s', archive_path)
-
-            # Unpack the archive
-            try:
-                prefix = archive.unpack(archive_path, self.session.work_dir)
-                path = os.path.join(self.session.work_dir, prefix)
-                os.chmod(path, 0700)
-                log.debug('Unpacked snapshot to %s' % path)
-            except archive.Error, e:
-                xml = xmlio.Element('error', code=550)[
-                    'Could not unpack archive (%s)' % e
-                ]
-                self.channel.send_err(msgno, beep.Payload(xml))
-                log.error('Could not unpack archive %s: %s', archive_path, e,
-                          exc_info=True)
-                return
+            basedir = self.unpack_snapshot(msgno, archive_path)
 
             try:
-                recipe = Recipe(self.recipe_xml, path, self.config)
+                recipe = Recipe(self.recipe_xml, basedir, self.config)
                 self.execute_build(msgno, recipe)
             finally:
                 if not self.session.keep_files:
-                    shutil.rmtree(path)
+                    shutil.rmtree(basedir)
                     os.remove(archive_path)
+
+    def unpack_snapshot(self, msgno, path):
+        """Unpack a snapshot archive."""
+        log.debug('Received snapshot archive: %s', path)
+        try:
+            zip = zipfile.ZipFile(path, 'r')
+            badfile = zip.testzip()
+            if badfile:
+                raise ProtocolError(550, 'Corrupt ZIP archive: invalid CRC '
+                                    'for %s' % badfile)
+            try:
+                names = []
+                for name in zip.namelist():
+                    names.append(name)
+                    path = os.path.join(self.session.work_dir, name)
+                    if name.endswith('/'):
+                        os.makedirs(path)
+                    else:
+                        dirname = os.path.dirname(path)
+                        if not os.path.isdir(dirname):
+                            os.makedirs(dirname)
+                        fileobj = file(path, 'wb')
+                        try:
+                            fileobj.write(zip.read(name))
+                        finally:
+                            fileobj.close()
+            finally:
+                zip.close()
+
+            path = os.path.join(self.session.work_dir,
+                                os.path.commonprefix(names))
+            os.chmod(path, 0700)
+            log.debug('Unpacked snapshot to %s' % path)
+            return path
+
+        except (IOError, zipfile.error), e:
+            log.error('Could not unpack archive %s: %s', path, e, exc_info=True)
+            raise beep.ProtocolError(550, 'Could not unpack archive (%s)' % e)
 
     def execute_build(self, msgno, recipe):
         log.info('Building in directory %s', recipe.ctxt.basedir)
