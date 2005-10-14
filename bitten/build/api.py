@@ -170,7 +170,7 @@ class CommandLine(object):
     def _combine(self, *iterables):
         iterables = [iter(iterable) for iterable in iterables]
         size = len(iterables)
-        while [iterable for iterable in iterables if iterable is not None]:
+        while True:
             to_yield = [None] * size
             for idx, iterable in enumerate(iterables):
                 if iterable is None:
@@ -179,6 +179,8 @@ class CommandLine(object):
                     to_yield[idx] = iterable.next()
                 except StopIteration:
                     iterables[idx] = None
+            if not [iterable for iterable in iterables if iterable is not None]:
+                break
             yield tuple(to_yield)
 
     def _extract_lines(self, data):
@@ -199,7 +201,7 @@ class CommandLine(object):
         elif _endswith_linesep(buf):
             extracted.append(buf)
             buf = ''
-        data[:] = [buf]
+        data[:] = [buf] * bool(buf)
 
         return [line.rstrip() for line in extracted]
 

@@ -98,8 +98,8 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
         if payload.content_type == beep.BEEP_XML:
             elem = xmlio.parse(payload.body)
             if elem.name == 'build':
-                self.recipe_xml = elem
                 # Received a build request
+                self.recipe_xml = elem
                 xml = xmlio.Element('proceed')
                 self.channel.send_rpy(msgno, beep.Payload(xml))
 
@@ -115,7 +115,6 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
                 shutil.copyfileobj(payload.body, archive_file)
             finally:
                 archive_file.close()
-            os.chmod(archive_path, 0400)
             basedir = self.unpack_snapshot(msgno, archive_path)
 
             try:
@@ -130,35 +129,38 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
         """Unpack a snapshot archive."""
         log.debug('Received snapshot archive: %s', path)
         try:
-            zip = zipfile.ZipFile(path, 'r')
-            badfile = zip.testzip()
-            if badfile:
-                raise ProtocolError(550, 'Corrupt ZIP archive: invalid CRC '
-                                    'for %s' % badfile)
+            zip_file = zipfile.ZipFile(path, 'r')
             try:
+                badfile = zip_file.testzip()
+                if badfile:
+                    log.error('Bad CRC for file %s in ZIP archive at %s',
+                              badfile, path)
+                    raise beep.ProtocolError(550, 'Corrupt snapshot archive')
+
                 names = []
-                for name in zip.namelist():
-                    names.append(name)
-                    path = os.path.join(self.session.work_dir, name)
+                for name in zip_file.namelist():
+                    if name.startswith('/') or '..' in name:
+                        continue
+                    names.append(os.path.normpath(name))
+                    fullpath = os.path.join(self.session.work_dir, name)
                     if name.endswith('/'):
-                        os.makedirs(path)
+                        os.makedirs(fullpath)
                     else:
-                        dirname = os.path.dirname(path)
+                        dirname = os.path.dirname(fullpath)
                         if not os.path.isdir(dirname):
                             os.makedirs(dirname)
-                        fileobj = file(path, 'wb')
+                        fileobj = file(fullpath, 'wb')
                         try:
-                            fileobj.write(zip.read(name))
+                            fileobj.write(zip_file.read(name))
                         finally:
                             fileobj.close()
             finally:
-                zip.close()
+                zip_file.close()
 
-            path = os.path.join(self.session.work_dir,
-                                os.path.commonprefix(names))
-            os.chmod(path, 0700)
-            log.debug('Unpacked snapshot to %s' % path)
-            return path
+            basedir = os.path.join(self.session.work_dir,
+                                   os.path.commonprefix(names))
+            log.debug('Unpacked snapshot to %s' % basedir)
+            return basedir
 
         except (IOError, zipfile.error), e:
             log.error('Could not unpack archive %s: %s', path, e, exc_info=True)
