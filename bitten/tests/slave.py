@@ -54,7 +54,8 @@ class OrchestrationProfileHandlerTestCase(unittest.TestCase):
         zip = file(path, 'w')
         zip.write('INVALID')
         zip.close()
-        self.assertRaises(ProtocolError, self.handler.unpack_snapshot, 0, path)
+        self.assertRaises(ProtocolError, self.handler.unpack_snapshot, 0,
+                          os.path.dirname(path), 'invalid.zip')
 
     def test_unpack_invalid_zip_2(self):
         """
@@ -65,7 +66,8 @@ class OrchestrationProfileHandlerTestCase(unittest.TestCase):
         zip = file(path, 'w')
         zip.write('INVALIDINVALIDINVALIDINVALIDINVALIDINVALID')
         zip.close()
-        self.assertRaises(ProtocolError, self.handler.unpack_snapshot, 0, path)
+        self.assertRaises(ProtocolError, self.handler.unpack_snapshot, 0,
+                          os.path.dirname(path), 'invalid.zip')
 
 def suite():
     suite = unittest.TestSuite()
