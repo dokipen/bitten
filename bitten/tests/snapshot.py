@@ -7,12 +7,6 @@
 # you should have received as part of this distribution. The terms
 # are also available at http://bitten.cmlenz.net/wiki/License.
 
-import os
-import shutil
-import tempfile
-import unittest
-
-
 import md5
 import os
 import shutil
@@ -22,7 +16,8 @@ import zipfile
 
 from trac.test import EnvironmentStub, Mock
 from bitten.model import BuildConfig
-from bitten.snapshot import SnapshotManager, _make_md5sum
+from bitten.snapshot import SnapshotManager
+from bitten.util import md5sum
 
 
 class SnapshotManagerTestCase(unittest.TestCase):
@@ -48,12 +43,7 @@ class SnapshotManagerTestCase(unittest.TestCase):
         fileobj = file(filename, 'w')
         fileobj.close()
         if create_md5sum:
-            md5sum = _make_md5sum(filename)
-            md5sum_file = file(filename[:-4] + '.md5', 'w')
-            try:
-                md5sum_file.write(md5sum)
-            finally:
-                md5sum_file.close()
+            md5sum.write(filename)
         return filename
 
     def test_empty(self):
@@ -101,12 +91,8 @@ class SnapshotManagerTestCase(unittest.TestCase):
         path1 = self._create_file(os.path.join('snapshots', 'foo_r123.zip'))
         path2 = self._create_file(os.path.join('snapshots', 'foo_r124.zip'),
                                  create_md5sum=False)
-        md5sum = md5.new('Foo bar')
-        md5sum_file = file(path2[:-4] + '.md5', 'w')
-        try:
-            md5sum_file.write(md5sum.hexdigest() + '  ' + path2)
-        finally:
-            md5sum_file.close()
+        
+        md5sum.write(path1, path2 + '.md5')
         snapshots = SnapshotManager(self.config)
         self.assertEqual(path1, snapshots.get(123))
         self.assertEqual(None, snapshots.get(124))

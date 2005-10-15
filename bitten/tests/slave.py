@@ -11,18 +11,11 @@ import os
 import shutil
 import tempfile
 import unittest
-
-
-import md5
-import os
-import shutil
-import tempfile
-import unittest
 import zipfile
 
 from trac.test import Mock
 from bitten.slave import Slave, OrchestrationProfileHandler
-from bitten.util.beep import ProtocolError
+from bitten.util import beep
 
 
 class OrchestrationProfileHandlerTestCase(unittest.TestCase):
@@ -54,7 +47,7 @@ class OrchestrationProfileHandlerTestCase(unittest.TestCase):
         zip = file(path, 'w')
         zip.write('INVALID')
         zip.close()
-        self.assertRaises(ProtocolError, self.handler.unpack_snapshot, 0,
+        self.assertRaises(beep.ProtocolError, self.handler.unpack_snapshot, 0,
                           os.path.dirname(path), 'invalid.zip')
 
     def test_unpack_invalid_zip_2(self):
@@ -66,7 +59,7 @@ class OrchestrationProfileHandlerTestCase(unittest.TestCase):
         zip = file(path, 'w')
         zip.write('INVALIDINVALIDINVALIDINVALIDINVALIDINVALID')
         zip.close()
-        self.assertRaises(ProtocolError, self.handler.unpack_snapshot, 0,
+        self.assertRaises(beep.ProtocolError, self.handler.unpack_snapshot, 0,
                           os.path.dirname(path), 'invalid.zip')
 
 def suite():

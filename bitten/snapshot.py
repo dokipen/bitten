@@ -35,7 +35,6 @@ added, and modified files are updated.
 """
 
 import logging
-import md5
 import os
 try:
     import threading
@@ -44,24 +43,12 @@ except ImportError:
 import time
 import zipfile
 
+from bitten.util import md5sum
+
 log = logging.getLogger('bitten.snapshot')
 
 MAX_SNAPSHOTS = 10
 SNAPSHOTS_DIR = 'snapshots'
-
-def _make_md5sum(filename):
-    """Generate an MD5 checksum for the specified file."""
-    md5sum = md5.new()
-    fileobj = file(filename, 'rb')
-    try:
-        while True:
-            chunk = fileobj.read(4096)
-            if not chunk:
-                break
-            md5sum.update(chunk)
-    finally:
-        fileobj.close()
-    return md5sum.hexdigest() + '  ' + filename
 
 
 class SnapshotManager(object):
@@ -113,19 +100,11 @@ class SnapshotManager(object):
             rev = rest[2:]
 
             filepath = os.path.join(self.directory, filename)
-            expected_md5sum = _make_md5sum(filepath)
-            md5sum_path = os.path.join(self.directory,
-                                       filename[:-4] + '.md5')
-            if not os.path.isfile(md5sum_path):
-                continue
-            md5sum_file = file(md5sum_path)
             try:
-                existing_md5sum = md5sum_file.read()
-                if existing_md5sum != expected_md5sum:
-                    continue
-            finally:
-                md5sum_file.close()
-
+                md5sum.validate(filepath)
+            except md5sum.IntegrityError, e:
+                log.warning('Integrity error checking %s (e)', filepath, e)
+                continue
             mtime = os.path.getmtime(filepath)
 
             yield mtime, rev, filepath
@@ -140,7 +119,13 @@ class SnapshotManager(object):
                 for mtime, rev, path in self._index[limit:]:
                     log.debug('Removing snapshot %s', path)
                     os.remove(path)
-                    os.remove(path[:-4] + '.md5')
+                    md5file = path + '.md5'
+                    if os.path.isfile(md5file):
+                        os.remove(md5file)
+                    else:
+                        md5file = os.path.splitext(path)[0] + '.md5'
+                        if os.path.isfile(md5file):
+                            os.remove(md5file)
                 self._index = self._index[:limit]
         finally:
             self._lock.release()
@@ -198,7 +183,7 @@ class SnapshotManager(object):
                 log.debug('Adding directory %s to archive' % name)
                 for entry in node.get_entries():
                     _add_entry(entry)
-                time.sleep(.5) # be nice
+                time.sleep(.1) # be nice
             else:
                 path = os.path.join(prefix, name)
                 info = zipfile.ZipInfo(path)
@@ -211,13 +196,8 @@ class SnapshotManager(object):
         finally:
             zip.close()
 
-        # Create MD5 checksum
-        md5sum = _make_md5sum(filepath)
-        md5sum_file = file(filepath[:-4] + '.md5', 'w')
-        try:
-            md5sum_file.write(md5sum)
-        finally:
-            md5sum_file.close()
+        # Create MD5 checksum file
+        md5sum.write(filepath)
 
         self._lock.acquire()
         try:
