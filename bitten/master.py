@@ -198,8 +198,9 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
             else:
                 self.send_snapshot(queue, build, snapshot)
 
-        self.channel.send_msg(beep.Payload(config.recipe),
-                              handle_reply=handle_reply)
+        xml = xmlio.parse(config.recipe)
+        xml.attr['project'] = os.path.basename(queue.env.path)
+        self.channel.send_msg(beep.Payload(xml), handle_reply=handle_reply)
 
     def send_snapshot(self, queue, build, snapshot):
         timestamp_delta = 0
@@ -418,10 +419,16 @@ def main():
             host = ip
 
     envs = []
+    names = set()
     for arg in args:
         if not os.path.isdir(arg):
             log.warning('Ignoring %s: not a directory', arg)
             continue
+        name = os.path.basename(arg)
+        if name in names:
+            log.warning('Ignoring %s: duplicate project name "%s"', arg, name)
+            continue
+        names.add(name)
         env = Environment(arg)
         if BuildSystem(env):
             if env.needs_upgrade():

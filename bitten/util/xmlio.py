@@ -17,6 +17,7 @@ try:
     from cStringIO import StringIO
 except ImportError:
     from StringIO import StringIO
+from UserDict import DictMixin
 
 __all__ = ['Element', 'parse']
 
@@ -185,13 +186,71 @@ def parse(text_or_file):
 class ParsedElement(object):
     """Representation of an XML element that was parsed from a string or
     file.
+    
+    This class should not be used directly. Rather, XML text parsed using
+    `xmlio.parse()` will return an instance of this class.
+    
+    >>> xml = parse('<root/>')
+    >>> print xml.name
+    root
+    
+    Parsed elements can be serialized to a string using the `write()` method:
+    
+    >>> import sys
+    >>> parse('<root></root>').write(sys.stdout)
+    <root/>
+    
+    For convenience, this is also done when coercing the object to a string
+    using the builtin `str()` function, which is used when `print`ing an object:
+    
+    >>> print parse('<root></root>')
+    <root/>
+    
+    (Note that serializing the element will produce a normalized representation
+    that may not excatly match the input string.)
+    
+    Attributes are accessed via the `attr` member:
+    
+    >>> print parse('<root foo="bar"/>').attr['foo']
+    bar
+    
+    Attributes can also be updated, added or removed:
+    
+    >>> xml = parse('<root foo="bar"/>')
+    >>> xml.attr['foo'] = 'baz'
+    >>> print xml
+    <root foo="baz"/>
+
+    >>> del xml.attr['foo']
+    >>> print xml
+    <root/>
+
+    >>> xml.attr['foo'] = 'bar'
+    >>> print xml
+    <root foo="bar"/>
     """
     __slots__ = ['_node', 'attr']
 
+    class _Attrs(DictMixin):
+        """Simple wrapper around the element attributes to provide a dictionary
+        interface."""
+        def __init__(self, node):
+            self._node = node
+        def __getitem__(self, name):
+            attr = self._node.getAttributeNode(name)
+            if not attr:
+                raise KeyError, name
+            return attr.value.encode()
+        def __setitem__(self, name, value):
+            self._node.setAttribute(name, value)
+        def __delitem__(self, name):
+            self._node.removeAttribute(name)
+        def keys(self):
+            return [name.encode() for name in self._node.attributes.keys()]
+
     def __init__(self, node):
         self._node = node
-        self.attr = dict([(name.encode(), value.encode()) for name, value
-                          in node.attributes.items()])
+        self.attr = ParsedElement._Attrs(node)
 
     name = property(fget=lambda self: self._node.localName)
     namespace = property(fget=lambda self: self._node.namespaceURI)

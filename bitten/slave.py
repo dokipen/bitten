@@ -60,7 +60,7 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
 
     def handle_connect(self):
         """Register with the build master."""
-        self.recipe_xml = None
+        self.build_xml = None
 
         def handle_reply(cmd, msgno, ansno, payload):
             if cmd == 'ERR':
@@ -99,34 +99,40 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
             elem = xmlio.parse(payload.body)
             if elem.name == 'build':
                 # Received a build request
-                self.recipe_xml = elem
+                self.build_xml = elem
                 xml = xmlio.Element('proceed')
                 self.channel.send_rpy(msgno, beep.Payload(xml))
 
         elif payload.content_type == 'application/zip':
             # Received snapshot archive for build
+            project_name = self.build_xml.attr.get('project', 'default')
+            project_dir = os.path.join(self.session.work_dir, project_name)
+            if not os.path.exists(project_dir):
+                os.mkdir(project_dir)
+
             archive_name = payload.content_disposition
             if not archive_name:
                 archive_name = 'snapshot.zip'
-            archive_path = os.path.join(self.session.work_dir, archive_name)
+            archive_path = os.path.join(project_dir, archive_name)
 
             archive_file = file(archive_path, 'wb')
             try:
                 shutil.copyfileobj(payload.body, archive_file)
             finally:
                 archive_file.close()
-            basedir = self.unpack_snapshot(msgno, archive_path)
+            basedir = self.unpack_snapshot(msgno, project_dir, archive_name)
 
             try:
-                recipe = Recipe(self.recipe_xml, basedir, self.config)
+                recipe = Recipe(self.build_xml, basedir, self.config)
                 self.execute_build(msgno, recipe)
             finally:
                 if not self.session.keep_files:
                     shutil.rmtree(basedir)
                     os.remove(archive_path)
 
-    def unpack_snapshot(self, msgno, path):
+    def unpack_snapshot(self, msgno, project_dir, archive_name):
         """Unpack a snapshot archive."""
+        path = os.path.join(project_dir, archive_name)
         log.debug('Received snapshot archive: %s', path)
         try:
             zip_file = zipfile.ZipFile(path, 'r')
@@ -142,7 +148,7 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
                     if name.startswith('/') or '..' in name:
                         continue
                     names.append(os.path.normpath(name))
-                    fullpath = os.path.join(self.session.work_dir, name)
+                    fullpath = os.path.join(project_dir, name)
                     if name.endswith('/'):
                         os.makedirs(fullpath)
                     else:
@@ -157,8 +163,7 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
             finally:
                 zip_file.close()
 
-            basedir = os.path.join(self.session.work_dir,
-                                   os.path.commonprefix(names))
+            basedir = os.path.join(project_dir,  os.path.commonprefix(names))
             log.debug('Unpacked snapshot to %s' % basedir)
             return basedir
 

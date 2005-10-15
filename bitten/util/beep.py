@@ -729,7 +729,7 @@ class Payload(object):
 
         if data is None:
             data = ''
-        if isinstance(data, xmlio.Element):
+        if isinstance(data, (xmlio.Element, xmlio.ParsedElement)):
             self.body = StringIO(str(data))
         elif isinstance(data, basestring):
             self.body = StringIO(data)
