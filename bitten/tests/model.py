@@ -115,6 +115,22 @@ class BuildConfigTestCase(unittest.TestCase):
         config.name = None
         self.assertRaises(AssertionError, config.update)
 
+    def test_update_name_with_platform(self):
+        db = self.env.get_db_cnx()
+        cursor = db.cursor()
+        cursor.execute("INSERT INTO bitten_config (name,path,label,active) "
+                       "VALUES (%s,%s,%s,%s)", ('test', 'trunk', 'Test', 0))
+        cursor.execute("INSERT INTO bitten_platform (config,name) "
+                       "VALUES (%s,%s)", ('test', 'NetBSD'))
+
+        config = BuildConfig.fetch(self.env, 'test')
+        config.name = 'foobar'
+        config.update()
+
+        cursor.execute("SELECT config,name FROM bitten_platform")
+        self.assertEqual(('foobar', 'NetBSD'), cursor.fetchone())
+        self.assertEqual(None, cursor.fetchone())
+
     def test_delete(self):
         db = self.env.get_db_cnx()
         cursor = db.cursor()

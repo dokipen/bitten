@@ -108,6 +108,11 @@ class BuildConfig(object):
                        (self.name, self.path, int(self.active or 0),
                         self.recipe, self.min_rev, self.max_rev,
                         self.label, self.description, self._old_name))
+        if self.name != self._old_name:
+            cursor.execute("UPDATE bitten_platform SET config=%s "
+                           "WHERE config=%s", (self.name, self._old_name))
+            cursor.execute("UPDATE bitten_build SET config=%s "
+                           "WHERE config=%s", (self.name, self._old_name))
 
         if handle_ta:
             db.commit()
