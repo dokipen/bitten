@@ -43,6 +43,8 @@ def configure(ctxt, file_='configure', enable=None, disable=None, with=None,
 
 def make(ctxt, target=None, file_=None, keep_going=False):
     """Execute a Makefile target."""
+    executable = ctxt.config.get_filepath('make.path') or 'make'
+
     args = ['--directory', ctxt.basedir]
     if file_:
         args += ['--file', ctxt.resolve(file_)]
@@ -52,7 +54,7 @@ def make(ctxt, target=None, file_=None, keep_going=False):
         args.append(target)
 
     from bitten.build import shtools
-    returncode = shtools.execute(ctxt, executable='make', args=args)
+    returncode = shtools.execute(ctxt, executable=executable, args=args)
     if returncode != 0:
         ctxt.error('make failed (%s)' % returncode)
 
