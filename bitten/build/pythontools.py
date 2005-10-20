@@ -148,6 +148,7 @@ def trace(ctxt, summary=None, coverdir=None, include=None, exclude=None):
                 code_lines.add(lineno)
         num_covered = 0
         lines = []
+
         if coverfile:
             prev_hits = '0'
             for idx, coverline in enumerate(coverfile):
@@ -170,13 +171,15 @@ def trace(ctxt, summary=None, coverdir=None, include=None, exclude=None):
                             num_covered += 1
                         lines.append(prev_hits)
 
-            num_lines = len(lines)
-            percentage = int(round(num_covered / num_lines) * 100)
-            module.attr['percentage'] = str(percentage) + '%'
-            module.attr['lines'] = num_lines
             module.append(xmlio.Element('line_hits')[' '.join(lines)])
+
+        num_lines = len(code_lines)
+        if num_lines:
+            percentage = int(round(num_covered * 100 / num_lines))
         else:
-            module.attr['lines'] = len(code_lines)
+            percentage = 0
+        module.attr['percentage'] = str(percentage) + '%'
+        module.attr['lines'] = num_lines
 
     try:
         summary_file = open(ctxt.resolve(summary), 'r')
@@ -201,8 +204,7 @@ def trace(ctxt, summary=None, coverdir=None, include=None, exclude=None):
                     missing_files.remove(filename)
                     covered_modules.add(modname)
                     module = xmlio.Element('coverage', name=modname,
-                                           file=filename.replace(os.sep, '/'),
-                                           percentage=int(match.group(2)))
+                                           file=filename.replace(os.sep, '/'))
                     sourcefile = file(ctxt.resolve(filename))
                     try:
                         coverpath = ctxt.resolve(coverdir, modname + '.cover')
