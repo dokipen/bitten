@@ -74,8 +74,6 @@ lines   cov%%   module   (path)
         self.assertEqual('coverage', child.name)
         self.assertEqual('test.module', child.attr['name'])
         self.assertEqual('test/module.py', child.attr['file'])
-        self.assertEqual(100, child.attr['percentage'])
-        self.assertEqual(60, child.attr['lines'])
 
     def test_summary_with_relative_path(self):
         self.summary.write("""
@@ -94,8 +92,6 @@ lines   cov%   module   (path)
         self.assertEqual('coverage', child.name)
         self.assertEqual('test.module', child.attr['name'])
         self.assertEqual('test/module.py', child.attr['file'])
-        self.assertEqual(100, child.attr['percentage'])
-        self.assertEqual(60, child.attr['lines'])
 
 
 class UnittestTestCase(unittest.TestCase):
