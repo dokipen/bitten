@@ -23,17 +23,17 @@ def generate(filename):
     @param filename: the absolute path to the file
     @return: string containing the checksum
     """
-    md5sum = md5.new()
+    checksum = md5.new()
     fileobj = file(filename, 'rb')
     try:
         while True:
             chunk = fileobj.read(4096)
             if not chunk:
                 break
-            md5sum.update(chunk)
+            checksum.update(chunk)
     finally:
         fileobj.close()
-    return md5sum.hexdigest() + '  ' + filename
+    return checksum.hexdigest()
 
 def write(filename, md5file=None):
     """Write an MD5 checksum file for the specified file.
@@ -50,7 +50,7 @@ def write(filename, md5file=None):
 
     fileobj = file(md5file, 'w')
     try:
-        fileobj.write(generate(filename))
+        fileobj.write(generate(filename) + '  ' + os.path.basename(filename))
     finally:
         fileobj.close()
     return md5file
@@ -76,9 +76,15 @@ def validate(filename, checksum=None):
                 raise IntegrityError, 'Checksum file not found'
         fileobj = file(md5file, 'r')
         try:
-            checksum = fileobj.read()
+            content = fileobj.read()
         finally:
             fileobj.close()
+        try:
+            checksum, path = content.split('  ')
+        except ValueError:
+            raise IntegrityError, 'Checksum file invalid'
+        if path != os.path.basename(filename):
+            raise IntegrityError, 'Checksum for a different file'
 
     expected = generate(filename)
     if expected != checksum:

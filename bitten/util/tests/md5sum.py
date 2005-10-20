@@ -34,9 +34,8 @@ class Md5sumTestCase(unittest.TestCase):
 
     def test_generate(self):
         filename = self._create_file('test.xyz', 'Foo bar')
-        checksum = md5sum.generate(filename).split('  ')
-        self.assertEqual(md5.new('Foo bar').hexdigest(), checksum[0])
-        self.assertEqual(filename, checksum[1])
+        checksum = md5sum.generate(filename)
+        self.assertEqual(md5.new('Foo bar').hexdigest(), checksum)
 
     def test_write(self):
         filename = self._create_file('test.xyz', 'Foo bar')
@@ -44,11 +43,11 @@ class Md5sumTestCase(unittest.TestCase):
         self.assertEqual(filename + '.md5', md5file)
         fileobj = file(md5file, 'r')
         try:
-            checksum = fileobj.read().split('  ')
+            checksum, path = fileobj.read().split('  ')
         finally:
             fileobj.close()
-        self.assertEqual(md5.new('Foo bar').hexdigest(), checksum[0])
-        self.assertEqual(filename, checksum[1])
+        self.assertEqual(md5.new('Foo bar').hexdigest(), checksum)
+        self.assertEqual('test.xyz', path)
 
     def test_write_with_md5file(self):
         filename = self._create_file('test.xyz', 'Foo bar')
@@ -56,11 +55,11 @@ class Md5sumTestCase(unittest.TestCase):
         self.assertEqual(md5file, md5sum.write(filename, md5file=md5file))
         fileobj = file(md5file, 'r')
         try:
-            checksum = fileobj.read().split('  ')
+            checksum, path = fileobj.read().split('  ')
         finally:
             fileobj.close()
-        self.assertEqual(md5.new('Foo bar').hexdigest(), checksum[0])
-        self.assertEqual(filename, checksum[1])
+        self.assertEqual(md5.new('Foo bar').hexdigest(), checksum)
+        self.assertEqual('test.xyz', path)
 
     def test_validate_missing(self):
         filename = self._create_file('test.xyz', 'Foo bar')
@@ -72,6 +71,12 @@ class Md5sumTestCase(unittest.TestCase):
         md5file = self._create_file('test.xyz.md5', checksum)
         self.assertRaises(md5sum.IntegrityError, md5sum.validate, filename)
 
+    def test_validate_invalid_format(self):
+        filename = self._create_file('test.xyz', 'Foo bar')
+        checksum = md5.new('Foo bar').hexdigest() + ',' + filename
+        md5file = self._create_file('test.xyz.md5', checksum)
+        self.assertRaises(md5sum.IntegrityError, md5sum.validate, filename)
+
     def test_validate_incorrect_path(self):
         filename = self._create_file('test.xyz', 'Foo bar')
         checksum = md5.new('Foo bar').hexdigest() + '  ' + '/etc/test'
@@ -80,8 +85,7 @@ class Md5sumTestCase(unittest.TestCase):
 
     def test_validate_with_checksum(self):
         filename = self._create_file('test.xyz', 'Foo bar')
-        checksum = md5.new('Foo bar').hexdigest() + '  ' + filename
-        md5sum.validate(filename, checksum)
+        md5sum.validate(filename, md5.new('Foo bar').hexdigest())
 
 
 def suite():
