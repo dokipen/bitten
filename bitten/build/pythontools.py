@@ -178,7 +178,7 @@ def trace(ctxt, summary=None, coverdir=None, include=None, exclude=None):
             percentage = int(round(num_covered * 100 / num_lines))
         else:
             percentage = 0
-        module.attr['percentage'] = str(percentage) + '%'
+        module.attr['percentage'] = percentage
         module.attr['lines'] = num_lines
 
     try:
