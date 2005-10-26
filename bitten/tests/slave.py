@@ -22,7 +22,7 @@ class OrchestrationProfileHandlerTestCase(unittest.TestCase):
 
     def setUp(self):
         self.work_dir = tempfile.mkdtemp(prefix='bitten_test')
-        self.slave = Slave(None, None)
+        self.slave = Slave(None, None, work_dir=self.work_dir)
         self.handler = OrchestrationProfileHandler(Mock(session=self.slave))
 
     def tearDown(self):

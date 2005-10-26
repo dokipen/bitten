@@ -27,6 +27,7 @@ def ant(ctxt, file_=None, target=None, keep_going=False, args=None):
         executable = os.path.join(ant_home, 'bin', 'ant')
 
     logfile = tempfile.NamedTemporaryFile(prefix='ant_log', suffix='.xml')
+    logfile.close()
     if args:
         args = shlex.split(args)
     else:
@@ -51,7 +52,7 @@ def ant(ctxt, file_=None, target=None, keep_going=False, args=None):
     error_logged = False
     log_elem = xmlio.Fragment()
     try:
-        xml_log = xmlio.parse(logfile)
+        xml_log = xmlio.parse(file(logfile.name, 'r'))
         def collect_log_messages(node):
             for child in node.children():
                 if child.name == 'message':
