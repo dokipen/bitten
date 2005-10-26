@@ -180,7 +180,7 @@ class Listener(EventLoop, asyncore.dispatcher):
             def handle_error(channelno, code, message):
                 log.error('Failed to close channel %d', channelno)
             log.debug('Closing session with %s', session.addr)
-            session.terminate(handle_ok=handle_ok)
+            session.terminate(handle_ok=handle_ok, handle_error=handle_error)
         self.schedule(0, terminate_next_session)
         self.run(.5)
 

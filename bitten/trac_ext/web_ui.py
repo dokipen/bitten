@@ -7,7 +7,7 @@
 # you should have received as part of this distribution. The terms
 # are also available at http://bitten.cmlenz.net/wiki/License.
 
-from datetime import datetime, timedelta
+from datetime import datetime
 import posixpath
 import re
 try:
@@ -19,8 +19,7 @@ from StringIO import StringIO
 import pkg_resources
 from trac.core import *
 from trac.Timeline import ITimelineEventProvider
-from trac.util import escape, pretty_timedelta, format_date, format_datetime, \
-                      shorten_line
+from trac.util import escape, pretty_timedelta, format_datetime, shorten_line
 from trac.web import IRequestHandler
 from trac.web.chrome import INavigationContributor, ITemplateProvider, \
                             add_link, add_stylesheet

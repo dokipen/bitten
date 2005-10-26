@@ -9,7 +9,6 @@
 
 from itertools import ifilter
 import logging
-import os
 import re
 
 from bitten.model import BuildConfig, TargetPlatform, Build, BuildStep

@@ -10,7 +10,6 @@
 import keyword
 import logging
 import os
-import re
 try:
     set
 except NameError:

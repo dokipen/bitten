@@ -7,7 +7,6 @@
 # you should have received as part of this distribution. The terms
 # are also available at http://bitten.cmlenz.net/wiki/License.
 
-from ConfigParser import ConfigParser
 from datetime import datetime
 import logging
 import os
@@ -137,19 +136,14 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
         try:
             zip_file = zipfile.ZipFile(path, 'r')
             try:
-                badfile = zip_file.testzip()
-                if badfile:
-                    log.error('Bad CRC for file %s in ZIP archive at %s',
-                              badfile, path)
-                    raise beep.ProtocolError(550, 'Corrupt snapshot archive')
-
                 names = []
                 for name in zip_file.namelist():
                     if name.startswith('/') or '..' in name:
                         continue
                     names.append(os.path.normpath(name))
+                    info = zip_file.getinfo(name)
                     fullpath = os.path.join(project_dir, name)
-                    if name.endswith('/'):
+                    if name.endswith('/') or info.external_attr & 0x10:
                         os.makedirs(fullpath)
                     else:
                         dirname = os.path.dirname(fullpath)
@@ -157,9 +151,17 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
                             os.makedirs(dirname)
                         fileobj = file(fullpath, 'wb')
                         try:
-                            fileobj.write(zip_file.read(name))
+                            try:
+                                fileobj.write(zip_file.read(name))
+                            except zipfile.BadZipFile:
+                                log.error('Bad CRC for file %s', name, path)
+                                raise beep.ProtocolError(550, 'Corrupt '
+                                                         'snapshot archive')
                         finally:
                             fileobj.close()
+                        mode = (info.external_attr >> 16) & 0777
+                        if mode:
+                            os.chmod(fullpath, mode)
             finally:
                 zip_file.close()
 

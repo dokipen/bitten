@@ -171,7 +171,7 @@ class SnapshotManager(object):
         """
         log.debug('Preparing snapshot archive for %s@%s', root.path, root.rev)
 
-        zip = zipfile.ZipFile(filepath, 'w', zipfile.ZIP_DEFLATED)
+        zip_file = zipfile.ZipFile(filepath, 'w', zipfile.ZIP_DEFLATED)
         def _add_entry(node):
             name = node.path[len(self.config.path):]
             if name.startswith('/'):
@@ -179,22 +179,33 @@ class SnapshotManager(object):
             if node.isdir:
                 path = os.path.join(prefix, name).rstrip('/\\') + '/'
                 info = zipfile.ZipInfo(path)
-                zip.writestr(info, '')
-                log.debug('Adding directory %s to archive' % name)
+                info.create_system = 3
+                info.external_attr = 040755 << 16L | 0x10
+                zip_file.writestr(info, '')
+                log.debug('Adding directory %s to archive', name)
                 for entry in node.get_entries():
                     _add_entry(entry)
                 time.sleep(.1) # be nice
             else:
                 path = os.path.join(prefix, name)
                 info = zipfile.ZipInfo(path)
+                info.create_system = 3
                 info.compress_type = zipfile.ZIP_DEFLATED
                 info.date_time = time.gmtime(node.last_modified)[:6]
                 info.file_size = node.content_length
-                zip.writestr(info, node.get_content().read())
+
+                # FIXME: Subversion specific! This should really be an
+                #        executable flag provided by Trac's versioncontrol API
+                if 'svn:executable' in node.get_properties():
+                    info.external_attr = 0100755 << 16L
+                else:
+                    info.external_attr = 0100644 << 16L
+
+                zip_file.writestr(info, node.get_content().read())
         try:
             _add_entry(root)
         finally:
-            zip.close()
+            zip_file.close()
 
         # Create MD5 checksum file
         md5sum.write(filepath)
