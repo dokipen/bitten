@@ -26,6 +26,10 @@ def ant(ctxt, file_=None, target=None, keep_going=False, args=None):
     if ant_home:
         executable = os.path.join(ant_home, 'bin', 'ant')
 
+    java_home = ctxt.config.get_dirpath('java.home')
+    if java_home:
+        os.environ['JAVA_HOME'] = java_home
+
     logfile = tempfile.NamedTemporaryFile(prefix='ant_log', suffix='.xml')
     logfile.close()
     if args:
