@@ -9,10 +9,11 @@
 
 import unittest
 
-from bitten.trac_ext.tests import web_ui
+from bitten.trac_ext.tests import charts, web_ui
 
 def suite():
     suite = unittest.TestSuite()
+    suite.addTest(charts.suite())
     suite.addTest(web_ui.suite())
     return suite
 

@@ -58,36 +58,43 @@ class TestResultsChartGenerator(Component):
         db = self.env.get_db_cnx()
         cursor = db.cursor()
         cursor.execute("""
-SELECT build.rev, item_status.value AS status, COUNT(*) AS num
+SELECT build.rev, build.platform, item_status.value AS status, COUNT(*) AS num
 FROM bitten_build AS build
  LEFT OUTER JOIN bitten_report AS report ON (report.build=build.id)
  LEFT OUTER JOIN bitten_report_item AS item_status
   ON (item_status.report=report.id AND item_status.name='status')
 WHERE build.config=%s AND report.category='test'
-GROUP BY build.rev, build.platform, item_status.value
-ORDER BY build.rev_time""", (config.name,))
+GROUP BY build.rev_time, build.rev, build.platform, item_status.value
+ORDER BY build.rev_time, build.platform""", (config.name,))
 
         prev_rev = None
+        prev_platform, platform_total = None, 0
         tests = []
-        for rev, status, num in cursor:
+        for rev, platform, status, num in cursor:
             if rev != prev_rev:
                 tests.append([rev, 0, 0])
-            slot = int(status != 'success') + 1
-            if num > tests[-1][slot]:
-                tests[-1][slot] = num
-            prev_rev = rev
+                prev_rev = rev
+                platform_total = 0
+            if platform != prev_platform:
+                prev_platform = platform
+                platform_total = 0
+
+            platform_total += num
+            tests[-1][1] = max(platform_total, tests[-1][1])
+            if status != 'success':
+                tests[-1][2] = max(num, tests[-1][2])
 
         req.hdf['chart.title'] = 'Unit Tests'
         req.hdf['chart.data'] = [
             [''] + ['[%s]' % item[0] for item in tests],
-            ['Total'] + [sum(item[1:]) for item in tests],
+            ['Total'] + [item[1] for item in tests],
             ['Failures'] + [item[2] for item in tests]
         ]
 
         return 'bitten_chart_tests.cs'
 
 
-class CodeCoverageChartGenerator(Component):
+class TestCoverageChartGenerator(Component):
     implements(IReportChartGenerator)
 
     # IReportChartGenerator methods
@@ -120,12 +127,12 @@ ORDER BY build.rev_time""", (config.name,))
             if rev != prev_rev:
                 coverage.append([rev, 0, 0])
             if loc > coverage[-1][1]:
-                coverage[-1][1] = loc
+                coverage[-1][1] = int(loc)
             if cov > coverage[-1][2]:
-                coverage[-1][2] = cov
+                coverage[-1][2] = int(cov)
             prev_rev = rev
 
-        req.hdf['chart.title'] = 'Code Coverage'
+        req.hdf['chart.title'] = 'Test Coverage'
         req.hdf['chart.data'] = [
             [''] + ['[%s]' % item[0] for item in coverage],
             ['Lines of code'] + [item[1] for item in coverage],
