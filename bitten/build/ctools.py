@@ -8,8 +8,14 @@
 # are also available at http://bitten.cmlenz.net/wiki/License.
 
 import logging
+import re
+import os
+try:
+    set
+except NameError:
+    from sets import Set as set
 
-from bitten.build import CommandLine
+from bitten.build import CommandLine, FileSet
 from bitten.util import xmlio
 
 log = logging.getLogger('bitten.build.ctools')
@@ -118,3 +124,69 @@ def cppunit(ctxt, file_=None, srcdir=None):
     except xmlio.ParseError, e:
         print e
         log.warning('Error parsing CppUnit results file (%s)', e)
+
+def gcov(ctxt, include=None, exclude=None, prefix=None):
+    """Run `gcov` to extract coverage data where available."""
+    file_re = re.compile(r'^File \`(?P<file>[^\']+)\'\s*$')
+    lines_re = re.compile(r'^Lines executed:(?P<cov>\d+\.\d+)\% of (?P<num>\d+)\s*$')
+
+    files = []
+    for filename in FileSet(ctxt.basedir, include, exclude):
+        if os.path.splitext(filename)[1] in ('.c', '.cpp', '.cc', '.cxx'):
+            files.append(filename)
+
+    coverage = xmlio.Fragment()
+
+    for srcfile in files:
+        # Determine the coverage for each source file by looking for a .gcno
+        # and .gcda pair
+        filepath, filename = os.path.split(srcfile)
+        stem = os.path.splitext(filename)[0]
+        if prefix is not None:
+            stem = prefix + '-' + stem
+
+        objfile = os.path.join(filepath, stem + '.o')
+        if not os.path.isfile(ctxt.resolve(objfile)):
+            log.warn('No object file found for %s at %s', srcfile, objfile)
+            continue
+        if not os.path.isfile(ctxt.resolve(stem + '.gcno')):
+            log.warn('No .gcno file found for %s', srcfile)
+            continue
+        if not os.path.isfile(ctxt.resolve(stem + '.gcda')):
+            log.warn('No .gcda file found for %s', srcfile)
+            continue
+
+        num_lines, num_covered = 0, 0
+        skip_block = False
+        cmd = CommandLine('gcov', ['-b', '-n', '-o', objfile, srcfile],
+                          cwd=ctxt.basedir)
+        for out, err in cmd.execute():
+            if out == '': # catch blank lines, reset the block state...
+                skip_block = False
+            elif out and not skip_block:
+                # Check for a file name
+                match = file_re.match(out)
+                if match:
+                    if os.path.isabs(match.group('file')):
+                        skip_block = True
+                        continue
+                else:
+                    # check for a "Lines executed" message
+                    match = lines_re.match(out)
+                    if match:
+                        lines = float(match.group('num'))
+                        cov = float(match.group('cov'))
+                        num_covered += int(lines * cov / 100)
+                        num_lines += int(lines)
+        if cmd.returncode != 0:
+            continue
+
+        module = xmlio.Element('coverage', name=os.path.basename(srcfile),
+                                file=srcfile.replace(os.sep, '/'),
+                                lines=num_lines, percentage=0)
+        if num_lines:
+            percent = int(round(num_covered * 100 / num_lines))
+            module.attr['percentage'] = percent
+        coverage.append(module)
+
+    ctxt.report('coverage', coverage)

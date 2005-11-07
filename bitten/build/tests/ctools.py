@@ -13,6 +13,7 @@ import tempfile
 import unittest
 
 from bitten.build import ctools
+from bitten.build.tests import dummy
 from bitten.recipe import Context, Recipe
 
 
@@ -83,9 +84,67 @@ class CppUnitTestCase(unittest.TestCase):
         self.assertEqual('success', tests[2].attr['status'])
 
 
+class GCovTestCase(unittest.TestCase):
+
+    def setUp(self):
+        self.basedir = os.path.realpath(tempfile.mkdtemp())
+        self.ctxt = Context(self.basedir)
+
+    def tearDown(self):
+        shutil.rmtree(self.basedir)
+
+    def _create_file(self, *path):
+        filename = os.path.join(self.basedir, *path)
+        dirname = os.path.dirname(filename)
+        if not os.path.isdir(dirname):
+            os.makedirs(dirname)
+        fd = file(filename, 'w')
+        fd.close()
+        return filename[len(self.basedir) + 1:]
+
+    def test_no_file(self):
+        ctools.CommandLine = dummy.CommandLine()
+        ctools.gcov(self.ctxt)
+        type, category, generator, xml = self.ctxt.output.pop()
+        self.assertEqual('report', type)
+        self.assertEqual('coverage', category)
+        self.assertEqual(0, len(xml.children))
+
+    def test_single_file(self):
+        self._create_file('foo.c')
+        self._create_file('foo.o')
+        self._create_file('foo.gcno')
+        self._create_file('foo.gcda')
+
+        ctools.CommandLine = dummy.CommandLine(stdout="""
+File `foo.c'
+Lines executed:45.81% of 884
+Branches executed:54.27% of 398
+Taken at least once:36.68% of 398
+Calls executed:48.19% of 249
+
+File `foo.h'
+Lines executed:50.00% of 4
+No branches
+Calls executed:100.00% of 1
+""")
+        ctools.gcov(self.ctxt)
+        type, category, generator, xml = self.ctxt.output.pop()
+        self.assertEqual('report', type)
+        self.assertEqual('coverage', category)
+        self.assertEqual(1, len(xml.children))
+        elem = xml.children[0]
+        self.assertEqual('coverage', elem.name)
+        self.assertEqual('foo.c', elem.attr['file'])
+        self.assertEqual('foo.c', elem.attr['name'])
+        self.assertEqual(888, elem.attr['lines'])
+        self.assertEqual(45, elem.attr['percentage'])
+
+
 def suite():
     suite = unittest.TestSuite()
     suite.addTest(unittest.makeSuite(CppUnitTestCase, 'test'))
+    suite.addTest(unittest.makeSuite(GCovTestCase, 'test'))
     return suite
 
 if __name__ == '__main__':

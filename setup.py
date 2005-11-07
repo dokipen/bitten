@@ -46,6 +46,7 @@ setup(
             NS + 'sh#pipe = bitten.build.shtools:pipe',
             NS + 'c#configure = bitten.build.ctools:configure',
             NS + 'c#cppunit = bitten.build.ctools:cppunit',
+            NS + 'c#gcov = bitten.build.ctools:gcov',
             NS + 'c#make = bitten.build.ctools:make',
             NS + 'java#ant = bitten.build.javatools:ant',
             NS + 'java#junit = bitten.build.javatools:junit',

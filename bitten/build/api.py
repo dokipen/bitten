@@ -24,6 +24,23 @@ class TimeoutError(Exception):
     """Exception raised when the execution of a command times out."""
 
 
+def _combine(*iterables):
+    iterables = [iter(iterable) for iterable in iterables]
+    size = len(iterables)
+    while True:
+        to_yield = [None] * size
+        for idx, iterable in enumerate(iterables):
+            if iterable is None:
+                continue
+            try:
+                to_yield[idx] = iterable.next()
+            except StopIteration:
+                iterables[idx] = None
+        if not [iterable for iterable in iterables if iterable is not None]:
+            break
+        yield tuple(to_yield)
+
+
 class CommandLine(object):
     """Simple helper for executing subprocesses."""
     # TODO: Use 'subprocess' module if available (Python >= 2.4)
@@ -102,7 +119,7 @@ class CommandLine(object):
                 if self.cwd:
                     os.chdir(old_cwd)
 
-            for out_line, err_line in self._combine(out_lines, err_lines):
+            for out_line, err_line in _combine(out_lines, err_lines):
                 yield out_line and out_line.rstrip(), \
                       err_line and err_line.rstrip()
 
@@ -157,7 +174,7 @@ class CommandLine(object):
                         err_eof = True
                 out_lines = self._extract_lines(out_data)
                 err_lines = self._extract_lines(err_data)
-                for out_line, err_line in self._combine(out_lines, err_lines):
+                for out_line, err_line in _combine(out_lines, err_lines):
                     yield out_line, err_line
                 time.sleep(.1)
             self.returncode = pipe.wait()
@@ -166,22 +183,6 @@ class CommandLine(object):
 
             if self.cwd:
                 os.chdir(old_cwd)
-
-    def _combine(self, *iterables):
-        iterables = [iter(iterable) for iterable in iterables]
-        size = len(iterables)
-        while True:
-            to_yield = [None] * size
-            for idx, iterable in enumerate(iterables):
-                if iterable is None:
-                    continue
-                try:
-                    to_yield[idx] = iterable.next()
-                except StopIteration:
-                    iterables[idx] = None
-            if not [iterable for iterable in iterables if iterable is not None]:
-                break
-            yield tuple(to_yield)
 
     def _extract_lines(self, data):
         extracted = []
