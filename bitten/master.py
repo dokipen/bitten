@@ -419,17 +419,18 @@ def main():
             host = ip
 
     envs = []
-    names = set()
-    for arg in args:
-        if not os.path.isdir(arg):
-            log.warning('Ignoring %s: not a directory', arg)
+    env_names = set()
+    for env_path in [os.path.normpath(arg) for arg in args]:
+        if not os.path.isdir(env_path):
+            log.warning('Ignoring %s: not a directory', env_path)
             continue
-        name = os.path.basename(arg)
-        if name in names:
-            log.warning('Ignoring %s: duplicate project name "%s"', arg, name)
+        env_name = os.path.basename(env_path)
+        if env_name in env_names:
+            log.warning('Ignoring %s: duplicate project name "%s"', env_path,
+                        env_name)
             continue
-        names.add(name)
-        env = Environment(arg)
+        env_names.add(env_name)
+        env = Environment(env_path)
         if BuildSystem(env):
             if env.needs_upgrade():
                 log.warning('Environment at %s needs to be upgraded', env.path)
