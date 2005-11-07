@@ -14,6 +14,7 @@ import tempfile
 import unittest
 
 from bitten.build import CommandLine, FileSet, TimeoutError
+from bitten.build.api import _combine
 
 
 class CommandLineTestCase(unittest.TestCase):
@@ -54,10 +55,9 @@ class CommandLineTestCase(unittest.TestCase):
         self.assertEqual(['bar'], data)
 
     def test_combine(self):
-        cmdline = CommandLine('test', [])
         list1 = ['foo', 'bar']
         list2 = ['baz']
-        combined = list(cmdline._combine(list1, list2))
+        combined = list(_combine(list1, list2))
         self.assertEqual([('foo', 'baz'), ('bar', None)], combined)
 
     def test_single_argument(self):
