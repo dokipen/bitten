@@ -158,6 +158,42 @@ class SnapshotManagerTestCase(unittest.TestCase):
         self.assertEqual('foo_r123/', entries[0].filename)
         self.assertEqual('foo_r123/empty/', entries[1].filename)
 
+    def test_get_closest_match_backward(self):
+        path1 = self._create_file(os.path.join('snapshots', 'foo_r123.zip'))
+        path2 = self._create_file(os.path.join('snapshots', 'foo_r124.zip'))
+
+        empty_dir = Mock(isdir=True, get_entries=lambda: [], path='trunk/empty')
+        root_dir = Mock(isdir=True, get_entries=lambda: [empty_dir],
+                        path='trunk', rev=125)
+        repos = Mock(get_node=lambda path, rev: root_dir,
+                     normalize_rev=lambda rev: int(rev),
+                     rev_older_than=lambda rev1, rev2: rev1 < rev2,
+                     next_rev=lambda rev: int(rev) + 1,
+                     previous_rev=lambda rev: int(rev) - 1)
+        self.env.get_repository = lambda authname=None: repos
+
+        snapshots = SnapshotManager(self.config)
+        match = snapshots._get_closest_match(repos, root_dir)
+        self.assertEqual((124, path2), match)
+
+    def test_get_closest_match_forward(self):
+        path1 = self._create_file(os.path.join('snapshots', 'foo_r123.zip'))
+        path2 = self._create_file(os.path.join('snapshots', 'foo_r124.zip'))
+
+        empty_dir = Mock(isdir=True, get_entries=lambda: [], path='trunk/empty')
+        root_dir = Mock(isdir=True, get_entries=lambda: [empty_dir],
+                        path='trunk', rev=122)
+        repos = Mock(get_node=lambda path, rev: root_dir,
+                     normalize_rev=lambda rev: int(rev),
+                     rev_older_than=lambda rev1, rev2: rev1 < rev2,
+                     next_rev=lambda rev: int(rev) + 1,
+                     previous_rev=lambda rev: int(rev) - 1)
+        self.env.get_repository = lambda authname=None: repos
+
+        snapshots = SnapshotManager(self.config)
+        match = snapshots._get_closest_match(repos, root_dir)
+        self.assertEqual((123, path1), match)
+
 
 def suite():
     suite = unittest.TestSuite()
