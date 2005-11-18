@@ -240,13 +240,13 @@ class ParsedElement(object):
             attr = self._node.getAttributeNode(name)
             if not attr:
                 raise KeyError, name
-            return attr.value.encode()
+            return attr.value.encode('utf-8')
         def __setitem__(self, name, value):
             self._node.setAttribute(name, value)
         def __delitem__(self, name):
             self._node.removeAttribute(name)
         def keys(self):
-            return [name.encode() for name in self._node.attributes.keys()]
+            return [key.encode('utf-8') for key in self._node.attributes.keys()]
 
     def __init__(self, node):
         self._node = node
@@ -274,7 +274,8 @@ class ParsedElement(object):
         This concatenates the values of all text nodes that are immediate
         children of this element.
         """
-        return ''.join([c.nodeValue or '' for c in self._node.childNodes])
+        return ''.join([c.nodeValue.encode('utf-8')
+                        for c in self._node.childNodes if c.nodeType == 3])
 
     def write(self, out, newlines=False):
         """Serializes the element and writes the XML to the given output
