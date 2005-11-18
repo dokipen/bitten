@@ -48,14 +48,20 @@ WHERE category='test' AND build=%s
 GROUP BY file, fixture ORDER BY fixture""", (build.id,))
 
         data = []
+        total_success, total_failure, total_error = 0, 0, 0
         for fixture, file, num_success, num_failure, num_error in cursor:
             data.append({'name': fixture, 'num_success': num_success,
                          'num_error': num_error, 'num_failure': num_failure})
+            total_success += num_success
+            total_failure += num_failure
+            total_error += num_error
             if file:
                 data[-1]['href'] = self.env.href.browser(config.path, file)
 
         hdf = HDFWrapper(loadpaths=Chrome(self.env).get_all_templates_dirs())
         hdf['data'] = data
+        hdf['totals'] = {'success': total_success, 'failure': total_failure,
+                        'error': total_error}
         return hdf.render('bitten_summary_tests.cs')
 
 
@@ -90,11 +96,17 @@ WHERE category='coverage' AND build=%s
 GROUP BY file, unit ORDER BY unit""", (build.id,))
 
         data = []
+        total_loc, total_cov = 0, 0
         for unit, file, loc, cov in cursor:
-            data.append({'name': unit, 'loc': loc, 'cov': cov})
+            loc, cov = int(loc), float(cov)
+            if loc:
+                data.append({'name': unit, 'loc': loc, 'cov': int(cov)})
+                total_loc += loc
+                total_cov += loc * cov
             if file:
                 data[-1]['href'] = self.env.href.browser(config.path, file)
 
         hdf = HDFWrapper(loadpaths=Chrome(self.env).get_all_templates_dirs())
         hdf['data'] = data
+        hdf['totals'] = {'loc': total_loc, 'cov': int(total_cov / total_loc)}
         return hdf.render('bitten_summary_coverage.cs')

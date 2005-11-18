@@ -150,6 +150,18 @@
  clear: both; padding: 5px; }
 #content.build .tab-content table { margin: 0; }
 
+#content.build tbody.totals td, #content.build tbody.totals th {
+ font-weight: bold;
+}
+#content.build table.tests tr.failed { background: #d99; }
+#content.build table.tests tr.failed td { font-weight: bold; }
+#content.build table.tests tr.failed:hover td,
+#content.build table.tests tr.failed:hover tr { background: #966; }
+#content.build table.tests tr.failed :link,
+#content.build table.tests tr.failed :visited { color: #933 }
+#content.build table.tests tr.failed :link:hover,
+#content.build table.tests tr.failed :visited:hover { color: #fff; }
+
 #content.build .log { border: 1px inset; overflow: auto; max-height: 30em;
  width: 100%; white-space: pre; }
 #content.build .log code { padding: 0 5px; }
