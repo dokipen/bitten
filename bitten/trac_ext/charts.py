@@ -108,8 +108,7 @@ class TestCoverageChartGenerator(Component):
         db = self.env.get_db_cnx()
         cursor = db.cursor()
         cursor.execute("""
-SELECT build.rev, SUM(item_lines.value) AS loc,
-       SUM(item_lines.value * item_percentage.value / 100) AS cov
+SELECT build.rev, SUM(%s) AS loc, SUM(%s * %s / 100) AS cov
 FROM bitten_build AS build
  LEFT OUTER JOIN bitten_report AS report ON (report.build=build.id)
  LEFT OUTER JOIN bitten_report_item AS item_lines
@@ -117,9 +116,12 @@ FROM bitten_build AS build
  LEFT OUTER JOIN bitten_report_item AS item_percentage
   ON (item_percentage.report=report.id AND item_percentage.name='percentage' AND
       item_percentage.item=item_lines.item)
-WHERE build.config=%s AND report.category='coverage'
-GROUP BY build.rev, build.platform
-ORDER BY build.rev_time""", (config.name,))
+WHERE build.config=%%s AND report.category='coverage'
+GROUP BY build.rev_time, build.rev, build.platform
+ORDER BY build.rev_time""" % (db.cast('item_lines.value', 'int'),
+                              db.cast('item_lines.value', 'int'),
+                              db.cast('item_percentage.value', 'int')),
+                              (config.name,))
 
         prev_rev = None
         coverage = []
