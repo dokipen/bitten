@@ -7,6 +7,7 @@
 # you should have received as part of this distribution. The terms
 # are also available at http://bitten.cmlenz.net/wiki/License.
 
+import calendar
 from datetime import datetime, timedelta
 import logging
 import os
@@ -346,11 +347,7 @@ def _parse_iso_datetime(string):
     without time zone information."""
     try:
         string = string.split('.', 1)[0] # strip out microseconds
-        secs = time.mktime(time.strptime(string, '%Y-%m-%dT%H:%M:%S'))
-        tzoffset = time.timezone
-        if time.daylight:
-            tzoffset = time.altzone
-        return secs - tzoffset
+        return calendar.timegm(time.strptime(string, '%Y-%m-%dT%H:%M:%S'))
     except ValueError, e:
         raise ValueError, 'Invalid ISO date/time %s (%s)' % (string, e)
 
