@@ -243,7 +243,8 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
 
         snapshot_name = os.path.basename(snapshot)
         message = beep.Payload(file(snapshot, 'rb'),
-                               content_type='application/zip',
+                               content_type='application/tar',
+                               content_encoding='bzip2',
                                content_disposition=snapshot_name)
         self.channel.send_msg(message, handle_reply=handle_reply)
 

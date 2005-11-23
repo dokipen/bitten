@@ -17,7 +17,7 @@ except NameError:
     from sets import Set as set
 import shutil
 import tempfile
-import zipfile
+import tarfile
 
 from bitten.build import BuildError
 from bitten.build.config import Configuration
@@ -102,7 +102,8 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
                 xml = xmlio.Element('proceed')
                 self.channel.send_rpy(msgno, beep.Payload(xml))
 
-        elif payload.content_type == 'application/zip':
+        elif payload.content_type == 'application/tar' and \
+             payload.content_encoding == 'bzip2':
             # Received snapshot archive for build
             project_name = self.build_xml.attr.get('project', 'default')
             project_dir = os.path.join(self.session.work_dir, project_name)
@@ -111,7 +112,7 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
 
             archive_name = payload.content_disposition
             if not archive_name:
-                archive_name = 'snapshot.zip'
+                archive_name = 'snapshot.tar.bz2'
             archive_path = os.path.join(project_dir, archive_name)
 
             archive_file = file(archive_path, 'wb')
@@ -134,42 +135,25 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
         path = os.path.join(project_dir, archive_name)
         log.debug('Received snapshot archive: %s', path)
         try:
-            zip_file = zipfile.ZipFile(path, 'r')
+            tar_file = tarfile.open(path, 'r:bz2')
+            tar_file.chown = lambda *args: None # Don't chown extracted members
             try:
                 names = []
-                for name in zip_file.namelist():
-                    if name.startswith('/') or '..' in name:
-                        continue
-                    names.append(os.path.normpath(name))
-                    info = zip_file.getinfo(name)
-                    fullpath = os.path.join(project_dir, name)
-                    if name.endswith('/') or info.external_attr & 0x10:
-                        os.makedirs(fullpath)
-                    else:
-                        dirname = os.path.dirname(fullpath)
-                        if not os.path.isdir(dirname):
-                            os.makedirs(dirname)
-                        fileobj = file(fullpath, 'wb')
-                        try:
-                            try:
-                                fileobj.write(zip_file.read(name))
-                            except zipfile.BadZipFile:
-                                log.error('Bad CRC for file %s', name, path)
-                                raise beep.ProtocolError(550, 'Corrupt '
-                                                         'snapshot archive')
-                        finally:
-                            fileobj.close()
-                        mode = (info.external_attr >> 16) & 0777
-                        if mode:
-                            os.chmod(fullpath, mode)
+                for tarinfo in tar_file:
+                    if tarinfo.isfile() or tarinfo.isdir():
+                        log.debug('Extracting %s to %s', tarinfo.name, project_dir)
+                        if tarinfo.name.startswith('/') or '..' in tarinfo.name:
+                            continue
+                        names.append(tarinfo.name)
+                        tar_file.extract(tarinfo, project_dir)
             finally:
-                zip_file.close()
+                tar_file.close()
 
             basedir = os.path.join(project_dir,  os.path.commonprefix(names))
             log.debug('Unpacked snapshot to %s' % basedir)
             return basedir
 
-        except (IOError, zipfile.error), e:
+        except tarfile.TarError, e:
             log.error('Could not unpack archive %s: %s', path, e, exc_info=True)
             raise beep.ProtocolError(550, 'Could not unpack archive (%s)' % e)
 

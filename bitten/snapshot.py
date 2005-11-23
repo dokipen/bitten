@@ -9,11 +9,12 @@
 
 """Snapshot archive management.
 
-Snapshots of the code base are stored in the Trac environment as ZIP files.
+Snapshots of the code base are stored in the Trac environment as tar archives,
+compressed using bzip2.
 
-These files use the naming convention `[config_name]_r[revision].zip` so they
-can be located programmatically after creation, and associated with the build
-config and revision they apply to.
+These files use the naming convention `[config_name]_r[revision].tar.bz2` so
+they can be located programmatically after creation, and associated with the
+build config and revision they apply to.
 
 These snapshot files are accompanied by a checksum file (using MD5). Any archive
 file with no accompanying checksum is considered incomplete or invalid.
@@ -34,12 +35,13 @@ added, and modified files are updated.
 
 import logging
 import os
+import posixpath
 try:
     import threading
 except ImportError:
     import dummy_threading as threading
 import time
-import zipfile
+import tarfile
 
 from bitten.util import md5sum
 
@@ -90,9 +92,9 @@ class SnapshotManager(object):
         """Find all existing snapshots in the directory."""
         for filename in [f for f in os.listdir(self.directory)
                          if f.startswith(self.prefix)]:
-            if not filename.endswith('.zip'):
+            if not filename.endswith('.tar.bz2'):
                 continue
-            rest = filename[len(self.prefix):-4]
+            rest = filename[len(self.prefix):-8]
             if not rest.startswith('_r'):
                 continue
             rev = rest[2:]
@@ -146,7 +148,7 @@ class SnapshotManager(object):
                 return self._workers[new_root.rev]
 
             new_prefix = self.prefix + '_r' + str(rev)
-            filename = new_prefix + '.zip'
+            filename = new_prefix + '.tar.bz2'
             new_filepath = os.path.join(self.directory, filename)
             if os.path.exists(new_filepath):
                 raise IOError, 'Snapshot file already exists at %s' \
@@ -184,62 +186,63 @@ class SnapshotManager(object):
                   new_root.rev)
         if base_root:
             base_rev = repos.next_rev(base_root.rev)
-            base_zip = zipfile.ZipFile(base_filepath, 'r')
-        new_zip = zipfile.ZipFile(new_filepath, 'w', zipfile.ZIP_DEFLATED)
+            base_tar = tarfile.open(base_filepath, 'r:bz2')
+            base_tar.posix = False
+        new_tar = tarfile.open(new_filepath, 'w:bz2')
+        new_tar.posix = False
 
         def _add_entry(node):
             name = node.path[len(self.config.path):]
             if name.startswith('/'):
                 name = name[1:]
+            new_path = posixpath.join(new_prefix, name)
             if node.isdir:
-                path = os.path.join(new_prefix, name).rstrip('/\\') + '/'
-                info = zipfile.ZipInfo(path)
-                info.create_system = 3
-                info.external_attr = 040755 << 16L | 0x10
-                new_zip.writestr(info, '')
-                log.debug('Adding directory %s to archive', name + '/')
+                log.debug('Adding directory %s/ to archive', name)
+                new_info = tarfile.TarInfo(new_path)
+                new_info.type = tarfile.DIRTYPE
+                new_info.mode = 0755
+                new_tar.addfile(new_info)
+
                 for entry in node.get_entries():
                     _add_entry(entry)
                 time.sleep(.1) # be nice
             else:
-                new_path = os.path.join(new_prefix, name)
-
                 copy_base = False
                 if base_root and repos.has_node(node.path, base_root.rev):
                     base_node = repos.get_node(node.path, base_root.rev)
                     copy_base = base_node.rev == node.rev
 
                 if copy_base:
-                    # Copy entry from base ZIP file
-                    base_path = os.path.join(base_prefix, name)
-                    base_info = base_zip.getinfo(base_path)
-                    base_info.filename = new_path
-                    new_zip.writestr(base_info, base_zip.read(base_path))
+                    # Copy entry from base archive
+                    base_path = posixpath.join(base_prefix, name)
+                    base_info = base_tar.getmember(base_path)
+                    base_info.name = new_path
+                    fileobj = base_tar.extractfile(base_info)
+                    new_tar.addfile(base_info, fileobj)
 
                 else:
                     # Create entry from repository
-                    new_info = zipfile.ZipInfo(new_path)
-                    new_info.create_system = 3
-                    new_info.compress_type = zipfile.ZIP_DEFLATED
-                    new_info.date_time = time.gmtime(node.last_modified)[:6]
-                    new_info.file_size = node.content_length
+                    new_info = tarfile.TarInfo(new_path)
+                    new_info.type = tarfile.REGTYPE
+                    new_info.mtime = node.last_modified
+                    new_info.size = node.content_length
 
                     # FIXME: Subversion specific! This should really be an
                     #        executable flag provided by Trac's versioncontrol
                     #        API
                     if 'svn:executable' in node.get_properties():
-                        new_info.external_attr = 0100755 << 16L
+                        new_info.mode = 0755
                     else:
-                        new_info.external_attr = 0100644 << 16L
+                        new_info.mode = 0644
 
-                    new_zip.writestr(new_info, node.get_content().read())
+                    new_tar.addfile(new_info, node.get_content())
 
         try:
             _add_entry(new_root)
         finally:
-            new_zip.close()
+            new_tar.close()
             if base_root:
-                base_zip.close()
+                base_tar.close()
 
         # Create MD5 checksum file
         md5sum.write(new_filepath)

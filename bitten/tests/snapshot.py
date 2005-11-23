@@ -10,9 +10,9 @@
 import md5
 import os
 import shutil
+import tarfile
 import tempfile
 import unittest
-import zipfile
 
 from trac.test import EnvironmentStub, Mock
 from bitten.model import BuildConfig
@@ -52,35 +52,35 @@ class SnapshotManagerTestCase(unittest.TestCase):
         self.assertEqual(None, snapshots.get(123))
 
     def test_get(self):
-        path1 = self._create_file(os.path.join('snapshots', 'foo_r123.zip'))
-        path2 = self._create_file(os.path.join('snapshots', 'foo_r124.zip'))
+        path1 = self._create_file(os.path.join('snapshots', 'foo_r123.tar.bz2'))
+        path2 = self._create_file(os.path.join('snapshots', 'foo_r124.tar.bz2'))
         snapshots = SnapshotManager(self.config)
         self.assertEqual(path1, snapshots.get(123))
         self.assertEqual(path2, snapshots.get(124))
 
     def test_get_prefix_match(self):
-        path1 = self._create_file(os.path.join('snapshots', 'foo_r123.zip'))
-        self._create_file(os.path.join('snapshots', 'bar_r124.zip'))
+        path1 = self._create_file(os.path.join('snapshots', 'foo_r123.tar.bz2'))
+        self._create_file(os.path.join('snapshots', 'bar_r124.tar.bz2'))
         snapshots = SnapshotManager(self.config)
         self.assertEqual(path1, snapshots.get(123))
         self.assertEqual(None, snapshots.get(124))
 
     def test_get_wrong_extension(self):
-        path1 = self._create_file(os.path.join('snapshots', 'foo_r123.zip'))
+        path1 = self._create_file(os.path.join('snapshots', 'foo_r123.tar.bz2'))
         self._create_file(os.path.join('snapshots', 'foo_r124.doc'))
         snapshots = SnapshotManager(self.config)
         self.assertEqual(path1, snapshots.get(123))
         self.assertEqual(None, snapshots.get(124))
 
     def test_get_missing_rev(self):
-        path1 = self._create_file(os.path.join('snapshots', 'foo_r123.zip'))
+        path1 = self._create_file(os.path.join('snapshots', 'foo_r123.tar.bz2'))
         self._create_file(os.path.join('snapshots', 'foo124.doc'))
         snapshots = SnapshotManager(self.config)
         self.assertEqual(path1, snapshots.get(123))
         self.assertEqual(None, snapshots.get(124))
 
     def test_get_missing_md5sum(self):
-        path1 = self._create_file(os.path.join('snapshots', 'foo_r123.zip'))
+        path1 = self._create_file(os.path.join('snapshots', 'foo_r123.tar.bz2'))
         self._create_file(os.path.join('snapshots', 'foo_r124.zip'),
                           create_md5sum=False)
         snapshots = SnapshotManager(self.config)
@@ -88,8 +88,8 @@ class SnapshotManagerTestCase(unittest.TestCase):
         self.assertEqual(None, snapshots.get(124))
 
     def test_get_wrong_md5sum(self):
-        path1 = self._create_file(os.path.join('snapshots', 'foo_r123.zip'))
-        path2 = self._create_file(os.path.join('snapshots', 'foo_r124.zip'),
+        path1 = self._create_file(os.path.join('snapshots', 'foo_r123.tar.bz2'))
+        path2 = self._create_file(os.path.join('snapshots', 'foo_r124.tar.bz2'),
                                  create_md5sum=False)
         
         md5sum.write(path1, path2 + '.md5')
@@ -99,10 +99,10 @@ class SnapshotManagerTestCase(unittest.TestCase):
 
     def test_cleanup_on_init(self):
         self.env.config.set('bitten', 'max_snapshots', '3')
-        path1 = self._create_file(os.path.join('snapshots', 'foo_r123.zip'))
-        path2 = self._create_file(os.path.join('snapshots', 'foo_r124.zip'))
-        path3 = self._create_file(os.path.join('snapshots', 'foo_r125.zip'))
-        self._create_file(os.path.join('snapshots', 'foo_r126.zip'))
+        path1 = self._create_file(os.path.join('snapshots', 'foo_r123.tar.bz2'))
+        path2 = self._create_file(os.path.join('snapshots', 'foo_r124.tar.bz2'))
+        path3 = self._create_file(os.path.join('snapshots', 'foo_r125.tar.bz2'))
+        self._create_file(os.path.join('snapshots', 'foo_r126.tar.bz2'))
         snapshots = SnapshotManager(self.config)
         self.assertEqual(path1, snapshots.get(123))
         self.assertEqual(path2, snapshots.get(124))
@@ -110,11 +110,11 @@ class SnapshotManagerTestCase(unittest.TestCase):
         self.assertEqual(None, snapshots.get(126))
 
     def test_cleanup_explicit(self):
-        path1 = self._create_file(os.path.join('snapshots', 'foo_r123.zip'))
-        path2 = self._create_file(os.path.join('snapshots', 'foo_r124.zip'))
-        path3 = self._create_file(os.path.join('snapshots', 'foo_r125.zip'))
+        path1 = self._create_file(os.path.join('snapshots', 'foo_r123.tar.bz2'))
+        path2 = self._create_file(os.path.join('snapshots', 'foo_r124.tar.bz2'))
+        path3 = self._create_file(os.path.join('snapshots', 'foo_r125.tar.bz2'))
         snapshots = SnapshotManager(self.config)
-        path4 = self._create_file(os.path.join('snapshots', 'foo_r126.zip'))
+        path4 = self._create_file(os.path.join('snapshots', 'foo_r126.tar.bz2'))
         snapshots._index.append((os.path.getmtime(path4), 126, path4))
         snapshots._cleanup(3)
         self.assertEqual(path1, snapshots.get(123))
@@ -137,10 +137,10 @@ class SnapshotManagerTestCase(unittest.TestCase):
         snapshots.create(123).join()
         path = snapshots.get(123)
         assert path is not None
-        assert path.endswith('foo_r123.zip')
-        entries = zipfile.ZipFile(path, 'r').infolist()
+        assert path.endswith('foo_r123.tar.bz2')
+        entries = tarfile.open(path, 'r:bz2').getmembers()
         self.assertEqual(1, len(entries))
-        self.assertEqual('foo_r123/', entries[0].filename)
+        self.assertEqual('foo_r123/', entries[0].name)
 
     def test_create_empty_dir(self):
         empty_dir = Mock(isdir=True, get_entries=lambda: [], path='trunk/empty')
@@ -152,15 +152,15 @@ class SnapshotManagerTestCase(unittest.TestCase):
         snapshots.create(123).join()
         path = snapshots.get(123)
         assert path is not None
-        assert path.endswith('foo_r123.zip')
-        entries = zipfile.ZipFile(path, 'r').infolist()
+        assert path.endswith('foo_r123.tar.bz2')
+        entries = tarfile.open(path, 'r:bz2').getmembers()
         self.assertEqual(2, len(entries))
-        self.assertEqual('foo_r123/', entries[0].filename)
-        self.assertEqual('foo_r123/empty/', entries[1].filename)
+        self.assertEqual('foo_r123/', entries[0].name)
+        self.assertEqual('foo_r123/empty/', entries[1].name)
 
     def test_get_closest_match_backward(self):
-        path1 = self._create_file(os.path.join('snapshots', 'foo_r123.zip'))
-        path2 = self._create_file(os.path.join('snapshots', 'foo_r124.zip'))
+        path1 = self._create_file(os.path.join('snapshots', 'foo_r123.tar.bz2'))
+        path2 = self._create_file(os.path.join('snapshots', 'foo_r124.tar.bz2'))
 
         empty_dir = Mock(isdir=True, get_entries=lambda: [], path='trunk/empty')
         root_dir = Mock(isdir=True, get_entries=lambda: [empty_dir],
@@ -177,8 +177,8 @@ class SnapshotManagerTestCase(unittest.TestCase):
         self.assertEqual((124, path2), match)
 
     def test_get_closest_match_forward(self):
-        path1 = self._create_file(os.path.join('snapshots', 'foo_r123.zip'))
-        path2 = self._create_file(os.path.join('snapshots', 'foo_r124.zip'))
+        path1 = self._create_file(os.path.join('snapshots', 'foo_r123.tar.bz2'))
+        path2 = self._create_file(os.path.join('snapshots', 'foo_r124.tar.bz2'))
 
         empty_dir = Mock(isdir=True, get_entries=lambda: [], path='trunk/empty')
         root_dir = Mock(isdir=True, get_entries=lambda: [empty_dir],
