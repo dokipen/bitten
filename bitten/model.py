@@ -367,6 +367,7 @@ class Build(object):
 
     def delete(self, db=None):
         """Remove the build from the database."""
+        assert self.exists, 'Cannot delete a non-existing build'
         if not db:
             db = self.env.get_db_cnx()
             handle_ta = True
@@ -385,6 +386,7 @@ class Build(object):
 
     def insert(self, db=None):
         """Insert a new build into the database."""
+        assert not self.exists, 'Cannot insert an existing build'
         if not db:
             db = self.env.get_db_cnx()
             handle_ta = True
@@ -415,6 +417,7 @@ class Build(object):
 
     def update(self, db=None):
         """Save changes to an existing build."""
+        assert self.exists, 'Cannot update a non-existing build'
         if not db:
             db = self.env.get_db_cnx()
             handle_ta = True

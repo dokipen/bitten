@@ -380,17 +380,6 @@ class Initiator(EventLoop, Session):
         @param profiles: A list of URIs of the profiles the peer claims to
                          support.
         """
-        pass
-
-    def run(self):
-        """Start this peer, which will try to connect to the server and send a
-        greeting.
-        """
-        try:
-            asyncore.loop()
-        except TerminateSession:
-            log.info('Terminating session')
-            self.terminate()
 
     def quit(self):
         self.terminate()

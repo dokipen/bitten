@@ -598,67 +598,69 @@ class BuildController(Component):
             yield ('build', 'Builds')
 
     def get_timeline_events(self, req, start, stop, filters):
-        if 'build' in filters:
-            add_stylesheet(req, 'bitten/bitten.css')
+        if 'build' not in filters:
+            return
 
-            db = self.env.get_db_cnx()
-            cursor = db.cursor()
-            cursor.execute("SELECT b.id,b.config,c.label,b.rev,p.name,"
-                           "b.stopped,b.status FROM bitten_build AS b"
-                           "  INNER JOIN bitten_config AS c ON (c.name=b.config) "
-                           "  INNER JOIN bitten_platform AS p ON (p.id=b.platform) "
-                           "WHERE b.stopped>=%s AND b.stopped<=%s "
-                           "AND b.status IN (%s, %s) ORDER BY b.stopped",
-                           (start, stop, Build.SUCCESS, Build.FAILURE))
+        add_stylesheet(req, 'bitten/bitten.css')
 
-            event_kinds = {Build.SUCCESS: 'successbuild',
-                           Build.FAILURE: 'failedbuild'}
-            for id, config, label, rev, platform, stopped, status in cursor:
+        db = self.env.get_db_cnx()
+        cursor = db.cursor()
+        cursor.execute("SELECT b.id,b.config,c.label,b.rev,p.name,"
+                       "b.stopped,b.status FROM bitten_build AS b"
+                       "  INNER JOIN bitten_config AS c ON (c.name=b.config) "
+                       "  INNER JOIN bitten_platform AS p ON (p.id=b.platform) "
+                       "WHERE b.stopped>=%s AND b.stopped<=%s "
+                       "AND b.status IN (%s, %s) ORDER BY b.stopped",
+                       (start, stop, Build.SUCCESS, Build.FAILURE))
 
-                errors = []
-                if status == Build.FAILURE:
-                    for step in BuildStep.select(self.env, build=id,
-                                                 status=BuildStep.FAILURE,
-                                                 db=db):
-                        errors += [(escape(step.name), escape(error)) for error
-                                   in step.errors]
+        event_kinds = {Build.SUCCESS: 'successbuild',
+                       Build.FAILURE: 'failedbuild'}
+        for id, config, label, rev, platform, stopped, status in cursor:
 
-                title = 'Build of <em>%s [%s]</em> on %s %s' \
-                        % (escape(label), escape(rev), escape(platform),
-                           _status_label[status])
-                message = ''
-                if req.args.get('format') == 'rss':
-                    href = self.env.abs_href.build(config, id)
-                    if errors:
-                        buf = StringIO()
-                        prev_step = None
-                        for step, error in errors:
-                            if step != prev_step:
-                                if prev_step is not None:
-                                    buf.write('</ul>')
-                                buf.write('<p>Step %s failed:</p><ul>' % step)
-                                prev_step = step
-                            buf.write('<li>%s</li>' % escape(error))
-                        buf.write('</ul>')
-                        message = buf.getvalue()
-                else:
-                    href = self.env.href.build(config, id)
-                    if errors:
-                        steps = []
-                        for step, error in errors:
-                            if step not in steps:
-                                steps.append(step)
-                        steps = ['<em>%s</em>' % step for step in steps]
-                        if len(steps) < 2:
-                            message = steps[0]
-                        elif len(steps) == 2:
-                            message = ' and '.join(steps)
-                        elif len(steps) > 2:
-                            message = ', '.join(steps[:-1]) + ', and ' + \
-                                      steps[-1]
-                        message = 'Step%s ' % (len(steps) != 1 and 's' or '') \
-                                  + message + ' failed'
-                yield event_kinds[status], href, title, stopped, None, message
+            errors = []
+            if status == Build.FAILURE:
+                for step in BuildStep.select(self.env, build=id,
+                                             status=BuildStep.FAILURE,
+                                             db=db):
+                    errors += [(escape(step.name), escape(error)) for error
+                               in step.errors]
+
+            title = 'Build of <em>%s [%s]</em> on %s %s' \
+                    % (escape(label), escape(rev), escape(platform),
+                       _status_label[status])
+            message = ''
+            if req.args.get('format') == 'rss':
+                href = self.env.abs_href.build(config, id)
+                if errors:
+                    buf = StringIO()
+                    prev_step = None
+                    for step, error in errors:
+                        if step != prev_step:
+                            if prev_step is not None:
+                                buf.write('</ul>')
+                            buf.write('<p>Step %s failed:</p><ul>' % step)
+                            prev_step = step
+                        buf.write('<li>%s</li>' % escape(error))
+                    buf.write('</ul>')
+                    message = buf.getvalue()
+            else:
+                href = self.env.href.build(config, id)
+                if errors:
+                    steps = []
+                    for step, error in errors:
+                        if step not in steps:
+                            steps.append(step)
+                    steps = ['<em>%s</em>' % step for step in steps]
+                    if len(steps) < 2:
+                        message = steps[0]
+                    elif len(steps) == 2:
+                        message = ' and '.join(steps)
+                    elif len(steps) > 2:
+                        message = ', '.join(steps[:-1]) + ', and ' + \
+                                  steps[-1]
+                    message = 'Step%s ' % (len(steps) != 1 and 's' or '') \
+                              + message + ' failed'
+            yield event_kinds[status], href, title, stopped, None, message
 
     # Internal methods
 
