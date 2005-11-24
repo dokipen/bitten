@@ -121,8 +121,9 @@ class Context(object):
         @param file_: the path to the file containing the report data, relative
             to the base directory
         """
+        filename = self.resolve(file_)
         try:
-            fileobj = file(self.resolve(file_), 'r')
+            fileobj = file(filename, 'r')
             try:
                 xml_elem = xmlio.Fragment()
                 for child in xmlio.parse(fileobj).children():
