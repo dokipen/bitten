@@ -7,6 +7,8 @@
 # you should have received as part of this distribution. The terms
 # are also available at http://bitten.cmlenz.net/wiki/License.
 
+"""Recipe commands for tools commonly used in Java projects."""
+
 from glob import glob
 import logging
 import os
@@ -20,7 +22,15 @@ from bitten.util import xmlio
 log = logging.getLogger('bitten.build.javatools')
 
 def ant(ctxt, file_=None, target=None, keep_going=False, args=None):
-    """Run an Ant build."""
+    """Run an Ant build.
+    
+    @param ctxt: the build context
+    @type ctxt: an instance of L{bitten.recipe.Context}
+    @param file_: name of the Ant build file
+    @param target: name of the target that should be executed (optional)
+    @param keep_going: whether Ant should keep going when errors are encountered
+    @param args: additional arguments to pass to Ant
+    """
     executable = 'ant'
     ant_home = ctxt.config.get_dirpath('ant.home')
     if ant_home:
@@ -83,7 +93,15 @@ def ant(ctxt, file_=None, target=None, keep_going=False, args=None):
         ctxt.error('Ant failed (%s)' % cmdline.returncode)
 
 def junit(ctxt, file_=None, srcdir=None):
-    """Extract test results from a JUnit XML report."""
+    """Extract test results from a JUnit XML report.
+    
+    @param ctxt: the build context
+    @type ctxt: an instance of L{bitten.recipe.Context}
+    @param file_: path to the JUnit XML test results; may contain globbing
+        wildcards for matching multiple results files
+    @param srcdir: name of the directory containing the test sources, used to
+        link test results to the corresponding source files
+    """
     assert file_, 'Missing required attribute "file"'
     try:
         total, failed = 0, 0

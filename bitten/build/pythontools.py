@@ -7,6 +7,8 @@
 # you should have received as part of this distribution. The terms
 # are also available at http://bitten.cmlenz.net/wiki/License.
 
+"""Recipe commands for tools commonly used by Python projects."""
+
 import logging
 import os
 import re
@@ -33,8 +35,14 @@ def _python_path(ctxt):
         return python_path
     return sys.executable
 
-def distutils(ctxt, command='build', file_='setup.py'):
-    """Execute a `distutils` command."""
+def distutils(ctxt, file_='setup.py', command='build'):
+    """Execute a C{distutils} command.
+    
+    @param ctxt: the build context
+    @type ctxt: an instance of L{bitten.recipe.Context}
+    @param file_: name of the file defining the distutils setup
+    @param command: the setup command to execute
+    """
     cmdline = CommandLine(_python_path(ctxt), [ctxt.resolve(file_), command],
                           cwd=ctxt.basedir)
     log_elem = xmlio.Fragment()
@@ -61,7 +69,21 @@ def distutils(ctxt, command='build', file_='setup.py'):
         ctxt.error('distutils failed (%s)' % cmdline.returncode)
 
 def exec_(ctxt, file_=None, module=None, function=None, output=None, args=None):
-    """Execute a python script."""
+    """Execute a Python script.
+    
+    Either the C{file_} or the C{module} parameter must be provided. If
+    specified using the C{file_} parameter, the file must be inside the project
+    directory. If specified as a module, the module must either be resolvable
+    to a file, or the C{function} parameter must be provided
+    
+    @param ctxt: the build context
+    @type ctxt: an instance of L{bitten.recipe.Context}
+    @param file_: name of the script file to execute
+    @param module: name of the Python module to execute
+    @param function: name of the Python function to run
+    @param output: name of the file to which output should be written
+    @param args: extra arguments to pass to the script
+    """
     assert file_ or module, 'Either "file" or "module" attribute required'
     if function:
         assert module and not file_, '"module" attribute required for use of ' \
@@ -89,7 +111,12 @@ def exec_(ctxt, file_=None, module=None, function=None, output=None, args=None):
                     output=output, args=args)
 
 def pylint(ctxt, file_=None):
-    """Extract data from a `pylint` run written to a file."""
+    """Extract data from a C{pylint} run written to a file.
+    
+    @param ctxt: the build context
+    @type ctxt: an instance of L{bitten.recipe.Context}
+    @param file_: name of the file containing the Pylint output
+    """
     assert file_, 'Missing required attribute "file"'
     msg_re = re.compile(r'^(?P<file>.+):(?P<line>\d+): '
                         r'\[(?P<type>[A-Z]\d*)(?:, (?P<tag>[\w\.]+))?\] '
@@ -125,7 +152,16 @@ def pylint(ctxt, file_=None):
         log.warning('Error opening pylint results file (%s)', e)
 
 def trace(ctxt, summary=None, coverdir=None, include=None, exclude=None):
-    """Extract data from a `trace.py` run."""
+    """Extract data from a C{trace.py} run.
+    
+    @param ctxt: the build context
+    @type ctxt: an instance of L{bitten.recipe.Context}
+    @param summary: path to the file containing the coverage summary
+    @param coverdir: name of the directory containing the per-module coverage
+        details
+    @param include: patterns of files or directories to include in the report
+    @param exclude: patterns of files or directories to exclude from the report
+    """
     assert summary, 'Missing required attribute "summary"'
     assert coverdir, 'Missing required attribute "coverdir"'
 
@@ -246,7 +282,12 @@ def trace(ctxt, summary=None, coverdir=None, include=None, exclude=None):
         log.warning('Error opening coverage summary file (%s)', e)
 
 def unittest(ctxt, file_=None):
-    """Extract data from a unittest results file in XML format."""
+    """Extract data from a unittest results file in XML format.
+    
+    @param ctxt: the build context
+    @type ctxt: an instance of L{bitten.recipe.Context}
+    @param file_: name of the file containing the test results
+    """
     assert file_, 'Missing required attribute "file"'
 
     try:

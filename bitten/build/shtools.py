@@ -7,6 +7,8 @@
 # you should have received as part of this distribution. The terms
 # are also available at http://bitten.cmlenz.net/wiki/License.
 
+"""Generic recipe commands for executing external processes."""
+
 import logging
 import os
 import shlex
@@ -17,7 +19,17 @@ from bitten.util import xmlio
 log = logging.getLogger('bitten.build.shtools')
 
 def exec_(ctxt, executable=None, file_=None, output=None, args=None):
-    """Execute a shell script."""
+    """Execute a program or shell script.
+    
+    @param ctxt: the build context
+    @type ctxt: an instance of L{bitten.recipe.Context}
+    @param executable: name of the executable to run
+    @param file_: name of the script file, relative to the project directory,
+        that should be run
+    @param output: name of the file to which the output of the script should be
+        written
+    @param args: command-line arguments to pass to the script
+    """
     assert executable or file_, \
         'Either "executable" or "file" attribute required'
 
@@ -29,7 +41,19 @@ def exec_(ctxt, executable=None, file_=None, output=None, args=None):
 
 def pipe(ctxt, executable=None, file_=None, input_=None, output=None,
          args=None):
-    """Pipe the contents of a file through a script."""
+    """Pipe the contents of a file through a program or shell script.
+    
+    @param ctxt: the build context
+    @type ctxt: an instance of L{bitten.recipe.Context}
+    @param executable: name of the executable to run
+    @param file_: name of the script file, relative to the project directory,
+        that should be run
+    @param input_: name of the file containing the data that should be passed
+        to the shell script on its standard input stream
+    @param output: name of the file to which the output of the script should be
+        written
+    @param args: command-line arguments to pass to the script
+    """
     assert executable or file_, \
         'Either "executable" or "file" attribute required'
     assert input_, 'Missing required attribute "input"'
@@ -42,7 +66,22 @@ def pipe(ctxt, executable=None, file_=None, input_=None, output=None,
 
 def execute(ctxt, executable=None, file_=None, input_=None, output=None,
             args=None):
-    """Generic external program execution."""
+    """Generic external program execution.
+    
+    This function is not itself bound to a recipe command, but rather used from
+    other commands.
+    
+    @param ctxt: the build context
+    @type ctxt: an instance of L{bitten.recipe.Context}
+    @param executable: name of the executable to run
+    @param file_: name of the script file, relative to the project directory,
+        that should be run
+    @param input_: name of the file containing the data that should be passed
+        to the shell script on its standard input stream
+    @param output: name of the file to which the output of the script should be
+        written
+    @param args: command-line arguments to pass to the script
+    """
     if args:
         if isinstance(args, basestring):
             args = shlex.split(args)

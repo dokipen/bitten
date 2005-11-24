@@ -7,6 +7,8 @@
 # you should have received as part of this distribution. The terms
 # are also available at http://bitten.cmlenz.net/wiki/License.
 
+"""Recipe commands for build tasks commonly used for C/C++ projects."""
+
 import logging
 import re
 import os
@@ -22,7 +24,18 @@ log = logging.getLogger('bitten.build.ctools')
 
 def configure(ctxt, file_='configure', enable=None, disable=None, with=None,
               without=None, cflags=None, cxxflags=None):
-    """Run a configure script."""
+    """Run a C{configure} script.
+    
+    @param ctxt: the build context
+    @type ctxt: an instance of L{bitten.recipe.Context}
+    @param file_: name of the configure script
+    @param enable: names of the features to enable, seperated by spaces
+    @param disable: names of the features to disable, separated by spaces
+    @param with: names of external packages to include
+    @param without: names of external packages to exclude
+    @param cflags: C{CFLAGS} to pass to the configure script
+    @param cxxflags: C{CXXFLAGS} to pass to the configure script
+    """
     args = []
     if enable:
         args += ['--enable-%s' % feature for feature in enable.split()]
@@ -48,7 +61,14 @@ def configure(ctxt, file_='configure', enable=None, disable=None, with=None,
         ctxt.error('configure failed (%s)' % returncode)
 
 def make(ctxt, target=None, file_=None, keep_going=False):
-    """Execute a Makefile target."""
+    """Execute a Makefile target.
+    
+    @param ctxt: the build context
+    @type ctxt: an instance of L{bitten.recipe.Context}
+    @param file_: name of the Makefile
+    @param keep_going: whether make should keep going when errors are
+        encountered
+    """
     executable = ctxt.config.get_filepath('make.path') or 'make'
 
     args = ['--directory', ctxt.basedir]
@@ -65,7 +85,15 @@ def make(ctxt, target=None, file_=None, keep_going=False):
         ctxt.error('make failed (%s)' % returncode)
 
 def cppunit(ctxt, file_=None, srcdir=None):
-    """Collect CppUnit XML data."""
+    """Collect CppUnit XML data.
+    
+    @param ctxt: the build context
+    @type ctxt: an instance of L{bitten.recipe.Context}
+    @param file_: path of the file containing the CppUnit results; may contain
+        globbing wildcards to match multiple files
+    @param srcdir: name of the directory containing the source files, used to
+        link the test results to the corresponding files
+    """
     assert file_, 'Missing required attribute "file"'
 
     try:
@@ -126,7 +154,15 @@ def cppunit(ctxt, file_=None, srcdir=None):
         log.warning('Error parsing CppUnit results file (%s)', e)
 
 def gcov(ctxt, include=None, exclude=None, prefix=None):
-    """Run `gcov` to extract coverage data where available."""
+    """Run C{gcov} to extract coverage data where available.
+    
+    @param ctxt: the build context
+    @type ctxt: an instance of L{bitten.recipe.Context}
+    @param include: patterns of files and directories to include
+    @param exclude: patterns of files and directories that should be excluded
+    @param prefix: optional prefix name that is added to object files by the
+        build system
+    """
     file_re = re.compile(r'^File \`(?P<file>[^\']+)\'\s*$')
     lines_re = re.compile(r'^Lines executed:(?P<cov>\d+\.\d+)\% of (?P<num>\d+)\s*$')
 

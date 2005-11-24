@@ -7,6 +7,8 @@
 # you should have received as part of this distribution. The terms
 # are also available at http://bitten.cmlenz.net/wiki/License.
 
+"""Implementation of the build slave."""
+
 from datetime import datetime
 import logging
 import os
@@ -28,10 +30,22 @@ log = logging.getLogger('bitten.slave')
 
 
 class Slave(beep.Initiator):
-    """Build slave."""
+    """BEEP initiator implementation for the build slave."""
 
     def __init__(self, ip, port, name=None, config=None, dry_run=False,
                  work_dir=None, keep_files=False):
+        """Create the build slave instance.
+        
+        @param ip: Host name or IP address of the build master to connect to
+        @param port: TCP port number of the build master to connect to
+        @param name: The name with which this slave should identify itself
+        @param config: The slave configuration
+        @param dry_run: Whether the build outcome should not be reported back
+            to the master
+        @param work_dir: The working directory to use for build execution
+        @param keep_files: Whether files and directories created for build
+            execution should be kept when done
+        """
         beep.Initiator.__init__(self, ip, port)
         self.name = name
         self.config = config
@@ -44,6 +58,11 @@ class Slave(beep.Initiator):
         self.keep_files = keep_files
 
     def greeting_received(self, profiles):
+        """Start a channel for the build orchestration profile, if advertised
+        by the peer.
+        
+        Otherwise, terminate the session.
+        """
         if OrchestrationProfileHandler.URI not in profiles:
             err = 'Peer does not support the Bitten orchestration profile'
             log.error(err)
@@ -94,6 +113,12 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
         self.channel.send_msg(beep.Payload(xml), handle_reply)
 
     def handle_msg(self, msgno, payload):
+        """Handle either a build initiation or the transmission of a snapshot
+        archive.
+        
+        @param msgno: The identifier of the BEEP message
+        @param payload: The payload of the message
+        """
         if payload.content_type == beep.BEEP_XML:
             elem = xmlio.parse(payload.body)
             if elem.name == 'build':
@@ -120,7 +145,7 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
                 shutil.copyfileobj(payload.body, archive_file)
             finally:
                 archive_file.close()
-            basedir = self.unpack_snapshot(msgno, project_dir, archive_name)
+            basedir = self.unpack_snapshot(project_dir, archive_name)
 
             try:
                 recipe = Recipe(self.build_xml, basedir, self.config)
@@ -130,8 +155,12 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
                     shutil.rmtree(basedir)
                     os.remove(archive_path)
 
-    def unpack_snapshot(self, msgno, project_dir, archive_name):
-        """Unpack a snapshot archive."""
+    def unpack_snapshot(self, project_dir, archive_name):
+        """Unpack a snapshot archive.
+        
+        @param project_dir: Base directory for builds for the project
+        @param archive_name: Name of the archive file
+        """
         path = os.path.join(project_dir, archive_name)
         log.debug('Received snapshot archive: %s', path)
         try:
@@ -158,6 +187,15 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
             raise beep.ProtocolError(550, 'Could not unpack archive (%s)' % e)
 
     def execute_build(self, msgno, recipe):
+        """Execute a build.
+        
+        Execute every step in the recipe, and report the outcome of each
+        step back to the server using an ANS message.
+        
+        @param msgno: The identifier of the snapshot transmission message
+        @param recipe: The recipe object
+        @type recipe: an instance of L{bitten.recipe.Recipe}
+        """
         log.info('Building in directory %s', recipe.ctxt.basedir)
         try:
             if not self.session.dry_run:
@@ -237,6 +275,7 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
 
 
 def main():
+    """Main entry point for running the build slave."""
     from bitten import __version__ as VERSION
     from optparse import OptionParser
 

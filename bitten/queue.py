@@ -7,6 +7,17 @@
 # you should have received as part of this distribution. The terms
 # are also available at http://bitten.cmlenz.net/wiki/License.
 
+"""Implements the scheduling of builds for a project.
+
+This module provides the functionality for scheduling builds for a specific
+Trac environment. It is used by both the build master and the web interface to
+get the list of required builds (revisions not built yet).
+
+Furthermore, the C{BuildQueue} class is used by the build master to determine
+the next pending build, and to match build slaves against configured target
+platforms.
+"""
+
 from itertools import ifilter
 import logging
 import re
@@ -24,6 +35,10 @@ def collect_changes(repos, config, db=None):
     This function is a generator that yields `(platform, rev, build)` tuples,
     where `platform` is a `TargetPlatform` object, `rev` is the identifier of
     the changeset, and `build` is a `Build` object or `None`.
+
+    @param repos: The version control repository
+    @param config: The build configuration
+    @param db: a database connection (optional)
     """
     env = config.env
     if not db:
@@ -98,7 +113,7 @@ class BuildQueue(object):
         where `build` is the `Build` object and `slave` is the name of the
         build slave.
 
-        Otherwise, this function will return `(None, None)`.
+        Otherwise, this function will return C{(None, None)}
         """
         log.debug('Checking for pending builds...')
 
@@ -155,7 +170,7 @@ class BuildQueue(object):
             repos.close()
 
     def reset_orphaned_builds(self):
-        """Reset all in-progress builds to `PENDING` state.
+        """Reset all in-progress builds to PENDING state.
         
         This is used to cleanup after a crash of the build master process,
         which would leave in-progress builds in the database that aren't
@@ -177,13 +192,13 @@ class BuildQueue(object):
     def register_slave(self, name, properties):
         """Register a build slave with the queue.
         
-        @param name: The name of the slave
-        @param properties: A `dict` containing the properties of the slave
-        @return: whether the registration was successful
-
         This method tries to match the slave against the configured target
         platforms. Only if it matches at least one platform will the
         registration be successful.
+        
+        @param name: The name of the slave
+        @param properties: A dict containing the properties of the slave
+        @return: Whether the registration was successful
         """
         any_match = False
         for config in BuildConfig.select(self.env):
@@ -212,12 +227,12 @@ class BuildQueue(object):
     def unregister_slave(self, name):
         """Unregister a build slave.
         
-        @param name: The name of the slave
-        @return: `True` if the slave was registered for this build queue,
-                 `False` otherwise
-
         This method removes the slave from the registry, and also resets any
         in-progress builds by this slave to `PENDING` state.
+        
+        @param name: The name of the slave
+        @return: C{True} if the slave was registered for this build queue,
+            C{False} otherwise
         """
         for slaves in self.slaves.values():
             if name in slaves:

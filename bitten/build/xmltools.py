@@ -7,6 +7,8 @@
 # you should have received as part of this distribution. The terms
 # are also available at http://bitten.cmlenz.net/wiki/License.
 
+"""Recipe commands for XML processing."""
+
 import logging
 import os
 
@@ -32,7 +34,17 @@ else:
 log = logging.getLogger('bitten.build.xmltools')
 
 def transform(ctxt, src=None, dest=None, stylesheet=None):
-    """Apply an XSLT stylesheet to a source XML document."""
+    """Apply an XSLT stylesheet to a source XML document.
+    
+    This command requires either libxslt (with Python bindings), or MSXML to
+    be installed.
+    
+    @param ctxt: the build context
+    @type ctxt: an instance of L{bitten.recipe.Context}
+    @param src: name of the XML input file
+    @param dest: name of the XML output file
+    @param stylesheet: name of the file containing the XSLT stylesheet
+    """
     assert src, 'Missing required attribute "src"'
     assert dest, 'Missing required attribute "dest"'
     assert stylesheet, 'Missing required attribute "stylesheet"'

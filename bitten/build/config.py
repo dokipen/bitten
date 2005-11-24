@@ -7,6 +7,8 @@
 # you should have received as part of this distribution. The terms
 # are also available at http://bitten.cmlenz.net/wiki/License.
 
+"""Support for build slave configuration."""
+
 from ConfigParser import SafeConfigParser
 import logging
 import os
@@ -88,12 +90,23 @@ class Configuration(object):
                     self.packages[package][propname] = value
 
     def __contains__(self, key):
+        """Return whether the configuration contains a value for the specified
+        key.
+        
+        @param key: name of the configuration option using dotted notation
+            (for example, "python.path")
+        """
         if '.' in key:
             package, propname = key.split('.', 1)
             return propname in self.packages.get(package, {})
         return key in self.properties
 
     def __getitem__(self, key):
+        """Return the value for the specified configuration key.
+        
+        @param key: name of the configuration option using dotted notation
+            (for example, "python.path")
+        """
         if '.' in key:
             package, propname = key.split('.', 1)
             return self.packages.get(package, {}).get(propname)
@@ -102,9 +115,15 @@ class Configuration(object):
     def __str__(self):
         return str({'properties': self.properties, 'packages': self.packages})
 
-    _VAR_RE = re.compile(r'\$\{(?P<ref>\w[\w.]*?\w)(?:\:(?P<def>.+))?\}')
-
     def get_dirpath(self, key):
+        """Return the value of the specified configuration key, but verify that
+        the value refers to the path of an existing directory.
+        
+        If the value does not exist, or is not a directory path, return C{None}.
+
+        @param key: name of the configuration option using dotted notation
+            (for example, "ant.home")
+        """
         dirpath = self[key]
         if dirpath:
             if os.path.isdir(dirpath):
@@ -113,6 +132,14 @@ class Configuration(object):
         return None
 
     def get_filepath(self, key):
+        """Return the value of the specified configuration key, but verify that
+        the value refers to the path of an existing file.
+        
+        If the value does not exist, or is not a file path, return C{None}.
+
+        @param key: name of the configuration option using dotted notation
+            (for example, "python.path")
+        """
         filepath = self[key]
         if filepath:
             if os.path.isfile(filepath):
@@ -120,15 +147,19 @@ class Configuration(object):
             log.warning('Invalid %s: %s is not a file', key, filepath)
         return None
 
+    _VAR_RE = re.compile(r'\$\{(?P<ref>\w[\w.]*?\w)(?:\:(?P<def>.+))?\}')
+
     def interpolate(self, text):
         """Interpolate configuration properties into a string.
         
         Properties can be referenced in the text using the notation
-        `${property.name}`. A default value can be provided by appending it to
+        C{${property.name}}. A default value can be provided by appending it to
         the property name separated by a colon, for example
-        `${property.name:defaultvalue}`. This value will be used when there's
+        C{${property.name:defaultvalue}}. This value will be used when there's
         no such property in the configuration. Otherwise, if no default is
         provided, the reference is not replaced at all.
+
+        @param text: the string containing variable references
         """
         def _replace(m):
             refname = m.group('ref')

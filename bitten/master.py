@@ -7,6 +7,13 @@
 # you should have received as part of this distribution. The terms
 # are also available at http://bitten.cmlenz.net/wiki/License.
 
+"""Build master implementation.
+
+This module is runnable as a script to launch the build master. The build
+master starts a single process that handles connections to any number of build
+slaves.
+"""
+
 import calendar
 from datetime import datetime, timedelta
 import logging
@@ -30,6 +37,7 @@ DEFAULT_CHECK_INTERVAL = 120 # 2 minutes
 
 
 class Master(beep.Listener):
+    """BEEP listener implementation for the build master."""
 
     def __init__(self, envs, ip, port, adjust_timestamps=False,
                  check_interval=DEFAULT_CHECK_INTERVAL):
@@ -104,6 +112,8 @@ class Master(beep.Listener):
 class OrchestrationProfileHandler(beep.ProfileHandler):
     """Handler for communication on the Bitten build orchestration profile from
     the perspective of the build master.
+
+    An instance of this class is associated with exactly one remote build slave.
     """
     URI = 'http://bitten.cmlenz.net/beep/orchestration'
 
@@ -352,6 +362,7 @@ def _parse_iso_datetime(string):
         raise ValueError, 'Invalid ISO date/time %s (%s)' % (string, e)
 
 def main():
+    """Main entry point for running the build master."""
     from bitten import __version__ as VERSION
     from optparse import OptionParser
 
