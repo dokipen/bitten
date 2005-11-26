@@ -7,6 +7,8 @@
 # you should have received as part of this distribution. The terms
 # are also available at http://bitten.cmlenz.net/wiki/License.
 
+"""Model classes for objects persisted in the database."""
+
 try:
     set
 except NameError:
@@ -44,7 +46,8 @@ class BuildConfig(object):
         self.label = label or ''
         self.description = description or ''
 
-    exists = property(fget=lambda self: self._old_name is not None)
+    exists = property(fget=lambda self: self._old_name is not None,
+                      doc='Whether this configuration exists in the database')
 
     def delete(self, db=None):
         """Remove a build configuration and all dependent objects from the
@@ -198,7 +201,8 @@ class TargetPlatform(object):
         self.name = name
         self.rules = []
 
-    exists = property(fget=lambda self: self.id is not None)
+    exists = property(fget=lambda self: self.id is not None,
+                      doc='Whether this target platform exists in the database')
 
     def delete(self, db=None):
         """Remove the target platform from the database."""
@@ -361,9 +365,12 @@ class Build(object):
         self.status = status
         self.slave_info = {}
 
-    exists = property(fget=lambda self: self.id is not None)
-    completed = property(fget=lambda self: self.status != Build.IN_PROGRESS)
-    successful = property(fget=lambda self: self.status == Build.SUCCESS)
+    exists = property(fget=lambda self: self.id is not None,
+                      doc='Whether this build exists in the database')
+    completed = property(fget=lambda self: self.status != Build.IN_PROGRESS,
+                         doc='Whether the build has been completed')
+    successful = property(fget=lambda self: self.status == Build.SUCCESS,
+                          doc='Whether the build was successful')
 
     def delete(self, db=None):
         """Remove the build from the database."""
@@ -537,8 +544,10 @@ class BuildStep(object):
         self.errors = []
         self._exists = False
 
-    exists = property(fget=lambda self: self._exists)
-    successful = property(fget=lambda self: self.status == BuildStep.SUCCESS)
+    exists = property(fget=lambda self: self._exists,
+                      doc='Whether this build step exists in the database')
+    successful = property(fget=lambda self: self.status == BuildStep.SUCCESS,
+                          doc='Whether the build step was successful')
 
     def delete(self, db=None):
         """Remove the build step from the database."""
@@ -682,7 +691,8 @@ class BuildLog(object):
         self.orderno = orderno and int(orderno) or 0
         self.messages = []
 
-    exists = property(fget=lambda self: self.id is not None)
+    exists = property(fget=lambda self: self.id is not None,
+                      doc='Whether this build log exists in the database')
 
     def delete(self, db=None):
         """Remove the build log from the database."""
@@ -805,7 +815,8 @@ class Report(object):
         self.generator = generator or ''
         self.items = []
 
-    exists = property(fget=lambda self: self.id is not None)
+    exists = property(fget=lambda self: self.id is not None,
+                      doc='Whether this report exists in the database')
 
     def delete(self, db=None):
         """Remove the report from the database."""

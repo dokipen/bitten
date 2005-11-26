@@ -1,4 +1,5 @@
-#!/usr/bin/env python
+# -*- coding: iso8859-1 -*-
+#
 # Copyright (C) 1998 Dinu C. Gherman <gherman@europemail.com>
 # Copyright (C) 2005 Christopher Lenz <cmlenz@gmx.de>
 # 
@@ -15,6 +16,8 @@
 #     the above copyright notice appear in all copies and that both
 #     that copyright notice and this  permission notice appear in
 #     supporting documentation.
+
+"""Support for counting the lines of code in Python programs."""
 
 import re
 
@@ -58,11 +61,14 @@ _is_doc_candidate = re.compile(r"^[ \t]*('''|\"\"\")")
 BLANK, CODE, COMMENT, DOC  = 0, 1, 2, 3
 
 def count(source):
-    """Parse the given file-like object.
+    """Parse the given file-like object as Python source code.
     
-    For every line, returns a `(lineno, type, line)` tuple, where `lineno`
-    is the line number (starting at 0), `type` is one of `BLANK`, `CODE,
-    `COMMENT` or `DOC`, and `line` is the actual content of the line."""
+    For every line, return a C{(lineno, type, line)} tuple, where C{lineno}
+    is the line number (starting at 0), C{type} is one of C{BLANK}, C{CODE},
+    C{COMMENT} or C{DOC}, and C{line} is the actual content of the line.
+
+    @param source: a file-like object containing Python code
+    """
 
     quote3_finder = {'"': _dquote3_finder, "'": _squote3_finder}
     quote1_finder = {'"': _dquote1_finder, "'": _squote1_finder }

@@ -32,12 +32,13 @@ def collect_changes(repos, config, db=None):
     """Collect all changes for a build configuration that either have already
     been built, or still need to be built.
     
-    This function is a generator that yields `(platform, rev, build)` tuples,
-    where `platform` is a `TargetPlatform` object, `rev` is the identifier of
-    the changeset, and `build` is a `Build` object or `None`.
+    This function is a generator that yields C{(platform, rev, build)} tuples,
+    where C{platform} is a L{bitten.model.TargetPlatform} object, C{rev} is the
+    identifier of the changeset, and C{build} is a L{bitten.model.Build} object
+    or C{None}.
 
-    @param repos: The version control repository
-    @param config: The build configuration
+    @param repos: the version control repository
+    @param config: the build configuration
     @param db: a database connection (optional)
     """
     env = config.env
@@ -91,7 +92,7 @@ class BuildQueue(object):
     def __init__(self, env):
         """Create the build queue.
         
-        @param env: The Trac environment
+        @param env: the Trac environment
         """
         self.env = env
         self.slaves = {} # Sets of slave names keyed by target platform ID
@@ -109,9 +110,9 @@ class BuildQueue(object):
         """Check whether one of the pending builds can be built by one of the
         available build slaves.
         
-        If such a build is found, this method returns a `(build, slave)` tuple,
-        where `build` is the `Build` object and `slave` is the name of the
-        build slave.
+        If such a build is found, this method returns a C{(build, slave)}
+        tuple, where C{build} is the L{bitten.model.Build} object and C{slave}
+        is the name of the build slave that should handle the build.
 
         Otherwise, this function will return C{(None, None)}
         """
@@ -228,7 +229,7 @@ class BuildQueue(object):
         """Unregister a build slave.
         
         This method removes the slave from the registry, and also resets any
-        in-progress builds by this slave to `PENDING` state.
+        in-progress builds by this slave to PENDING state.
         
         @param name: The name of the slave
         @return: C{True} if the slave was registered for this build queue,

@@ -7,6 +7,8 @@
 # you should have received as part of this distribution. The terms
 # are also available at http://bitten.cmlenz.net/wiki/License.
 
+"""Implementation of the Bitten web interface."""
+
 from datetime import datetime
 import posixpath
 import re
@@ -68,9 +70,11 @@ class BittenChrome(Component):
     # ITemplatesProvider methods
 
     def get_htdocs_dirs(self):
+        """Return the directories containing static resources."""
         return [('bitten', pkg_resources.resource_filename(__name__, 'htdocs'))]
 
     def get_templates_dirs(self):
+        """Return the directories containing templates."""
         return [pkg_resources.resource_filename(__name__, 'templates')]
 
 
@@ -82,9 +86,16 @@ class BuildConfigController(Component):
     # INavigationContributor methods
 
     def get_active_navigation_item(self, req):
+        """Called by Trac to determine which navigation item should be marked
+        as active.
+        
+        @param req: the request object
+        """
         return 'build'
 
     def get_navigation_items(self, req):
+        """Return the navigation item for access the build status overview from
+        the Trac navigation bar."""
         if not req.perm.has_permission('BUILD_VIEW'):
             return
         yield 'mainnav', 'build', \

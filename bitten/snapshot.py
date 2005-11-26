@@ -12,7 +12,7 @@
 Snapshots of the code base are stored in the Trac environment as tar archives,
 compressed using bzip2.
 
-These files use the naming convention `[config_name]_r[revision].tar.bz2` so
+These files use the naming convention C{[config_name]_r[revision].tar.bz2} so
 they can be located programmatically after creation, and associated with the
 build config and revision they apply to.
 
@@ -45,6 +45,8 @@ import tarfile
 
 from bitten.util import md5sum
 
+__all__ = ['SnapshotManager']
+
 log = logging.getLogger('bitten.snapshot')
 
 MAX_SNAPSHOTS = 10
@@ -57,7 +59,8 @@ class SnapshotManager(object):
     def __init__(self, config):
         """Create the snapshot manager.
         
-        @param config: The `BuildConfig` instance
+        @param config: the build configuration
+        @type config: an instance of L{bitten.model.BuildConfig}
         """
         assert config and config.exists, 'Build configuration does not exist'
         self.env = config.env
@@ -111,7 +114,11 @@ class SnapshotManager(object):
             yield mtime, rev, filepath
 
     def _cleanup(self, limit=None):
-        """Remove obsolete snapshots to preserve disk space."""
+        """Remove obsolete snapshots to preserve disk space.
+        
+        @param limit: the maximum number of snapshot archives to keep; defaults
+            to the value of the C{max_snapshots} value in C{trac.ini}.
+        """
         self._lock.acquire()
         try:
             self._index.sort(lambda a, b: -cmp(a[0], b[0]))
@@ -137,6 +144,9 @@ class SnapshotManager(object):
         The archive is created in a worker thread. The return value of this
         function is the thread object. The caller may use this object to check
         for completion of the operation.
+        
+        @param rev: the repository revision for which a snapshot archive should
+            be created
         """
         self._lock.acquire()
         try:
@@ -179,7 +189,7 @@ class SnapshotManager(object):
                 base_filepath=None, base_prefix=None):
         """Actually create a snapshot archive.
         
-        This is used internally from the `create()` function and executed in a
+        This is used internally from the C{create()} function and executed in a
         worker thread.
         """
         log.debug('Preparing snapshot archive for %s@%s', new_root.path,
@@ -260,7 +270,10 @@ class SnapshotManager(object):
         """Returns the path to an already existing snapshot archive for the
         specified revision.
         
-        If no snapshot exists for the revision, this function returns `None`.
+        If no snapshot exists for the revision, this function returns C{None}.
+        
+        @param rev: the repository revision for which a snapshot archive should
+            be retrieved
         """
         self._lock.acquire()
         try:

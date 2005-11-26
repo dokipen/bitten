@@ -252,8 +252,10 @@ class ParsedElement(object):
         self._node = node
         self.attr = ParsedElement._Attrs(node)
 
-    name = property(fget=lambda self: self._node.localName)
-    namespace = property(fget=lambda self: self._node.namespaceURI)
+    name = property(fget=lambda self: self._node.localName,
+                    doc='Local name of the element')
+    namespace = property(fget=lambda self: self._node.namespaceURI,
+                         doc='Namespace URI of the element')
 
     def children(self, name=None):
         """Iterate over the child elements of this element.
