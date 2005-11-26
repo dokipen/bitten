@@ -34,33 +34,18 @@ class OrchestrationProfileHandlerTestCase(unittest.TestCase):
         fd.close()
         return filename
 
-    def test_unpack_invalid_zip_1(self):
+    def test_unpack_invalid_snapshot(self):
         """
-        Verify handling of `IOError` exceptions when trying to unpack an
-        invalid ZIP file.
+        Verify handling of `TarError` exceptions when trying to unpack an
+        invalid .tar.bz2 file.
+        """
+        path = self._create_file('invalid.tar.bz2')
+        tarbz2 = file(path, 'w')
+        tarbz2.write('INVALID')
+        tarbz2.close()
+        self.assertRaises(beep.ProtocolError, self.handler.unpack_snapshot,
+                          os.path.dirname(path), 'invalid.tar.bz2')
 
-        The `zipfile` module will actually raise an `IOError` instead of a
-        `zipfile.error` here because it'll try to seek past the beginning of
-        the file.
-        """
-        path = self._create_file('invalid.zip')
-        zip = file(path, 'w')
-        zip.write('INVALID')
-        zip.close()
-        self.assertRaises(beep.ProtocolError, self.handler.unpack_snapshot, 0,
-                          os.path.dirname(path), 'invalid.zip')
-
-    def test_unpack_invalid_zip_2(self):
-        """
-        Verify handling of `zip.error` exceptions when trying to unpack an
-        invalid ZIP file.
-        """
-        path = self._create_file('invalid.zip')
-        zip = file(path, 'w')
-        zip.write('INVALIDINVALIDINVALIDINVALIDINVALIDINVALID')
-        zip.close()
-        self.assertRaises(beep.ProtocolError, self.handler.unpack_snapshot, 0,
-                          os.path.dirname(path), 'invalid.zip')
 
 def suite():
     suite = unittest.TestSuite()
