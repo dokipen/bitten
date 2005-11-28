@@ -149,7 +149,6 @@ class BuildQueue(object):
             repos.sync()
 
             db = self.env.get_db_cnx()
-            build = None
             builds = []
             for config in BuildConfig.select(self.env, db=db):
                 for platform, rev, build in collect_changes(repos, config, db):
@@ -157,16 +156,15 @@ class BuildQueue(object):
                         log.info('Enqueuing build of configuration "%s" at '
                                  'revision [%s] on %s', config.name, rev,
                                  platform.name)
-                        build = Build(self.env)
-                        build.config = config.name
-                        build.rev = str(rev)
-                        build.rev_time = repos.get_changeset(rev).date
-                        build.platform = platform.id
+                        build = Build(self.env, config=config.name,
+                                      platform=platform.id, rev=str(rev),
+                                      rev_time = repos.get_changeset(rev).date)
                         builds.append(build)
                         break
             for build in builds:
                 build.insert(db=db)
-                db.commit()
+            db.commit()
+
         finally:
             repos.close()
 
@@ -204,8 +202,6 @@ class BuildQueue(object):
         any_match = False
         for config in BuildConfig.select(self.env):
             for platform in TargetPlatform.select(self.env, config=config.name):
-                if not platform.id in self.slaves:
-                    self.slaves[platform.id] = []
                 match = True
                 for propname, pattern in ifilter(None, platform.rules):
                     try:
@@ -221,7 +217,7 @@ class BuildQueue(object):
                 if match:
                     log.debug('Slave %s matched target platform "%s"', name,
                               platform.name)
-                    self.slaves[platform.id].append(name)
+                    self.slaves.setdefault(platform.id, []).append(name)
                     any_match = True
         return any_match
 

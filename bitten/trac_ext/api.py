@@ -70,8 +70,8 @@ class IReportSummarizer(Interface):
         component supports."""
 
     def render_summary(req, config, build, step, category):
-        """Render a summary for the given report and return the results HTML as
-        a string.
+        """Render a summary for the given report and return the resulting HTML
+        as string.
         
         @param req: the request object
         @param config: the build configuration

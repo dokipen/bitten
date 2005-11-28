@@ -210,7 +210,7 @@ class BuildQueueTestCase(unittest.TestCase):
 
         queue = BuildQueue(self.env)
         assert not queue.register_slave('foo', {'family': 'nt'})
-        self.assertEqual([], queue.slaves[platform.id])
+        self.assertRaises(KeyError, queue.slaves.__getitem__, platform.id)
 
     def test_register_slave_match_regexp(self):
         BuildConfig(self.env, 'test', active=True).insert()
@@ -241,7 +241,7 @@ class BuildQueueTestCase(unittest.TestCase):
 
         queue = BuildQueue(self.env)
         assert not queue.register_slave('foo', {'version': '7.8.1'})
-        self.assertEqual([], queue.slaves[platform.id])
+        self.assertRaises(KeyError, queue.slaves.__getitem__, platform.id)
 
     def test_register_slave_match_regexp_invalid(self):
         BuildConfig(self.env, 'test', active=True).insert()
@@ -251,7 +251,7 @@ class BuildQueueTestCase(unittest.TestCase):
 
         queue = BuildQueue(self.env)
         assert not queue.register_slave('foo', {'version': '7.8.1'})
-        self.assertEqual([], queue.slaves[platform.id])
+        self.assertRaises(KeyError, queue.slaves.__getitem__, platform.id)
 
     def test_unregister_slave_no_builds(self):
         queue = BuildQueue(self.env)

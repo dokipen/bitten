@@ -65,7 +65,7 @@ GROUP BY file, fixture ORDER BY fixture""", (build.id,))
         return hdf.render('bitten_summary_tests.cs')
 
 
-class CodeCoverageSummarizer(Component):
+class TestCoverageSummarizer(Component):
     implements(IReportSummarizer)
 
     def get_supported_categories(self):

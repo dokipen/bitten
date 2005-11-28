@@ -62,6 +62,7 @@ def _build_to_hdf(env, req, build):
     }
     return hdf
 
+
 class BittenChrome(Component):
     """Provides the Bitten templates and static resources."""
 

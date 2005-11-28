@@ -170,7 +170,6 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
                 names = []
                 for tarinfo in tar_file:
                     if tarinfo.isfile() or tarinfo.isdir():
-                        log.debug('Extracting %s to %s', tarinfo.name, project_dir)
                         if tarinfo.name.startswith('/') or '..' in tarinfo.name:
                             continue
                         names.append(tarinfo.name)
