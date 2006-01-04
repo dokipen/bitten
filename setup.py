@@ -21,7 +21,7 @@ setup(
     description='Framework for collecting software metrics via continuous '
                 'integration',
     license='BSD',
-    packages=find_packages(exclude=['ez_setup', '*.tests*']),
+    packages=find_packages(exclude=['*.tests*']),
     package_data={
         'bitten.trac_ext': ['htdocs/*.*',
                             'htdocs/charts_library/*.swf',

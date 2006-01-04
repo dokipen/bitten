@@ -13,16 +13,18 @@ from trac.test import EnvironmentStub, Mock
 from trac.web.clearsilver import HDFWrapper
 from bitten.model import *
 from bitten.trac_ext.charts import *
+from bitten.trac_ext.compat import schema_to_sql
 
 
 class TestResultsChartGeneratorTestCase(unittest.TestCase):
 
     def setUp(self):
         self.env = EnvironmentStub()
+        self.env.path = ''
         db = self.env.get_db_cnx()
         cursor = db.cursor()
         for table in schema:
-            for stmt in db.to_sql(table):
+            for stmt in schema_to_sql(self.env, db, table):
                 cursor.execute(stmt)
 
     def test_supported_categories(self):
@@ -98,10 +100,11 @@ class TestCoverageChartGeneratorTestCase(unittest.TestCase):
 
     def setUp(self):
         self.env = EnvironmentStub()
+        self.env.path = ''
         db = self.env.get_db_cnx()
         cursor = db.cursor()
         for table in schema:
-            for stmt in db.to_sql(table):
+            for stmt in schema_to_sql(self.env, db, table):
                 cursor.execute(stmt)
 
     def test_supported_categories(self):

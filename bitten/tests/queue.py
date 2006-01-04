@@ -15,6 +15,7 @@ import unittest
 from trac.test import EnvironmentStub, Mock
 from bitten.model import BuildConfig, TargetPlatform, Build, BuildStep, schema
 from bitten.queue import BuildQueue, collect_changes
+from bitten.trac_ext.compat import schema_to_sql
 
 
 class CollectChangesTestCase(unittest.TestCase):
@@ -28,7 +29,7 @@ class CollectChangesTestCase(unittest.TestCase):
         db = self.env.get_db_cnx()
         cursor = db.cursor()
         for table in schema:
-            for stmt in db.to_sql(table):
+            for stmt in schema_to_sql(self.env, db, table):
                 cursor.execute(stmt)
         self.config = BuildConfig(self.env, name='test', path='somepath')
         self.config.insert(db=db)
@@ -124,7 +125,7 @@ class BuildQueueTestCase(unittest.TestCase):
         db = self.env.get_db_cnx()
         cursor = db.cursor()
         for table in schema:
-            for stmt in db.to_sql(table):
+            for stmt in schema_to_sql(self.env, db, table):
                 cursor.execute(stmt)
         db.commit()
 

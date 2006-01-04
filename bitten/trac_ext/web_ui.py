@@ -21,7 +21,7 @@ from StringIO import StringIO
 import pkg_resources
 from trac.core import *
 from trac.Timeline import ITimelineEventProvider
-from trac.util import escape, pretty_timedelta, format_datetime, shorten_line
+from trac.util import pretty_timedelta, format_datetime, shorten_line, Markup
 from trac.web import IRequestHandler
 from trac.web.chrome import INavigationContributor, ITemplateProvider, \
                             add_link, add_stylesheet
@@ -66,23 +66,7 @@ def _build_to_hdf(env, req, build):
 class BittenChrome(Component):
     """Provides the Bitten templates and static resources."""
 
-    implements(ITemplateProvider)
-
-    # ITemplatesProvider methods
-
-    def get_htdocs_dirs(self):
-        """Return the directories containing static resources."""
-        return [('bitten', pkg_resources.resource_filename(__name__, 'htdocs'))]
-
-    def get_templates_dirs(self):
-        """Return the directories containing templates."""
-        return [pkg_resources.resource_filename(__name__, 'templates')]
-
-
-class BuildConfigController(Component):
-    """Implements the web interface for build configurations."""
-
-    implements(INavigationContributor, IRequestHandler)
+    implements(INavigationContributor, ITemplateProvider)
 
     # INavigationContributor methods
 
@@ -99,9 +83,25 @@ class BuildConfigController(Component):
         the Trac navigation bar."""
         if not req.perm.has_permission('BUILD_VIEW'):
             return
-        yield 'mainnav', 'build', \
-              '<a href="%s" accesskey="5">Build Status</a>' \
-              % self.env.href.build()
+        yield ('mainnav', 'build', \
+               Markup('<a href="%s" accesskey="5">Build Status</a>',
+                      self.env.href.build()))
+
+    # ITemplatesProvider methods
+
+    def get_htdocs_dirs(self):
+        """Return the directories containing static resources."""
+        return [('bitten', pkg_resources.resource_filename(__name__, 'htdocs'))]
+
+    def get_templates_dirs(self):
+        """Return the directories containing templates."""
+        return [pkg_resources.resource_filename(__name__, 'templates')]
+
+
+class BuildConfigController(Component):
+    """Implements the web interface for build configurations."""
+
+    implements(IRequestHandler)
 
     # IRequestHandler methods
 
@@ -367,7 +367,7 @@ class BuildConfigController(Component):
                         chgset = repos.get_changeset(rev)
                         req.hdf[prefix + '.youngest_rev'] = {
                             'id': rev, 'href': self.env.href.changeset(rev),
-                            'author': escape(chgset.author) or 'anonymous',
+                            'author': chgset.author or 'anonymous',
                             'date': format_datetime(chgset.date),
                             'message': wiki_to_oneliner(
                                 shorten_line(chgset.message), self.env)
@@ -377,11 +377,11 @@ class BuildConfigController(Component):
                     prev_rev = rev
                 if build:
                     build_hdf = _build_to_hdf(self.env, req, build)
-                    build_hdf['platform'] = escape(platform.name)
+                    build_hdf['platform'] = platform.name
                     req.hdf[prefix + '.builds.%d' % platform.id] = build_hdf
                 else:
                     req.hdf[prefix + '.builds.%d' % platform.id] = {
-                        'platform': escape(platform.name), 'status': 'pending'
+                        'platform': platform.name, 'status': 'pending'
                     }
 
         req.hdf['page.mode'] = 'overview'
@@ -392,7 +392,7 @@ class BuildConfigController(Component):
 
         config = BuildConfig.fetch(self.env, config_name, db=db)
         req.hdf['title'] = 'Build Configuration "%s"' \
-                           % escape(config.label or config.name)
+                           % config.label or config.name
         add_link(req, 'up', self.env.href.build(), 'Build Status')
         description = config.description
         if description:
@@ -428,7 +428,7 @@ class BuildConfigController(Component):
             ]
             charts_license = self.config.get('bitten', 'charts_license')
             if charts_license:
-                req.hdf['config.charts_license'] = escape(charts_license)
+                req.hdf['config.charts_license'] = charts_license
 
         page = max(1, int(req.args.get('page', 1)))
         more = False
@@ -452,7 +452,7 @@ class BuildConfigController(Component):
                                                  db=db):
                         req.hdf['%s.%s.steps.%s' % (prefix, platform.id,
                                                     step.name)] = {
-                            'description': escape(step.description),
+                            'description': step.description,
                             'duration': datetime.fromtimestamp(step.stopped) - \
                                         datetime.fromtimestamp(step.started),
                             'failed': not step.successful,
@@ -475,7 +475,7 @@ class BuildConfigController(Component):
         req.perm.assert_permission('BUILD_DELETE')
         config = BuildConfig.fetch(self.env, config_name)
         req.hdf['title'] = 'Delete Build Configuration "%s"' \
-                           % escape(config.label or config.name)
+                           % config.label or config.name
         req.hdf['config'] = {'name': config.name}
         req.hdf['page.mode'] = 'delete_config'
 
@@ -492,7 +492,7 @@ class BuildConfigController(Component):
             }
 
             req.hdf['title'] = 'Edit Build Configuration "%s"' \
-                               % escape(config.label or config.name)
+                               % config.label or config.name
             for idx, platform in enumerate(TargetPlatform.select(self.env,
                                                                  config_name)):
                 req.hdf['config.platforms.%d' % idx] = {
@@ -508,8 +508,7 @@ class BuildConfigController(Component):
     def _render_platform_form(self, req, platform):
         req.perm.assert_permission('BUILD_MODIFY')
         if platform.exists:
-            req.hdf['title'] = 'Edit Target Platform "%s"' \
-                               % escape(platform.name)
+            req.hdf['title'] = 'Edit Target Platform "%s"' % platform.name
         else:
             req.hdf['title'] = 'Add Target Platform'
         req.hdf['platform'] = {
@@ -634,12 +633,11 @@ class BuildController(Component):
                 for step in BuildStep.select(self.env, build=id,
                                              status=BuildStep.FAILURE,
                                              db=db):
-                    errors += [(escape(step.name), escape(error)) for error
+                    errors += [(step.name, error) for error
                                in step.errors]
 
-            title = 'Build of <em>%s [%s]</em> on %s %s' \
-                    % (escape(label), escape(rev), escape(platform),
-                       _status_label[status])
+            title = Markup('Build of <em>%s [%s]</em> on %s %s', label, rev,
+                           platform, _status_label[status])
             message = ''
             if req.args.get('format') == 'rss':
                 href = self.env.abs_href.build(config, id)
@@ -652,9 +650,9 @@ class BuildController(Component):
                                 buf.write('</ul>')
                             buf.write('<p>Step %s failed:</p><ul>' % step)
                             prev_step = step
-                        buf.write('<li>%s</li>' % escape(error))
+                        buf.write('<li>%s</li>' % error)
                     buf.write('</ul>')
-                    message = buf.getvalue()
+                    message = Markup(buf.getvalue())
             else:
                 href = self.env.href.build(config, id)
                 if errors:
@@ -662,16 +660,16 @@ class BuildController(Component):
                     for step, error in errors:
                         if step not in steps:
                             steps.append(step)
-                    steps = ['<em>%s</em>' % step for step in steps]
+                    steps = [Markup('<em>%s</em>', step) for step in steps]
                     if len(steps) < 2:
                         message = steps[0]
                     elif len(steps) == 2:
-                        message = ' and '.join(steps)
+                        message = Markup(' and ').join(steps)
                     elif len(steps) > 2:
-                        message = ', '.join(steps[:-1]) + ', and ' + \
+                        message = Markup(', ').join(steps[:-1]) + ', and ' + \
                                   steps[-1]
-                    message = 'Step%s ' % (len(steps) != 1 and 's' or '') \
-                              + message + ' failed'
+                    message = Markup('Step%s %s failed',
+                                     len(steps) != 1 and 's' or '', message)
             yield event_kinds[status], href, title, stopped, None, message
 
     # Internal methods
@@ -710,7 +708,8 @@ class BuildController(Component):
                                                     report.category)
             else:
                 summary = None
-            reports.append({'category': report.category, 'summary': summary})
+            reports.append({'category': report.category,
+                            'summary': Markup(summary)})
         return reports
 
 

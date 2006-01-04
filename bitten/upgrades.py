@@ -13,13 +13,15 @@ in the Trac environment."""
 import os
 import sys
 
+from bitten.trac_ext.compat import schemaschema_to_sql
+
 def add_log_table(env, db):
     """Add a table for storing the builds logs."""
     from bitten.model import BuildLog, BuildStep
     cursor = db.cursor()
 
     for table in BuildLog._schema:
-        for stmt in db.to_sql(table):
+        for stmt in schema_to_sql(env, db, table):
             cursor.execute(stmt)
 
     cursor.execute("SELECT build,name,log FROM bitten_step "
@@ -32,7 +34,7 @@ def add_log_table(env, db):
     cursor.execute("CREATE TEMP TABLE old_step AS SELECT * FROM bitten_step")
     cursor.execute("DROP TABLE bitten_step")
     for table in BuildStep._schema:
-        for stmt in db.to_sql(table):
+        for stmt in schema_to_sql(env, db, table):
             cursor.execute(stmt)
     cursor.execute("INSERT INTO bitten_step (build,name,description,status,"
                    "started,stopped) SELECT build,name,description,status,"
@@ -49,7 +51,7 @@ def add_recipe_to_config(env, db):
                    "SELECT * FROM bitten_config")
     cursor.execute("DROP TABLE bitten_config")
     for table in BuildConfig._schema:
-        for stmt in db.to_sql(table):
+        for stmt in schema_to_sql(env, db, table):
             cursor.execute(stmt)
     cursor.execute("INSERT INTO bitten_config (name,path,active,recipe,min_rev,"
                    "max_rev,label,description) SELECT name,path,0,'',NULL,"
@@ -109,7 +111,7 @@ def add_order_to_log(env, db):
     cursor.execute("CREATE TEMP TABLE old_log AS "
                    "SELECT * FROM bitten_log")
     cursor.execute("DROP TABLE bitten_log")
-    for stmt in db.to_sql(BuildLog._schema[0]):
+    for stmt in schema_to_sql(env, db, BuildLog._schema[0]):
         cursor.execute(stmt)
     cursor.execute("INSERT INTO bitten_log (id,build,step,generator,orderno) "
                    "SELECT id,build,step,type,0 FROM old_log")
@@ -120,7 +122,7 @@ def add_report_tables(env, db):
     cursor = db.cursor()
 
     for table in Report._schema:
-        for stmt in db.to_sql(table):
+        for stmt in schema_to_sql(env, db, table):
             cursor.execute(stmt)
 
 def xmldb_to_db(env, db):
@@ -264,7 +266,7 @@ def add_error_table(env, db):
                 Column('orderno', type='int')
             ]
     cursor = db.cursor()
-    for stmt in db.to_sql(table):
+    for stmt in schema_to_sql(env, db, table):
         cursor.execute(stmt)
 
 map = {

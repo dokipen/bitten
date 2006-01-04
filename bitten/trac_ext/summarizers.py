@@ -61,7 +61,7 @@ GROUP BY file, fixture ORDER BY fixture""", (build.id,))
         hdf = HDFWrapper(loadpaths=Chrome(self.env).get_all_templates_dirs())
         hdf['data'] = data
         hdf['totals'] = {'success': total_success, 'failure': total_failure,
-                        'error': total_error}
+                         'error': total_error}
         return hdf.render('bitten_summary_tests.cs')
 
 

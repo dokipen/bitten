@@ -18,6 +18,7 @@ from trac.versioncontrol import Repository
 from trac.web.clearsilver import HDFWrapper
 from trac.web.main import Request, RequestDone
 from bitten.model import BuildConfig, TargetPlatform, Build, schema
+from bitten.trac_ext.compat import schema_to_sql
 from bitten.trac_ext.main import BuildSystem
 from bitten.trac_ext.web_ui import BuildConfigController
 
@@ -32,7 +33,7 @@ class BuildConfigControllerTestCase(unittest.TestCase):
         db = self.env.get_db_cnx()
         cursor = db.cursor()
         for table in schema:
-            for stmt in db.to_sql(table):
+            for stmt in schema_to_sql(self.env, db, table):
                 cursor.execute(stmt)
 
         # Set up permissions

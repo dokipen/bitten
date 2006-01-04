@@ -17,6 +17,7 @@ import unittest
 from trac.test import EnvironmentStub, Mock
 from bitten.model import BuildConfig
 from bitten.snapshot import SnapshotManager
+from bitten.trac_ext.compat import schema_to_sql
 from bitten.util import md5sum
 
 
@@ -29,7 +30,7 @@ class SnapshotManagerTestCase(unittest.TestCase):
         db = self.env.get_db_cnx()
         cursor = db.cursor()
         for table in BuildConfig._schema:
-            for stmt in db.to_sql(table):
+            for stmt in schema_to_sql(self.env, db, table):
                 cursor.execute(stmt)
         db.commit()
         self.config = BuildConfig(self.env, name='foo', path='trunk')
