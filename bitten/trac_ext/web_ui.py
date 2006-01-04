@@ -21,7 +21,8 @@ from StringIO import StringIO
 import pkg_resources
 from trac.core import *
 from trac.Timeline import ITimelineEventProvider
-from trac.util import pretty_timedelta, format_datetime, shorten_line, Markup
+from trac.util import escape, pretty_timedelta, format_datetime, shorten_line, \
+                      Markup
 from trac.web import IRequestHandler
 from trac.web.chrome import INavigationContributor, ITemplateProvider, \
                             add_link, add_stylesheet
@@ -648,9 +649,10 @@ class BuildController(Component):
                         if step != prev_step:
                             if prev_step is not None:
                                 buf.write('</ul>')
-                            buf.write('<p>Step %s failed:</p><ul>' % step)
+                            buf.write('<p>Step %s failed:</p><ul>' \
+                                      % escape(step))
                             prev_step = step
-                        buf.write('<li>%s</li>' % error)
+                        buf.write('<li>%s</li>' % escape(error))
                     buf.write('</ul>')
                     message = Markup(buf.getvalue())
             else:
