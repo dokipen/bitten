@@ -13,7 +13,7 @@ in the Trac environment."""
 import os
 import sys
 
-from bitten.trac_ext.compat import schemaschema_to_sql
+from bitten.trac_ext.compat import schema_to_sql
 
 def add_log_table(env, db):
     """Add a table for storing the builds logs."""

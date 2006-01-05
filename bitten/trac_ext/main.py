@@ -16,6 +16,7 @@ from trac.env import IEnvironmentSetupParticipant
 from trac.perm import IPermissionRequestor
 from trac.wiki import IWikiSyntaxProvider
 from bitten.trac_ext.api import IBuildListener
+from bitten.trac_ext.compat import schema_to_sql
 from bitten.model import schema, schema_version, Build, BuildConfig
 
 
@@ -33,7 +34,7 @@ class BuildSystem(Component):
         db = self.env.get_db_cnx()
         cursor = db.cursor()
         for table in schema:
-            for stmt in db.to_sql(table):
+            for stmt in schema_to_sql(self.env, db, table):
                 cursor.execute(stmt)
 
         # Insert a global version flag
