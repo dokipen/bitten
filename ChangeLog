@@ -3,6 +3,8 @@ Version 0.5.1
 http://bitten.cmlenz.net/repos/bitten/tags/0.5.1
 
  * Fixes compatibility with Trac 0.9.3 release, as well as the current trunk.
+   This also means that Bitten now longer works with versions of Trac earlier
+   than 0.9.3.
  * Improves PostgreSQL compatibility.
  * Fixes encoding of non-ASCII characters in command output.
  * Fix for missing log output when using <java:ant> on Windows.

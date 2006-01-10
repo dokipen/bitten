@@ -53,8 +53,9 @@ web interface, or just the build slave. In the latter case, you're already
 done. You might need to install software that the build of your project
 requires, but the Bitten build slave itself doesn't require anything extra.
 
-For the build master and web interface, you'll need to install Trac 0.9. Please
-refer to the Trac documentation for information on how it is installed.
+For the build master and web interface, you'll need to install Trac 0.9.3 or
+later. Please refer to the Trac documentation for information on how it is
+installed.
 
 
 Build Master Configuration
