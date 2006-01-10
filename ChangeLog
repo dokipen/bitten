@@ -1,3 +1,12 @@
+Version 0.5.1
+(10 January 2006, from 0.5.x branch)
+http://bitten.cmlenz.net/repos/bitten/tags/0.5.1
+
+ * Fixes compatibility with Trac 0.9.3 release, as well as the current trunk.
+ * Improves PostgreSQL compatibility.
+ * Fixes encoding of non-ASCII characters in command output.
+ * Fix for missing log output when using <java:ant> on Windows.
+
 Version 0.5
 (6 October 2005, from 0.5.x branch)
 http://bitten.cmlenz.net/repos/bitten/tags/0.5

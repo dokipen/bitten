@@ -186,6 +186,18 @@ class BuildConfigControllerTestCase(unittest.TestCase):
         assert module.match_request(req)
         self.assertRaises(TracError, module.process_request, req)
 
+    def test_new_config_submit_with_invalid_name(self):
+        PermissionSystem(self.env).grant_permission('joe', 'BUILD_ADMIN')
+        req = Mock(Request, method='POST', cgi_location='', path_info='/build',
+                   hdf=HDFWrapper(), perm=PermissionCache(self.env, 'joe'),
+                   args={'action': 'new', 'name': 'Foo bar',
+                         'path': 'test/trunk', 'label': 'Test',
+                         'description': 'Bla bla'})
+
+        module = BuildConfigController(self.env)
+        assert module.match_request(req)
+        self.assertRaises(TracError, module.process_request, req)
+
     def test_new_config_submit_invalid_path(self):
         PermissionSystem(self.env).grant_permission('joe', 'BUILD_ADMIN')
         req = Mock(Request, method='POST', cgi_location='', path_info='/build',

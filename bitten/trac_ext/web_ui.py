@@ -232,8 +232,12 @@ class BuildConfigController(Component):
         req.redirect(self.env.href.build(config.name))
 
     def _process_config(self, req, config):
-        if not req.args.get('name'):
+        name = req.args.get('name')
+        if not name:
             raise TracError('Missing required field "name"', 'Missing field')
+        if not re.match(r'^[\w.-]+$', name):
+            raise TracError('The field "name" may only contain letters, '
+                            'digits, periods, or dashes.', 'Invalid field')
 
         path = req.args.get('path', '')
         repos = self.env.get_repository(req.authname)
@@ -259,7 +263,7 @@ class BuildConfigController(Component):
             except InvalidRecipeError, e:
                 raise TracError(e, 'Invalid recipe')
 
-        config.name = req.args.get('name')
+        config.name = name
         config.path = repos.normalize_path(path)
         config.recipe = recipe_xml
         config.min_rev = req.args.get('min_rev')
