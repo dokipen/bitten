@@ -289,6 +289,8 @@ def main():
     parser.add_option('-k', '--keep-files', action='store_true',
                       dest='keep_files', 
                       help='don\'t delete files after builds')
+    parser.add_option('-l', '--log', dest='logfile', metavar='FILENAME',
+                      help='write log messages to FILENAME')
     parser.add_option('-n', '--dry-run', action='store_true', dest='dry_run',
                       help='don\'t report results back to master')
     parser.add_option('--debug', action='store_const', dest='loglevel',
@@ -320,6 +322,13 @@ def main():
     formatter = logging.Formatter('[%(levelname)-8s] %(message)s')
     handler.setFormatter(formatter)
     logger.addHandler(handler)
+    if options.logfile:
+        handler = logging.FileHandler(options.logfile)
+        handler.setLevel(options.loglevel)
+        formatter = logging.Formatter('%(asctime)s [%(name)s] %(levelname)s: '
+                                      '%(message)s')
+        handler.setFormatter(formatter)
+        logger.addHandler(handler)
 
     slave = Slave(host, port, name=options.name, config=options.config,
                   dry_run=options.dry_run, work_dir=options.work_dir,
