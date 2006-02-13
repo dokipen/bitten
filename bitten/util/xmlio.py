@@ -228,6 +228,13 @@ class ParsedElement(object):
     >>> xml.attr['foo'] = 'bar'
     >>> print xml
     <root foo="bar"/>
+
+    CDATA sections are included in the text content of the element returned by
+    `gettext()`:
+    
+    >>> xml = parse('<root>foo<![CDATA[ <bar> ]]>baz</root>')
+    >>> xml.gettext()
+    'foo <bar> baz'
     """
     __slots__ = ['_node', 'attr']
 
@@ -273,11 +280,12 @@ class ParsedElement(object):
     def gettext(self):
         """Return the text content of this element.
         
-        This concatenates the values of all text nodes that are immediate
-        children of this element.
+        This concatenates the values of all text and CDATA nodes that are
+        immediate children of this element.
         """
         return ''.join([c.nodeValue.encode('utf-8')
-                        for c in self._node.childNodes if c.nodeType == 3])
+                        for c in self._node.childNodes
+                        if c.nodeType in (3, 4)])
 
     def write(self, out, newlines=False):
         """Serializes the element and writes the XML to the given output
