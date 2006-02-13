@@ -78,6 +78,13 @@ class Master(beep.Listener):
                 self.queues.append(self.queues.pop(idx)) # Round robin
 
     def register(self, handler):
+        if handler.name in self.handlers:
+            # The slave is for some reason still registered... this shouldn't
+            # happen in theory, but apparently it does in the real world (see
+            # #106). We simply unregister it before trying to register it
+            # again.
+            self.unregister(handler)
+
         any_match = False
         for queue in self.queues:
             if queue.register_slave(handler.name, handler.info):
