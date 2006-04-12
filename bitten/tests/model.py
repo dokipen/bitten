@@ -453,6 +453,21 @@ class BuildLogTestCase(unittest.TestCase):
         self.assertEqual((BuildLog.INFO, 'running tests'), cursor.fetchone())
         self.assertEqual((BuildLog.ERROR, 'tests failed'), cursor.fetchone())
 
+    def test_insert_empty(self):
+        log = BuildLog(self.env, build=1, step='test', generator='distutils')
+        log.messages = []
+        log.insert()
+        self.assertNotEqual(None, log.id)
+
+        db = self.env.get_db_cnx()
+        cursor = db.cursor()
+        cursor.execute("SELECT build,step,generator FROM bitten_log "
+                       "WHERE id=%s", (log.id,))
+        self.assertEqual((1, 'test', 'distutils'), cursor.fetchone())
+        cursor.execute("SELECT COUNT(*) FROM bitten_log_message "
+                       "WHERE log=%s", (log.id,))
+        self.assertEqual(0, cursor.fetchone()[0])
+
     def test_insert_no_build_or_step(self):
         log = BuildLog(self.env, step='test')
         self.assertRaises(AssertionError, log.insert) # No build
@@ -604,6 +619,22 @@ class ReportTestCase(unittest.TestCase):
         report = Report(self.env, build=1, step='test', category='test',
                         generator='unittest')
         self.assertRaises(AssertionError, report.insert)
+
+    def test_insert_empty_items(self):
+        report = Report(self.env, build=1, step='test', category='test',
+                        generator='unittest')
+        report.items = [{}, {}]
+        report.insert()
+
+        db = self.env.get_db_cnx()
+        cursor = db.cursor()
+        cursor.execute("SELECT build,step,category,generator "
+                       "FROM bitten_report WHERE id=%s", (report.id,))
+        self.assertEqual((1, 'test', 'test', 'unittest'),
+                         cursor.fetchone())
+        cursor.execute("SELECT COUNT(*) FROM bitten_report_item "
+                       "WHERE report=%s", (report.id,))
+        self.assertEqual(0, cursor.fetchone()[0])
 
     def test_fetch(self):
         db = self.env.get_db_cnx()

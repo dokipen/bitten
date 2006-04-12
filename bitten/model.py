@@ -727,10 +727,11 @@ class BuildLog(object):
                        "VALUES (%s,%s,%s,%s)", (self.build, self.step,
                        self.generator, self.orderno))
         id = db.get_last_id(cursor, 'bitten_log')
-        cursor.executemany("INSERT INTO bitten_log_message "
-                           "(log,line,level,message) VALUES (%s,%s,%s,%s)",
-                           [(id, idx, message[0], message[1]) for idx, message
-                            in enumerate(self.messages)])
+        if self.messages:
+            cursor.executemany("INSERT INTO bitten_log_message "
+                               "(log,line,level,message) VALUES (%s,%s,%s,%s)",
+                               [(id, idx, message[0], message[1]) for idx, message
+                                in enumerate(self.messages)])
 
         if handle_ta:
             db.commit()
@@ -858,7 +859,7 @@ class Report(object):
                        "(build,step,category,generator) VALUES (%s,%s,%s,%s)",
                        (self.build, self.step, self.category, self.generator))
         id = db.get_last_id(cursor, 'bitten_report')
-        for idx, item in enumerate(self.items):
+        for idx, item in enumerate([item for item in self.items if item]):
             cursor.executemany("INSERT INTO bitten_report_item "
                                "(report,item,name,value) VALUES (%s,%s,%s,%s)",
                                [(id, idx, key, value) for key, value
