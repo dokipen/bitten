@@ -752,7 +752,7 @@ class BuildLog(object):
         log.id = id
         cursor.execute("SELECT level,message FROM bitten_log_message "
                        "WHERE log=%s ORDER BY line", (id,))
-        log.messages = cursor.fetchall()
+        log.messages = cursor.fetchall() or []
 
         return log
 
