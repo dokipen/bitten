@@ -207,15 +207,15 @@ def trace(ctxt, summary=None, coverdir=None, include=None, exclude=None):
                             num_covered += 1
                         lines.append(prev_hits)
 
-            module.append(xmlio.Element('line_hits')[' '.join(lines)])
+            elem.append(xmlio.Element('line_hits')[' '.join(lines)])
 
         num_lines = len(code_lines)
         if num_lines:
             percentage = int(round(num_covered * 100 / num_lines))
         else:
             percentage = 0
-        module.attr['percentage'] = percentage
-        module.attr['lines'] = num_lines
+        elem.attr['percentage'] = percentage
+        elem.attr['lines'] = num_lines
 
     try:
         summary_file = open(ctxt.resolve(summary), 'r')
