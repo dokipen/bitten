@@ -166,18 +166,19 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
         try:
             tar_file = tarfile.open(path, 'r:bz2')
             tar_file.chown = lambda *args: None # Don't chown extracted members
+            basedir = None
             try:
-                names = []
                 for tarinfo in tar_file:
                     if tarinfo.isfile() or tarinfo.isdir():
                         if tarinfo.name.startswith('/') or '..' in tarinfo.name:
                             continue
-                        names.append(tarinfo.name)
                         tar_file.extract(tarinfo, project_dir)
+                        if basedir is None:
+                            basedir = tarinfo.name.split('/', 1)[0]
             finally:
                 tar_file.close()
 
-            basedir = os.path.join(project_dir,  os.path.commonprefix(names))
+            basedir = os.path.join(project_dir,  basedir)
             log.debug('Unpacked snapshot to %s' % basedir)
             return basedir
 
@@ -221,8 +222,12 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
                                 output
                             ])
                     except BuildError, e:
-                        log.error('Build step %s failed', step.id)
-                        failed = True
+                        log.error('Build step %s failed (%s)', step.id, e)
+                        failed = step_failed = True
+                    except Exception, e:
+                        log.error('Internal error in build step %s',
+                                  step.id, exc_info=True)
+                        failed = step_failed = True
                     xml.attr['duration'] = (datetime.utcnow() - started).seconds
                     if step_failed:
                         xml.attr['result'] = 'failure'

@@ -229,6 +229,8 @@ class SnapshotManager(object):
                     base_info.name = new_path
                     fileobj = base_tar.extractfile(base_info)
                     new_tar.addfile(base_info, fileobj)
+                    fileobj.close()
+                    del base_info, fileobj
 
                 else:
                     # Create entry from repository
