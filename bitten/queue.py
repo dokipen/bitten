@@ -89,12 +89,14 @@ class BuildQueue(object):
     need to be built.
     """
 
-    def __init__(self, env):
+    def __init__(self, env, build_all=False):
         """Create the build queue.
         
         @param env: the Trac environment
+        @param build_all: whether older revisions should be built
         """
         self.env = env
+        self.build_all = build_all
         self.slaves = {} # Sets of slave names keyed by target platform ID
 
         # Snapshot managers, keyed by build config name
@@ -118,22 +120,47 @@ class BuildQueue(object):
         """
         log.debug('Checking for pending builds...')
 
-        for build in Build.select(self.env, status=Build.PENDING):
+        repos = self.env.get_repository()
+        builds_to_delete = []
+        try:
+            for build in Build.select(self.env, status=Build.PENDING):
 
-            # Ignore pending builds for deactived build configs
-            config = BuildConfig.fetch(self.env, name=build.config)
-            if not config.active:
-                continue
+                # Ignore pending builds for deactived build configs
+                config = BuildConfig.fetch(self.env, name=build.config)
+                if not config.active:
+                    log.info('Dropping build of configuration "%s" at '
+                             'revision [%s] on %s because the configuration is '
+                             'deactivated', config.name)
+                    builds_to_delete.append(build)
+                    continue
 
-            # Find a slave for the build platform that is not already building
-            # something else
-            slaves = self.slaves.get(build.platform, [])
-            for idx, slave in enumerate([name for name in slaves if name
-                                         in available_slaves]):
-                slaves.append(slaves.pop(idx)) # Round robin
-                return build, slave
+                # Stay within the revision limits of the build config
+                if (config.min_rev and repos.rev_older_than(build.rev,
+                                                            config.min_rev)) \
+                or (config.max_rev and repos.rev_older_than(config.max_rev,
+                                                            build.rev)):
+                    # This minimum and/or maximum revision has changed since
+                    # this build was enqueued, so drop it
+                    log.info('Dropping build of configuration "%s" at '
+                             'revision [%s] on %s because it is outside of the '
+                             'revision range of the configuration', config.name,
+                             rev, platform.name)
+                    builds_to_delete.append(build)
+                    continue
 
-        return None, None
+                # Find a slave for the build platform that is not already building
+                # something else
+                slaves = self.slaves.get(build.platform, [])
+                for idx, slave in enumerate([name for name in slaves if name
+                                             in available_slaves]):
+                    slaves.append(slaves.pop(idx)) # Round robin
+                    return build, slave
+
+            return None, None
+        finally:
+            repos.close()
+            for build in builds_to_delete:
+                build.delete(db=db)
 
     def populate(self):
         """Add a build for the next change on each build configuration to the
@@ -160,6 +187,8 @@ class BuildQueue(object):
                                       platform=platform.id, rev=str(rev),
                                       rev_time = repos.get_changeset(rev).date)
                         builds.append(build)
+                        break
+                    elif not self.build_all:
                         break
             for build in builds:
                 build.insert(db=db)

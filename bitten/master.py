@@ -39,7 +39,8 @@ DEFAULT_CHECK_INTERVAL = 120 # 2 minutes
 class Master(beep.Listener):
     """BEEP listener implementation for the build master."""
 
-    def __init__(self, envs, ip, port, adjust_timestamps=False,
+    def __init__(self, envs, ip, port, build_all=False,
+                 adjust_timestamps=False,
                  check_interval=DEFAULT_CHECK_INTERVAL):
         beep.Listener.__init__(self, ip, port)
         self.profiles[OrchestrationProfileHandler.URI] = \
@@ -50,7 +51,7 @@ class Master(beep.Listener):
 
         self.queues = []
         for env in envs:
-            self.queues.append(BuildQueue(env))
+            self.queues.append(BuildQueue(env, build_all=build_all))
 
         self.schedule(self.check_interval, self._enqueue_builds)
 
@@ -386,6 +387,9 @@ def main():
     parser.add_option('-i', '--interval', dest='interval', metavar='SECONDS',
                       default=DEFAULT_CHECK_INTERVAL, type='int',
                       help='poll interval for changeset detection')
+    parser.add_option('--build-all', action='store_true', dest='buildall',
+                      help='build older revisions even when a build for a '
+                           'newer revision has already been performed')
     parser.add_option('--timewarp', action='store_true', dest='timewarp',
                       help='adjust timestamps of builds to be near the '
                            'timestamps of the corresponding changesets')
@@ -456,7 +460,8 @@ def main():
         log.error('None of the specified environments has support for Bitten')
         sys.exit(2)
 
-    master = Master(envs, host, port, adjust_timestamps=options.timewarp,
+    master = Master(envs, host, port, build_all=options.buildall,
+                    adjust_timestamps=options.timewarp,
                     check_interval=options.interval)
     try:
         master.run(timeout=5.0)
