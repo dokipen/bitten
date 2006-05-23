@@ -159,6 +159,7 @@ class BuildQueue(object):
             return None, None
         finally:
             repos.close()
+            db = self.env.get_db_cnx()
             for build in builds_to_delete:
                 build.delete(db=db)
 
