@@ -801,6 +801,8 @@ class Payload(object):
                             self.content_encoding)
             hdrs.append('')
             self._hdr_buf = '\r\n'.join(hdrs) + '\r\n'
+            if isinstance(self._hdr_buf, unicode):
+                self._hdr_buf = self._hdr_buf.encode('utf8')
 
         ret_buf = ''
         if len(self._hdr_buf):
