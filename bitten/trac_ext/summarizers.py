@@ -100,11 +100,12 @@ GROUP BY file, unit ORDER BY unit""", (build.id, step.name))
         for unit, file, loc, cov in cursor:
             loc, cov = int(loc), float(cov)
             if loc:
-                data.append({'name': unit, 'loc': loc, 'cov': int(cov)})
+                d = {'name': unit, 'loc': loc, 'cov': int(cov)}
+                if file:
+                    d['href'] = self.env.href.browser(config.path, file)
+                data.append(d)
                 total_loc += loc
                 total_cov += loc * cov
-            if file:
-                data[-1]['href'] = self.env.href.browser(config.path, file)
 
         hdf = HDFWrapper(loadpaths=Chrome(self.env).get_all_templates_dirs())
         hdf['data'] = data
