@@ -50,6 +50,7 @@ setup(
             NS + 'c#make = bitten.build.ctools:make',
             NS + 'java#ant = bitten.build.javatools:ant',
             NS + 'java#junit = bitten.build.javatools:junit',
+            NS + 'java#cobertura = bitten.build.javatools:cobertura',
             NS + 'python#distutils = bitten.build.pythontools:distutils',
             NS + 'python#exec = bitten.build.pythontools:exec_',
             NS + 'python#pylint = bitten.build.pythontools:pylint',

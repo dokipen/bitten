@@ -1,6 +1,7 @@
 # -*- coding: iso8859-1 -*-
 #
 # Copyright (C) 2005 Christopher Lenz <cmlenz@gmx.de>
+# Copyright (C) 2006 Matthew Good <matt@matt-good.net>
 # All rights reserved.
 #
 # This software is licensed as described in the file COPYING, which
@@ -141,3 +142,74 @@ def junit(ctxt, file_=None, srcdir=None):
         log.warning('Error opening JUnit results file (%s)', e)
     except xmlio.ParseError, e:
         log.warning('Error parsing JUnit results file (%s)', e)
+
+class _LineCounter(object):
+    def __init__(self):
+        self.lines = []
+        self.covered = 0
+        self.num_lines = 0
+
+    def __getitem__(self, idx):
+        if idx >= len(self.lines):
+            return 0
+        return self.lines[idx]
+
+    def __setitem__(self, idx, val):
+        idx = int(idx) - 1 # 1-indexed to 0-indexed
+        from itertools import repeat
+        if idx >= len(self.lines):
+            self.lines.extend(repeat('-', idx - len(self.lines) + 1))
+        self.lines[idx] = val
+        self.num_lines += 1
+        if val != '0':
+            self.covered += 1
+
+    def line_hits(self):
+        return ' '.join(self.lines)
+    line_hits = property(line_hits)
+
+    def percentage(self):
+        if self.num_lines == 0:
+            return 0
+        return int(round(self.covered * 100. / self.num_lines))
+    percentage = property(percentage)
+
+
+def cobertura(ctxt, file_=None):
+    assert file_, 'Missing required attribute "file"'
+
+    coverage = xmlio.Fragment()
+    doc = xmlio.parse(open(ctxt.resolve(file_)))
+    srcdir = [s.gettext().strip() for ss in doc.children('sources')
+                                  for s in ss.children('source')][0]
+
+    classes = [cls for pkgs in doc.children('packages')
+                   for pkg in pkgs.children('package')
+                   for clss in pkg.children('classes')
+                   for cls in clss.children('class')]
+
+    counters = {}
+    class_names = {}
+
+    for cls in classes:
+        filename = cls.attr['filename'].replace(os.sep, '/')
+        name = cls.attr['name']
+        if not '$' in name: # ignore internal classes
+            class_names[filename] = name
+        counter = counters.get(filename)
+        if counter is None:
+            counter = counters[filename] = _LineCounter()
+        lines = [l for ls in cls.children('lines')
+                   for l in ls.children('line')]
+        for line in lines:
+            counter[line.attr['number']] = line.attr['hits']
+
+    for filename, name in class_names.iteritems():
+        counter = counters[filename]
+        module = xmlio.Element('coverage', name=name,
+                               file=posixpath.join(srcdir, filename),
+                               lines=counter.num_lines,
+                               percentage=counter.percentage)
+        module.append(xmlio.Element('line_hits')[counter.line_hits])
+        coverage.append(module)
+    ctxt.report('coverage', coverage)
