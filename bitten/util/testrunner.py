@@ -15,8 +15,8 @@ except:
     from StringIO import StringIO
 import sys
 import time
-from distutils.core import Command
-from distutils.errors import DistutilsExecError, DistutilsOptionError
+from pkg_resources import *
+from setuptools.command.test import test
 from unittest import _TextTestResult, TextTestRunner
 
 from bitten import __version__ as VERSION
@@ -108,32 +108,32 @@ class XMLTestRunner(TextTestRunner):
         return result
 
 
-class unittest(Command):
-    description = "Runs the unit tests, and optionally records code coverage"
-    user_options = [('test-suite=', 's',
-                     'Name of the unittest suite to run'),
-                    ('xml-output=', None,
-                     'Path to the XML file where test results are written to'),
-                    ('coverage-dir=', None,
-                     'Directory where coverage files are to be stored'),
-                     ('coverage-summary=', None,
-                     'Path to the file where the coverage summary should be stored')]
+class unittest(test):
+    description = test.description + ', and optionally record code coverage'
+
+    user_options = test.user_options + [
+        ('xml-output=', None,
+            "Path to the XML file where test results are written to"),
+        ('coverage-dir=', None,
+            "Directory where coverage files are to be stored"),
+        ('coverage-summary=', None,
+            "Path to the file where the coverage summary should be stored")
+    ]
 
     def initialize_options(self):
-        self.test_suite = None
+        test.initialize_options(self)
         self.xml_results = None
         self.coverage_summary = None
         self.coverage_dir = None
 
     def finalize_options(self):
-        if not self.test_suite:
-            raise DistutilsOptionError, 'Missing required attribute test-suite'
+        test.finalize_options(self)
         if self.xml_results is not None:
             if not os.path.exists(os.path.dirname(self.xml_results)):
                 os.makedirs(os.path.dirname(self.xml_results))
             self.xml_results = open(self.xml_results, 'w')
 
-    def run(self):
+    def run_tests(self):
         if self.coverage_dir:
             from trace import Trace
             trace = Trace(ignoredirs=[sys.prefix, sys.exec_prefix],
@@ -154,14 +154,24 @@ class unittest(Command):
             self._run_tests()
 
     def _run_tests(self):
+        old_path = sys.path[:]
+        ei_cmd = self.get_finalized_command("egg_info")
+        path_item = normalize_path(ei_cmd.egg_base)
+        metadata = PathMetadata(
+            path_item, normalize_path(ei_cmd.egg_info)
+        )
+        dist = Distribution(path_item, metadata, project_name=ei_cmd.egg_name)
+        working_set.add(dist)
+        require(str(dist.as_requirement()))
+        loader_ep = EntryPoint.parse("x=" + self.test_loader)
+        loader_class = loader_ep.load(require=False)
+
         import unittest
-        suite = __import__(self.test_suite)
-        for comp in self.test_suite.split('.')[1:]:
-            suite = getattr(suite, comp)
-        runner = XMLTestRunner(stream=sys.stdout, xml_stream=self.xml_results)
-        result = runner.run(suite.suite())
-        if result.failures or result.errors:
-            raise DistutilsExecError, 'unit tests failed'
+        unittest.main(
+            None, None, [unittest.__file__] + self.test_args,
+            testRunner=XMLTestRunner(stream=sys.stdout, xml_stream=self.xml_results),
+            testLoader=loader_class()
+        )
 
 
 def main():
