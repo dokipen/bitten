@@ -200,7 +200,7 @@ def trace(ctxt, summary=None, coverdir=None, include=None, exclude=None):
                         lines.append('0')
                         prev_hits = '0'
                     elif idx not in code_lines: # Not a code line
-                        lines.append('0')
+                        lines.append('-')
                         prev_hits = '0'
                     else: # A code line not flagged by trace.py
                         if prev_hits != '0':
