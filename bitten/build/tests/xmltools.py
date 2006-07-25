@@ -118,7 +118,8 @@ class TransformTestCase(unittest.TestCase):
 
 def suite():
     suite = unittest.TestSuite()
-    suite.addTest(unittest.makeSuite(TransformTestCase, 'test'))
+    if xmltools.have_libxslt or xmltools.have_msxml:
+        suite.addTest(unittest.makeSuite(TransformTestCase, 'test'))
     return suite
 
 if __name__ == '__main__':
