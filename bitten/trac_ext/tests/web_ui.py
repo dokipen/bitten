@@ -54,8 +54,9 @@ class BuildConfigControllerTestCase(unittest.TestCase):
 
     def test_overview(self):
         PermissionSystem(self.env).grant_permission('joe', 'BUILD_VIEW')
-        req = Mock(Request, cgi_location='', path_info='/build', args={},
-                   hdf=HDFWrapper(), perm=PermissionCache(self.env, 'joe'))
+        req = Mock(method='GET', base_path='', cgi_location='',
+                   path_info='/build', args={}, hdf=HDFWrapper(),
+                   perm=PermissionCache(self.env, 'joe'))
 
         module = BuildConfigController(self.env)
         assert module.match_request(req)
@@ -66,8 +67,9 @@ class BuildConfigControllerTestCase(unittest.TestCase):
 
     def test_overview_admin(self):
         PermissionSystem(self.env).grant_permission('joe', 'BUILD_ADMIN')
-        req = Mock(Request, cgi_location='', path_info='/build', args={},
-                   hdf=HDFWrapper(), perm=PermissionCache(self.env, 'joe'))
+        req = Mock(method='GET', base_path='', cgi_location='',
+                   path_info='/build', args={}, hdf=HDFWrapper(),
+                   perm=PermissionCache(self.env, 'joe'))
 
         module = BuildConfigController(self.env)
         assert module.match_request(req)
@@ -82,8 +84,9 @@ class BuildConfigControllerTestCase(unittest.TestCase):
         platform.insert()
 
         PermissionSystem(self.env).grant_permission('joe', 'BUILD_VIEW')
-        req = Mock(Request, cgi_location='', path_info='/build/test', args={},
-                   hdf=HDFWrapper(), perm=PermissionCache(self.env, 'joe'))
+        req = Mock(method='GET', base_path='', cgi_location='',
+                   path_info='/build/test', args={}, hdf=HDFWrapper(),
+                   authname='joe', perm=PermissionCache(self.env, 'joe'))
 
         root = Mock(get_entries=lambda: ['foo'],
                     get_history=lambda: [('trunk', rev, 'edit') for rev in
@@ -107,8 +110,9 @@ class BuildConfigControllerTestCase(unittest.TestCase):
         platform.insert()
 
         PermissionSystem(self.env).grant_permission('joe', 'BUILD_VIEW')
-        req = Mock(Request, cgi_location='', path_info='/build/test', args={},
-                   hdf=HDFWrapper(), perm=PermissionCache(self.env, 'joe'))
+        req = Mock(method='GET', base_path='', cgi_location='',
+                   path_info='/build/test', args={}, hdf=HDFWrapper(),
+                   authname='joe', perm=PermissionCache(self.env, 'joe'))
 
         root = Mock(get_entries=lambda: ['foo'],
                     get_history=lambda: [('trunk', rev, 'edit') for rev in
@@ -129,8 +133,9 @@ class BuildConfigControllerTestCase(unittest.TestCase):
         config.insert()
 
         PermissionSystem(self.env).grant_permission('joe', 'BUILD_ADMIN')
-        req = Mock(Request, cgi_location='', path_info='/build/test', args={},
-                   hdf=HDFWrapper(), perm=PermissionCache(self.env, 'joe'))
+        req = Mock(method='GET', base_path='', cgi_location='',
+                   path_info='/build/test', args={}, hdf=HDFWrapper(),
+                   authname='joe', perm=PermissionCache(self.env, 'joe'))
 
         module = BuildConfigController(self.env)
         assert module.match_request(req)
@@ -141,8 +146,8 @@ class BuildConfigControllerTestCase(unittest.TestCase):
 
     def test_new_config(self):
         PermissionSystem(self.env).grant_permission('joe', 'BUILD_ADMIN')
-        req = Mock(Request, cgi_location='', path_info='/build',
-                   args={'action': 'new'}, hdf=HDFWrapper(),
+        req = Mock(method='GET', base_path='', cgi_location='',
+                   path_info='/build', args={'action': 'new'}, hdf=HDFWrapper(),
                    perm=PermissionCache(self.env, 'joe'))
 
         module = BuildConfigController(self.env)
@@ -157,9 +162,9 @@ class BuildConfigControllerTestCase(unittest.TestCase):
         def redirect(url):
             redirected_to.append(url)
             raise RequestDone
-        req = Mock(Request, method='POST', cgi_location='', path_info='/build',
-                   redirect=redirect, hdf=HDFWrapper(),
-                   perm=PermissionCache(self.env, 'joe'),
+        req = Mock(method='POST', base_path='', cgi_location='',
+                   path_info='/build', redirect=redirect, hdf=HDFWrapper(),
+                   authname='joe', perm=PermissionCache(self.env, 'joe'),
                    args={'action': 'new', 'name': 'test', 'path': 'test/trunk',
                          'label': 'Test', 'description': 'Bla bla'})
 
@@ -177,8 +182,9 @@ class BuildConfigControllerTestCase(unittest.TestCase):
 
     def test_new_config_submit_without_name(self):
         PermissionSystem(self.env).grant_permission('joe', 'BUILD_ADMIN')
-        req = Mock(Request, method='POST', cgi_location='', path_info='/build',
-                   hdf=HDFWrapper(), perm=PermissionCache(self.env, 'joe'),
+        req = Mock(method='POST', base_path='', cgi_location='',
+                   path_info='/build', hdf=HDFWrapper(),
+                   perm=PermissionCache(self.env, 'joe'),
                    args={'action': 'new', 'name': '', 'path': 'test/trunk',
                          'label': 'Test', 'description': 'Bla bla'})
 
@@ -188,8 +194,9 @@ class BuildConfigControllerTestCase(unittest.TestCase):
 
     def test_new_config_submit_with_invalid_name(self):
         PermissionSystem(self.env).grant_permission('joe', 'BUILD_ADMIN')
-        req = Mock(Request, method='POST', cgi_location='', path_info='/build',
-                   hdf=HDFWrapper(), perm=PermissionCache(self.env, 'joe'),
+        req = Mock(method='POST', base_path='', cgi_location='',
+                   path_info='/build', hdf=HDFWrapper(),
+                   perm=PermissionCache(self.env, 'joe'),
                    args={'action': 'new', 'name': 'Foo bar',
                          'path': 'test/trunk', 'label': 'Test',
                          'description': 'Bla bla'})
@@ -200,8 +207,9 @@ class BuildConfigControllerTestCase(unittest.TestCase):
 
     def test_new_config_submit_invalid_path(self):
         PermissionSystem(self.env).grant_permission('joe', 'BUILD_ADMIN')
-        req = Mock(Request, method='POST', cgi_location='', path_info='/build',
-                   hdf=HDFWrapper(), perm=PermissionCache(self.env, 'joe'),
+        req = Mock(method='POST', base_path='', cgi_location='',
+                   path_info='/build', hdf=HDFWrapper(),
+                   authname='joe', perm=PermissionCache(self.env, 'joe'),
                    args={'action': 'new', 'name': 'test', 'path': 'test/trunk',
                          'label': 'Test', 'description': 'Bla bla'})
 
@@ -215,8 +223,9 @@ class BuildConfigControllerTestCase(unittest.TestCase):
 
     def test_new_config_submit_with_non_wellformed_recipe(self):
         PermissionSystem(self.env).grant_permission('joe', 'BUILD_ADMIN')
-        req = Mock(Request, method='POST', cgi_location='', path_info='/build',
-                   hdf=HDFWrapper(), perm=PermissionCache(self.env, 'joe'),
+        req = Mock(method='POST', base_path='', cgi_location='',
+                   path_info='/build', hdf=HDFWrapper(),
+                   authname='joe', perm=PermissionCache(self.env, 'joe'),
                    args={'action': 'new', 'name': 'test', 'path': 'test/trunk',
                          'label': 'Test', 'description': 'Bla bla',
                          'recipe': '<build><step>'})
@@ -227,8 +236,9 @@ class BuildConfigControllerTestCase(unittest.TestCase):
 
     def test_new_config_submit_with_invalid_recipe(self):
         PermissionSystem(self.env).grant_permission('joe', 'BUILD_ADMIN')
-        req = Mock(Request, method='POST', cgi_location='', path_info='/build',
-                   hdf=HDFWrapper(), perm=PermissionCache(self.env, 'joe'),
+        req = Mock(method='POST', base_path='', cgi_location='',
+                   path_info='/build', hdf=HDFWrapper(),
+                   authname='joe', perm=PermissionCache(self.env, 'joe'),
                    args={'action': 'new', 'name': 'test', 'path': 'test/trunk',
                          'label': 'Test', 'description': 'Bla bla',
                          'recipe': '<build><step/></build>'})
@@ -243,8 +253,8 @@ class BuildConfigControllerTestCase(unittest.TestCase):
         def redirect(url):
             redirected_to.append(url)
             raise RequestDone
-        req = Mock(Request, method='POST', cgi_location='', path_info='/build',
-                   redirect=redirect, hdf=HDFWrapper(),
+        req = Mock(method='POST', base_path='', cgi_location='',
+                   path_info='/build', redirect=redirect, hdf=HDFWrapper(),
                    perm=PermissionCache(self.env, 'joe'),
                    args={'action': 'new', 'cancel': '1', 'name': 'test'})
 
@@ -261,9 +271,10 @@ class BuildConfigControllerTestCase(unittest.TestCase):
         config.insert()
 
         PermissionSystem(self.env).grant_permission('joe', 'BUILD_ADMIN')
-        req = Mock(Request, cgi_location='', path_info='/build/test',
-                   args={'action': 'delete'}, hdf=HDFWrapper(),
-                   perm=PermissionCache(self.env, 'joe'))
+        req = Mock(method='GET', base_path='', cgi_location='',
+                   path_info='/build/test', hdf=HDFWrapper(),
+                   perm=PermissionCache(self.env, 'joe'),
+                   args={'action': 'delete'})
 
         module = BuildConfigController(self.env)
         assert module.match_request(req)
@@ -281,7 +292,7 @@ class BuildConfigControllerTestCase(unittest.TestCase):
         def redirect(url):
             redirected_to.append(url)
             raise RequestDone
-        req = Mock(Request, method='POST', cgi_location='',
+        req = Mock(method='POST', base_path='', cgi_location='',
                    path_info='/build/test', redirect=redirect, hdf=HDFWrapper(),
                    perm=PermissionCache(self.env, 'joe'),
                    args={'action': 'delete'})
@@ -303,7 +314,7 @@ class BuildConfigControllerTestCase(unittest.TestCase):
         def redirect(url):
             redirected_to.append(url)
             raise RequestDone
-        req = Mock(Request, method='POST', cgi_location='',
+        req = Mock(method='POST', base_path='', cgi_location='',
                    path_info='/build/test', redirect=redirect, hdf=HDFWrapper(),
                    perm=PermissionCache(self.env, 'joe'),
                    args={'action': 'delete', 'cancel': ''})
@@ -321,9 +332,10 @@ class BuildConfigControllerTestCase(unittest.TestCase):
         config.insert()
 
         PermissionSystem(self.env).grant_permission('joe', 'BUILD_ADMIN')
-        req = Mock(Request, cgi_location='', path_info='/build/test',
-                   args={'action': 'edit'}, hdf=HDFWrapper(),
-                   perm=PermissionCache(self.env, 'joe'))
+        req = Mock(method='GET', base_path='', cgi_location='',
+                   path_info='/build/test', hdf=HDFWrapper(),
+                   perm=PermissionCache(self.env, 'joe'),
+                   args={'action': 'edit'})
 
         module = BuildConfigController(self.env)
         assert module.match_request(req)
@@ -341,9 +353,9 @@ class BuildConfigControllerTestCase(unittest.TestCase):
         def redirect(url):
             redirected_to.append(url)
             raise RequestDone
-        req = Mock(Request, method='POST', cgi_location='',
+        req = Mock(method='POST', base_path='', cgi_location='',
                    path_info='/build/test', redirect=redirect, hdf=HDFWrapper(),
-                   perm=PermissionCache(self.env, 'joe'),
+                   authname='joe', perm=PermissionCache(self.env, 'joe'),
                    args={'action': 'edit', 'name': 'foo', 'path': 'test/trunk',
                          'label': 'Test',  'description': 'Bla bla'})
 
@@ -370,7 +382,7 @@ class BuildConfigControllerTestCase(unittest.TestCase):
         def redirect(url):
             redirected_to.append(url)
             raise RequestDone
-        req = Mock(Request, method='POST', cgi_location='',
+        req = Mock(method='POST', base_path='', cgi_location='',
                    path_info='/build/test', redirect=redirect, hdf=HDFWrapper(),
                    perm=PermissionCache(self.env, 'joe'),
                    args={'action': 'edit', 'cancel': ''})
@@ -386,9 +398,10 @@ class BuildConfigControllerTestCase(unittest.TestCase):
         config.insert()
 
         PermissionSystem(self.env).grant_permission('joe', 'BUILD_ADMIN')
-        req = Mock(Request, cgi_location='', path_info='/build/test',
-                   args={'action': 'edit', 'new': '1'},
-                   hdf=HDFWrapper(), perm=PermissionCache(self.env, 'joe'))
+        req = Mock(method='GET', base_path='', cgi_location='',
+                   path_info='/build/test', hdf=HDFWrapper(),
+                   perm=PermissionCache(self.env, 'joe'),
+                   args={'action': 'edit', 'new': '1'})
 
         module = BuildConfigController(self.env)
         assert module.match_request(req)
@@ -406,10 +419,10 @@ class BuildConfigControllerTestCase(unittest.TestCase):
         def redirect(url):
             redirected_to.append(url)
             raise RequestDone
-        req = Mock(Request, method='POST', cgi_location='',
-                   path_info='/build/test', redirect=redirect,
-                   args={'action': 'new', 'name': 'Test'}, hdf=HDFWrapper(),
-                   perm=PermissionCache(self.env, 'joe'))
+        req = Mock(method='POST', base_path='', cgi_location='',
+                   path_info='/build/test', redirect=redirect, hdf=HDFWrapper(),
+                   perm=PermissionCache(self.env, 'joe'),
+                   args={'action': 'new', 'name': 'Test'})
 
         module = BuildConfigController(self.env)
         assert module.match_request(req)
@@ -420,17 +433,17 @@ class BuildConfigControllerTestCase(unittest.TestCase):
         config = BuildConfig(self.env)
         config.name = 'test'
         config.insert()
-
+ 
         PermissionSystem(self.env).grant_permission('joe', 'BUILD_ADMIN')
         redirected_to = []
         def redirect(url):
             redirected_to.append(url)
             raise RequestDone
-        req = Mock(Request, method='POST', cgi_location='',
-                   path_info='/build/test', redirect=redirect,
-                   args={'action': 'new', 'cancel': ''}, hdf=HDFWrapper(),
-                   perm=PermissionCache(self.env, 'joe'))
-
+        req = Mock(method='POST', base_path='', cgi_location='',
+                   path_info='/build/test', redirect=redirect, hdf=HDFWrapper(),
+                   perm=PermissionCache(self.env, 'joe'),
+                   args={'action': 'new', 'cancel': ''})
+ 
         module = BuildConfigController(self.env)
         assert module.match_request(req)
         self.assertRaises(RequestDone, module.process_request, req)
@@ -447,9 +460,10 @@ class BuildConfigControllerTestCase(unittest.TestCase):
         platform.insert()
 
         PermissionSystem(self.env).grant_permission('joe', 'BUILD_ADMIN')
-        req = Mock(Request, cgi_location='', path_info='/build/test',
-                   args={'action': 'edit', 'platform': platform.id},
-                   hdf=HDFWrapper(), perm=PermissionCache(self.env, 'joe'))
+        req = Mock(method='GET', base_path='', cgi_location='',
+                   path_info='/build/test', hdf=HDFWrapper(),
+                   perm=PermissionCache(self.env, 'joe'),
+                   args={'action': 'edit', 'platform': platform.id})
 
         module = BuildConfigController(self.env)
         assert module.match_request(req)
@@ -472,7 +486,7 @@ class BuildConfigControllerTestCase(unittest.TestCase):
         def redirect(url):
             redirected_to.append(url)
             raise RequestDone
-        req = Mock(Request, method='POST', cgi_location='',
+        req = Mock(method='POST', base_path='', cgi_location='',
                    path_info='/build/test', redirect=redirect, hdf=HDFWrapper(),
                    args={'action': 'edit', 'platform': platform.id,
                          'name': 'Test'},
@@ -498,7 +512,7 @@ class BuildConfigControllerTestCase(unittest.TestCase):
         def redirect(url):
             redirected_to.append(url)
             raise RequestDone
-        req = Mock(Request, method='POST', cgi_location='',
+        req = Mock(method='POST', base_path='', cgi_location='',
                    path_info='/build/test', redirect=redirect, hdf=HDFWrapper(),
                    args={'action': 'edit', 'platform': platform.id,
                          'cancel': ''},

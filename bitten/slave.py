@@ -107,6 +107,7 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
                 self.config['os']
             ],
         ]
+        log.debug('Packages: %s', self.config.packages)
         for package, properties in self.config.packages.items():
             xml.append(xmlio.Element('package', name=package, **properties))
 
