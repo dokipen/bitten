@@ -158,7 +158,6 @@ class BuildQueue(object):
 
             return None, None
         finally:
-            repos.close()
             db = self.env.get_db_cnx()
             for build in builds_to_delete:
                 build.delete(db=db)
@@ -173,30 +172,27 @@ class BuildQueue(object):
         configuration being in the build queue.
         """
         repos = self.env.get_repository()
-        try:
+        if hasattr(repos, 'sync'):
             repos.sync()
 
-            db = self.env.get_db_cnx()
-            builds = []
-            for config in BuildConfig.select(self.env, db=db):
-                for platform, rev, build in collect_changes(repos, config, db):
-                    if build is None:
-                        log.info('Enqueuing build of configuration "%s" at '
-                                 'revision [%s] on %s', config.name, rev,
-                                 platform.name)
-                        build = Build(self.env, config=config.name,
-                                      platform=platform.id, rev=str(rev),
-                                      rev_time = repos.get_changeset(rev).date)
-                        builds.append(build)
-                        break
-                    elif not self.build_all:
-                        break
-            for build in builds:
-                build.insert(db=db)
-            db.commit()
-
-        finally:
-            repos.close()
+        db = self.env.get_db_cnx()
+        builds = []
+        for config in BuildConfig.select(self.env, db=db):
+            for platform, rev, build in collect_changes(repos, config, db):
+                if build is None:
+                    log.info('Enqueuing build of configuration "%s" at '
+                             'revision [%s] on %s', config.name, rev,
+                             platform.name)
+                    build = Build(self.env, config=config.name,
+                                  platform=platform.id, rev=str(rev),
+                                  rev_time = repos.get_changeset(rev).date)
+                    builds.append(build)
+                    break
+                elif not self.build_all:
+                    break
+        for build in builds:
+            build.insert(db=db)
+        db.commit()
 
     def reset_orphaned_builds(self):
         """Reset all in-progress builds to PENDING state.

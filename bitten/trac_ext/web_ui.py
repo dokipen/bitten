@@ -364,7 +364,9 @@ class BuildConfigController(Component):
                 continue
 
             repos = self.env.get_repository(req.authname)
-            repos.sync()
+            if hasattr(repos, 'sync'):
+                repos.sync()
+
             prev_rev = None
             for platform, rev, build in collect_changes(repos, config):
                 if rev != prev_rev:
@@ -439,9 +441,11 @@ class BuildConfigController(Component):
         more = False
         req.hdf['page.number'] = page
 
-        builds_per_page = 12 * len(platforms)
         repos = self.env.get_repository(req.authname)
-        repos.sync()
+        if hasattr(repos, 'sync'):
+            repos.sync()
+
+        builds_per_page = 12 * len(platforms)
         idx = 0
         for platform, rev, build in collect_changes(repos, config):
             if idx >= page * builds_per_page:
