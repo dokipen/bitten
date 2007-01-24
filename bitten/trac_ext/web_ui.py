@@ -587,7 +587,7 @@ class BuildController(Component):
         summarizers = {} # keyed by report type
         for summarizer in self.report_summarizers:
             categories = summarizer.get_supported_categories()
-            summarizers.update(dict([(cat, summarizer) for cat in categories]))
+            summarizers.update([(cat, summarizer) for cat in categories])
 
         req.hdf['build'] = _build_to_hdf(self.env, req, build)
         steps = []
