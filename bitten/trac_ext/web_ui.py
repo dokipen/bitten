@@ -20,7 +20,10 @@ from StringIO import StringIO
 
 import pkg_resources
 from trac.core import *
-from trac.Timeline import ITimelineEventProvider
+try:
+    from trac.timeline import ITimelineEventProvider
+except ImportError:
+    from trac.Timeline import ITimelineEventProvider
 from trac.util import escape, pretty_timedelta, format_datetime, shorten_line, \
                       Markup
 from trac.web import IRequestHandler
