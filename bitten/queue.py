@@ -119,49 +119,88 @@ class BuildQueue(object):
         Otherwise, this function will return C{(None, None)}
         """
         log.debug('Checking for pending builds...')
+	if len(available_slaves) == 0: 
+            log.debug('No available slaves.')
+            return None, None
 
         repos = self.env.get_repository()
+
+	# delete any old builds.
         builds_to_delete = []
         try:
             for build in Build.select(self.env, status=Build.PENDING):
-
-                # Ignore pending builds for deactived build configs
-                config = BuildConfig.fetch(self.env, name=build.config)
-                if not config.active:
-                    log.info('Dropping build of configuration "%s" at '
-                             'revision [%s] on %s because the configuration is '
-                             'deactivated', config.name, build.rev,
-                             build.platform)
-                    builds_to_delete.append(build)
-                    continue
-
-                # Stay within the revision limits of the build config
-                if (config.min_rev and repos.rev_older_than(build.rev,
-                                                            config.min_rev)) \
-                or (config.max_rev and repos.rev_older_than(config.max_rev,
-                                                            build.rev)):
-                    # This minimum and/or maximum revision has changed since
-                    # this build was enqueued, so drop it
-                    log.info('Dropping build of configuration "%s" at '
-                             'revision [%s] on %s because it is outside of the '
-                             'revision range of the configuration', config.name,
-                             build.rev, build.platform)
-                    builds_to_delete.append(build)
-                    continue
-
-                # Find a slave for the build platform that is not already building
-                # something else
-                slaves = self.slaves.get(build.platform, [])
-                for idx, slave in enumerate([name for name in slaves if name
-                                             in available_slaves]):
-                    slaves.append(slaves.pop(idx)) # Round robin
-                    return build, slave
-
-            return None, None
+		if self.should_delete_build(build, repos):
+		   builds_to_delete.append(build)
         finally:
-            db = self.env.get_db_cnx()
+            db = self.env.get_db_cnx()	
             for build in builds_to_delete:
                 build.delete(db=db)
+
+        # Rather than just take the first build available to 
+        # this slave by version number, we'd like to ensure that
+        # all the most recent revisions of each config are built
+        # before we do any older ones. If all the most recent
+        # revisions are done/in progress for our set of available
+        # slaves, we'll just fall back to processing the remaining
+        # builds in descending revision order. First thing we'll do is
+	# figure out the newest revision that has a build for each config.
+
+	# now make sure all the newest revisions of each config that can be
+	# built are in-progress or done.
+        for config in BuildConfig.select(self.env):	
+	    # need to loop to get all target platforms of the
+            # newest revision
+	    newest_rev = -1
+            for build in Build.select(self.env, config.name):
+		if build.rev < newest_rev:
+		   break
+		if self.should_delete_build(build, repos):
+		   continue
+		newest_rev = build.rev
+
+		if build.status == Build.PENDING:
+   	            slaves = self.slaves.get(build.platform, [])
+	            for idx, slave in enumerate([name for name in slaves
+						 if name in available_slaves]):
+                        slaves.append(slaves.pop(idx)) # Round robin 
+                        return build, slave
+
+	# now just assign anyone who's left
+        for build in Build.select(self.env, status=Build.PENDING):
+	    if self.should_delete_build(build, repos):
+		continue
+            # Find a slave for the build platform that is not already building
+            # something else
+            slaves = self.slaves.get(build.platform, [])
+            for idx, slave in enumerate([name for name in slaves if name
+                                         in available_slaves]):
+                slaves.append(slaves.pop(idx)) # Round robin
+                return build, slave
+
+        log.debug('No pending builds.')
+        return None, None
+
+    def should_delete_build(self, build, repos):
+        # Ignore pending builds for deactived build configs
+        config = BuildConfig.fetch(self.env, build.config)
+        if not config.active:	
+            log.info('Dropping build of configuration "%s" at '
+                     'revision [%s] on "%s" because the configuration is '
+                     'deactivated', config.name, build.rev, TargetPlatform.fetch(self.env, build.platform).name)
+            return True
+        # Stay within the revision limits of the build config
+        if (config.min_rev and repos.rev_older_than(build.rev,
+                                                    config.min_rev)) \
+        or (config.max_rev and repos.rev_older_than(config.max_rev,
+                                                    build.rev)):
+            # This minimum and/or maximum revision has changed since
+            # this build was enqueued, so drop it
+            log.info('Dropping build of configuration "%s" at '
+                     'revision [%s] on "%s" because it is outside of the '
+                     'revision range of the configuration', config.name,
+                     build.rev, TargetPlatform.fetch(self.env, build.platform).name)
+	    return True
+	return False
 
     def populate(self):
         """Add a build for the next change on each build configuration to the
