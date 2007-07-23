@@ -122,17 +122,28 @@ class EventLoop(object):
         granularity = timedelta(seconds=granularity)
         socket_map = asyncore.socket_map
         last_event_check = datetime.min
-        while socket_map:
-            now = datetime.now()
-            if now - last_event_check >= granularity:
-                last_event_check = now
-                while self.eventqueue:
-                    when, callback = heappop(self.eventqueue)
-                    if now < when:
-                        heappush(self.eventqueue, (when, callback))
-                        break
-                    callback()
-            asyncore.poll(timeout)
+	try: 
+            while socket_map:
+                now = datetime.now()
+                if now - last_event_check >= granularity:
+                    last_event_check = now
+                    while self.eventqueue:
+                        when, callback = heappop(self.eventqueue)
+		        if now < when:
+                            heappush(self.eventqueue, (when, callback))
+			    log.debug('Checking done %d events.', len(self.eventqueue))
+                            break
+	                try:
+                            callback()
+	                except:
+                            log.error('Exception caught firing callback %s. Ignoring.', callback.__name__)
+		try: 
+                    asyncore.loop(timeout, True, None, 1)
+		except: 
+		    log.error('Exception caught in asyncore.loop, ignoring.');
+	except:
+	    log.error('Exception caught in run()');
+
 
     def schedule(self, delta, callback):
         """Schedule a function to be called.
