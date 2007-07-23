@@ -59,5 +59,7 @@ setup(
             NS + 'xml#transform = bitten.build.xmltools:transform'
         ]
     },
-    test_suite='bitten.tests.suite', zip_safe=True
+    test_suite='bitten.tests.suite',
+    zip_safe=True,
+    cmdclass = {'unittest': unittest}
 )
