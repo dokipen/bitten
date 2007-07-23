@@ -33,6 +33,7 @@ and directories are removed from the snapshot, added files/directories are
 added, and modified files are updated.
 """
 
+from datetime import datetime
 import logging
 import os
 import posixpath
@@ -206,6 +207,11 @@ class SnapshotManager(object):
             if name.startswith('/'):
                 name = name[1:]
             new_path = posixpath.join(new_prefix, name)
+
+            # tarfile can't handle unicode
+            if isinstance(new_path, unicode):
+                new_path = new_path.encode('utf-8')
+
             if node.isdir:
                 log.debug('Adding directory %s/ to archive', name)
                 new_info = tarfile.TarInfo(new_path)
@@ -237,6 +243,8 @@ class SnapshotManager(object):
                     new_info = tarfile.TarInfo(new_path)
                     new_info.type = tarfile.REGTYPE
                     new_info.mtime = node.last_modified
+                    if isinstance(new_info.mtime, datetime):
+                        new_info.mtime = time.mktime(new_info.mtime.timetuple())
                     new_info.size = node.content_length
 
                     # FIXME: Subversion specific! This should really be an
