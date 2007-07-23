@@ -122,16 +122,17 @@ class unittest(test):
 
     def initialize_options(self):
         test.initialize_options(self)
-        self.xml_results = None
+        self.xml_output = None
+        self.xml_output_file = None
         self.coverage_summary = None
         self.coverage_dir = None
 
     def finalize_options(self):
         test.finalize_options(self)
-        if self.xml_results is not None:
-            if not os.path.exists(os.path.dirname(self.xml_results)):
-                os.makedirs(os.path.dirname(self.xml_results))
-            self.xml_results = open(self.xml_results, 'w')
+        if self.xml_output is not None:
+            if not os.path.exists(os.path.dirname(self.xml_output)):
+                os.makedirs(os.path.dirname(self.xml_output))
+            self.xml_output_file = open(self.xml_output, 'w')
 
     def run_tests(self):
         if self.coverage_dir:
@@ -169,7 +170,8 @@ class unittest(test):
         import unittest
         unittest.main(
             None, None, [unittest.__file__] + self.test_args,
-            testRunner=XMLTestRunner(stream=sys.stdout, xml_stream=self.xml_results),
+            testRunner=XMLTestRunner(stream=sys.stdout,
+                                     xml_stream=self.xml_output_file),
             testLoader=loader_class()
         )
 
@@ -180,7 +182,7 @@ def main():
 
     parser = OptionParser(usage='usage: %prog [options] test_suite ...',
                           version='%%prog %s' % VERSION)
-    parser.add_option('-o', '--xml-results', action='store', dest='xml_results',
+    parser.add_option('-o', '--xml-output', action='store', dest='xml_output',
                       metavar='FILE', help='write XML test results to FILE')
     parser.add_option('-d', '--coverage-dir', action='store',
                       dest='coverage_dir', metavar='DIR',
@@ -195,8 +197,8 @@ def main():
     cmd = unittest(Distribution())
     cmd.initialize_options()
     cmd.test_suite = args[0]
-    if hasattr(options, 'xml_results'):
-        cmd.xml_results = options.xml_results
+    if hasattr(options, 'xml_output'):
+        cmd.xml_output = options.xml_output
     if hasattr(options, 'coverage_summary'):
         cmd.coverage_summary = options.coverage_summary
     if hasattr(options, 'coverage_dir'):
