@@ -123,7 +123,7 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
         for package, properties in self.config.packages.items():
             xml.append(xmlio.Element('package', name=package, **properties))
 
-        self.channel.send_msg(beep.Payload(xml), handle_reply)
+        self.channel.send_msg(beep.Payload(xml), handle_reply, True)
 
     def handle_msg(self, msgno, payload):
         """Handle either a build initiation or the transmission of a snapshot

@@ -219,7 +219,8 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
 
         xml = xmlio.parse(config.recipe)
         xml.attr['project'] = os.path.basename(queue.env.path)
-        self.channel.send_msg(beep.Payload(xml), handle_reply=handle_reply)
+        self.channel.send_msg(beep.Payload(xml),
+                              handle_reply=handle_reply, force_flush=True)
 
     def send_snapshot(self, queue, build, snapshot):
         timestamp_delta = 0

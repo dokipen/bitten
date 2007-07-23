@@ -507,12 +507,13 @@ class Channel(object):
             elif cmd == 'NUL':
                 self.profile.handle_nul(msgno)
 
-    def send_msg(self, payload, handle_reply=None):
+    def send_msg(self, payload, handle_reply=None, force_flush=True):
         """Send a MSG frame to the peer.
         
         @param payload: The message payload (a `Payload` instance)
         @param handle_reply: A function that is called when a reply to this
                              message is received
+	@param force_flush: Flush the beep channel after sending the message
         @return: the message number assigned to the message
         """
         while True: # Find a unique message number
@@ -523,8 +524,12 @@ class Channel(object):
         if handle_reply is not None:
             assert callable(handle_reply), 'Reply handler must be callable'
             self.reply_handlers[msgno] = handle_reply
-        self.session.push_with_producer(FrameProducer(self, 'MSG', msgno, None,
+	if force_flush == True:
+            self.send_with_producer(FrameProducer(self, 'MSG', msgno, None,
                                                       payload))
+	else: 
+ 	    self.session.push_with_producer(FrameProducer(self, 'MSG', msgno, None, payload))
+
         return msgno
 
     def send_rpy(self, msgno, payload):
@@ -533,7 +538,7 @@ class Channel(object):
         @param msgno: The number of the message this reply is in reference to
         @param payload: The message payload (a `Payload` instance)
         """
-        self.session.push_with_producer(FrameProducer(self, 'RPY', msgno, None,
+        self.send_with_producer(FrameProducer(self, 'RPY', msgno, None,
                                                       payload))
 
     def send_err(self, msgno, payload):
@@ -542,7 +547,7 @@ class Channel(object):
         @param msgno: The number of the message this reply is in reference to
         @param payload: The message payload (a `Payload` instance)
         """
-        self.session.push_with_producer(FrameProducer(self, 'ERR', msgno, None,
+        self.send_with_producer(FrameProducer(self, 'ERR', msgno, None,
                                                       payload))
 
     def send_ans(self, msgno, payload):
@@ -554,7 +559,7 @@ class Channel(object):
         """
         ansnos = self.ansnos.setdefault(msgno, cycle_through(0, 2147483647))
         next_ansno = ansnos.next()
-        self.session.push_with_producer(FrameProducer(self, 'ANS', msgno,
+        self.send_with_producer(FrameProducer(self, 'ANS', msgno,
                                                       next_ansno, payload))
         return next_ansno
 
@@ -563,9 +568,21 @@ class Channel(object):
         
         @param msgno: The number of the message this reply is in reference to
         """
-        self.session.push_with_producer(FrameProducer(self, 'NUL', msgno))
+        self.send_with_producer(FrameProducer(self, 'NUL', msgno))
         del self.ansnos[msgno] # dealloc answer numbers for the message
 
+    def send_with_producer(self, fp): 
+        """Sends a message contained in the given FrameProducer to the peer, 
+        ensuring the message is flushed before continuing.      
+	""" 
+	# push with producer seems to send the first frame out the door 
+	self.session.push_with_producer(fp) 
+	# if there are any more, make sure they get out as well. 
+	if not fp.done:  
+	    while not fp.done: 
+	       asyncore.loop(count=1) 
+	    # make sure to flush the last bit. 
+	    asyncore.loop(count=1) 
 
 class ProfileHandler(object):
     """Abstract base class for handlers of specific BEEP profiles.
@@ -712,7 +729,7 @@ class ManagementProfileHandler(ProfileHandler):
 
         log.debug('Requesting closure of channel %d', channelno)
         xml = xmlio.Element('close', number=channelno, code=code)
-        return self.channel.send_msg(Payload(xml), handle_reply)
+        return self.channel.send_msg(Payload(xml), handle_reply, True)
 
     def send_start(self, profiles, handle_ok=None, handle_error=None):
         """Send a request to start a new channel to the peer.
@@ -750,7 +767,7 @@ class ManagementProfileHandler(ProfileHandler):
         xml = xmlio.Element('start', number=channelno)[
             [xmlio.Element('profile', uri=profile.URI) for profile in profiles]
         ]
-        return self.channel.send_msg(Payload(xml), handle_reply)
+        return self.channel.send_msg(Payload(xml), handle_reply, True)
 
 
 class Payload(object):
