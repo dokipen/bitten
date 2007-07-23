@@ -13,11 +13,6 @@ import tempfile
 import unittest
 
 from trac.test import EnvironmentStub, Mock
-try:
-    # Needed for more recent versions of Trac to register the SVN plugin
-    from trac.versioncontrol.svn_fs import SubversionConnector
-except ImportError:
-    pass
 from bitten.model import BuildConfig, TargetPlatform, Build, BuildStep, schema
 from bitten.queue import BuildQueue, collect_changes
 from bitten.trac_ext.compat import schema_to_sql
@@ -133,6 +128,10 @@ class BuildQueueTestCase(unittest.TestCase):
             for stmt in schema_to_sql(self.env, db, table):
                 cursor.execute(stmt)
         db.commit()
+
+        # Hook up a dummy repository
+        self.repos = Mock()
+        self.env.get_repository = lambda authname=None: self.repos
 
     def tearDown(self):
         shutil.rmtree(self.env.path)
