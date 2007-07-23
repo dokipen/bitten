@@ -33,7 +33,7 @@ class Slave(beep.Initiator):
     """BEEP initiator implementation for the build slave."""
 
     def __init__(self, ip, port, name=None, config=None, dry_run=False,
-                 work_dir=None, keep_files=False):
+                 work_dir=None, keep_files=False, single_build=False):
         """Create the build slave instance.
         
         @param ip: Host name or IP address of the build master to connect to
@@ -45,6 +45,8 @@ class Slave(beep.Initiator):
         @param work_dir: The working directory to use for build execution
         @param keep_files: Whether files and directories created for build
             execution should be kept when done
+        @param single_build: Whether this slave should exit after completing a 
+            single build, or continue processing builds forever
         """
         beep.Initiator.__init__(self, ip, port)
         self.name = name
@@ -56,6 +58,16 @@ class Slave(beep.Initiator):
             os.makedirs(work_dir)
         self.work_dir = work_dir
         self.keep_files = keep_files
+	self.single_build = single_build
+	self.schedule(120, self._send_heartbeat)
+
+    def _send_heartbeat(self):
+        for channelno in self.channels.keys():
+            if channelno == 0:
+                log.info("Sending heartbeat on channel %s" % channelno);
+                self.channels[channelno].send_heartbeat()
+	self.schedule(120, self._send_heartbeat)
+
 
     def greeting_received(self, profiles):
         """Start a channel for the build orchestration profile, if advertised
@@ -155,6 +167,9 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
                 if not self.session.keep_files:
                     shutil.rmtree(basedir)
                     os.remove(archive_path)
+	        if self.session.single_build:
+	            log.info('Exiting after single build completion.')
+	            self.session.quit()
 
     def unpack_snapshot(self, project_dir, archive_name):
         """Unpack a snapshot archive.
@@ -305,8 +320,10 @@ def main():
                       const=logging.INFO, help='print as much as possible')
     parser.add_option('-q', '--quiet', action='store_const', dest='loglevel',
                       const=logging.ERROR, help='print as little as possible')
+    parser.add_option('-s', '--single', action='store_const', dest='single_build',
+                      const=logging.ERROR, help='exit after completing a single build')
     parser.set_defaults(dry_run=False, keep_files=False,
-                        loglevel=logging.WARNING)
+                        loglevel=logging.WARNING, single_build=False)
     options, args = parser.parse_args()
 
     if len(args) < 1:
@@ -338,7 +355,8 @@ def main():
 
     slave = Slave(host, port, name=options.name, config=options.config,
                   dry_run=options.dry_run, work_dir=options.work_dir,
-                  keep_files=options.keep_files)
+                  keep_files=options.keep_files, 
+ 	          single_build=options.single_build)
     try:
         slave.run()
     except KeyboardInterrupt:
