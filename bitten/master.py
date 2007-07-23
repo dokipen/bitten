@@ -367,7 +367,7 @@ def _parse_iso_datetime(string):
         string = string.split('.', 1)[0] # strip out microseconds
         return calendar.timegm(time.strptime(string, '%Y-%m-%dT%H:%M:%S'))
     except ValueError, e:
-        raise ValueError, 'Invalid ISO date/time %s (%s)' % (string, e)
+        raise ValueError('Invalid ISO date/time %s (%s)' % (string, e))
 
 def main():
     """Main entry point for running the build master."""

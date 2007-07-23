@@ -296,7 +296,7 @@ class Session(asynchat.async_chat):
                     log.error('Malformed frame header: [%s]',
                               ' '.join(self.header), exc_info=True)
                     self.header = None
-                    raise TerminateSession, 'Malformed frame header'
+                    raise TerminateSession('Malformed frame header')
             if size == 0:
                 self.payload = ''
                 self.set_terminator('END\r\n')
@@ -352,7 +352,7 @@ class Session(asynchat.async_chat):
 
         except (AssertionError, IndexError, TypeError, ValueError), e:
             log.error('Malformed frame', exc_info=True)
-            raise TerminateSession, 'Malformed frame header'
+            raise TerminateSession('Malformed frame header')
 
     def terminate(self, handle_ok=None, handle_error=None):
         """Terminate the session by closing all channels."""
@@ -468,7 +468,7 @@ class Channel(object):
         """
         # Validate and update sequence number
         if seqno != self.seqno[0]:
-            raise TerminateSession, 'Out of sync with peer'
+            raise TerminateSession('Out of sync with peer')
         self.seqno[0] += len(payload)
 
         if more:

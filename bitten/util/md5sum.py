@@ -73,7 +73,7 @@ def validate(filename, checksum=None):
         if not os.path.isfile(md5file):
             md5file = os.path.splitext(filename)[0] + '.md5'
             if not os.path.isfile(md5file):
-                raise IntegrityError, 'Checksum file not found'
+                raise IntegrityError('Checksum file not found')
         fileobj = file(md5file, 'r')
         try:
             content = fileobj.read()
@@ -82,10 +82,10 @@ def validate(filename, checksum=None):
         try:
             checksum, path = content.split('  ')
         except ValueError:
-            raise IntegrityError, 'Checksum file invalid'
+            raise IntegrityError('Checksum file invalid')
         if path != os.path.basename(filename):
-            raise IntegrityError, 'Checksum for a different file'
+            raise IntegrityError('Checksum for a different file')
 
     expected = generate(filename)
     if expected != checksum:
-        raise IntegrityError, 'Checksum does not match'
+        raise IntegrityError('Checksum does not match')

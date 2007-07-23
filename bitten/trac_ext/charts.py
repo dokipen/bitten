@@ -39,7 +39,7 @@ class ReportChartController(Component):
                                                          category)
                 break
         else:
-            raise TracError, 'Unknown report category "%s"' % category
+            raise TracError('Unknown report category "%s"' % category)
 
         return template, 'text/xml'
 

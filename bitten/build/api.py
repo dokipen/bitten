@@ -166,7 +166,7 @@ class CommandLine(object):
                 writable = [pipe.tochild] * (not in_eof)
                 ready = select.select(readable, writable, [], timeout)
                 if not (ready[0] or ready[1]):
-                    raise TimeoutError, 'Command %s timed out' % self.executable
+                    raise TimeoutError('Command %s timed out' % self.executable)
                 if pipe.tochild in ready[1]:
                     sent = os.write(pipe.tochild.fileno(), in_data)
                     in_data = in_data[sent:]

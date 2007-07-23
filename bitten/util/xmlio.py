@@ -180,7 +180,7 @@ def parse(text_or_file):
             dom = minidom.parse(text_or_file)
         return ParsedElement(dom.documentElement)
     except expat.error, e:
-        raise ParseError, e
+        raise ParseError(e)
 
 
 class ParsedElement(object):
@@ -246,7 +246,7 @@ class ParsedElement(object):
         def __getitem__(self, name):
             attr = self._node.getAttributeNode(name)
             if not attr:
-                raise KeyError, name
+                raise KeyError(name)
             return attr.value.encode('utf-8')
         def __setitem__(self, name, value):
             self._node.setAttribute(name, value)

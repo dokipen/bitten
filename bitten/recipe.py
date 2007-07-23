@@ -74,7 +74,7 @@ class Context(object):
             elif name == 'report':
                 function = Context.report_file
             if not function:
-                raise InvalidRecipeError, 'Unknown recipe command %s' % qname
+                raise InvalidRecipeError('Unknown recipe command %s' % qname)
 
             def escape(name):
                 name = name.replace('-', '_')
@@ -185,7 +185,7 @@ class Step(object):
                 errors.append((generator, output))
         if errors:
             if self.onerror == 'fail':
-                raise BuildError, 'Build step %s failed' % self.id
+                raise BuildError('Build step %s failed' % self.id)
             log.warning('Ignoring errors in step %s (%s)', self.id,
                         ', '.join([error[1] for error in errors]))
 
@@ -235,29 +235,29 @@ class Recipe(object):
             violated
         """
         if self._root.name != 'build':
-            raise InvalidRecipeError, 'Root element must be <build>'
+            raise InvalidRecipeError('Root element must be <build>')
         steps = list(self._root.children())
         if not steps:
-            raise InvalidRecipeError, 'Recipe defines no build steps'
+            raise InvalidRecipeError('Recipe defines no build steps')
 
         step_ids = set()
         for step in steps:
             if step.name != 'step':
-                raise InvalidRecipeError, 'Only <step> elements allowed ' \
-                                          'at top level of recipe'
+                raise InvalidRecipeError('Only <step> elements allowed at '
+                                         'top level of recipe')
             if not step.attr.get('id'):
-                raise InvalidRecipeError, 'Steps must have an "id" attribute'
+                raise InvalidRecipeError('Steps must have an "id" attribute')
 
             if step.attr['id'] in step_ids:
-                raise InvalidRecipeError, 'Duplicate step ID "%s"' \
-                                          % step.attr['id']
+                raise InvalidRecipeError('Duplicate step ID "%s"' %
+                                         step.attr['id'])
             step_ids.add(step.attr['id'])
 
             cmds = list(step.children())
             if not cmds:
-                raise InvalidRecipeError, 'Step "%s" has no recipe commands' \
-                                          % step.attr['id']
+                raise InvalidRecipeError('Step "%s" has no recipe commands' %
+                                         step.attr['id'])
             for cmd in cmds:
                 if len(list(cmd.children())):
-                    raise InvalidRecipeError, 'Recipe command <%s> has ' \
-                                              'nested content' % cmd.name
+                    raise InvalidRecipeError('Recipe command <%s> has nested '
+                                             'content' % cmd.name)

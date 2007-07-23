@@ -79,8 +79,8 @@ class SnapshotManager(object):
 
         # Make sure we have permissions to write to the directory
         if not os.access(self.directory, os.R_OK + os.W_OK):
-            raise IOError, 'Insufficient permissions to create snapshots in ' \
-                           + self.directory
+            raise IOError('Insufficient permissions to create snapshots in %s' %
+                          self.directory)
 
         # Collect a list of all existing snapshot archives
         self._index = []
@@ -161,8 +161,8 @@ class SnapshotManager(object):
             filename = new_prefix + '.tar.bz2'
             new_filepath = os.path.join(self.directory, filename)
             if os.path.exists(new_filepath):
-                raise IOError, 'Snapshot file already exists at %s' \
-                               % new_filepath
+                raise IOError('Snapshot file already exists at %s' %
+                              new_filepath)
 
             self._cleanup(self.limit - 1)
 

@@ -66,7 +66,7 @@ class Slave(beep.Initiator):
         if OrchestrationProfileHandler.URI not in profiles:
             err = 'Peer does not support the Bitten orchestration profile'
             log.error(err)
-            raise beep.TerminateSession, err
+            raise beep.TerminateSession(err)
         self.channels[0].profile.send_start([OrchestrationProfileHandler])
 
 
@@ -87,7 +87,7 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
                     if elem.name == 'error':
                         log.error('Slave registration failed: %s (%d)',
                                   elem.gettext(), int(elem.attr['code']))
-                raise beep.TerminateSession, 'Registration failed!'
+                raise beep.TerminateSession('Registration failed!')
             log.info('Registration successful')
 
         self.config = Configuration(self.session.config)
@@ -276,7 +276,7 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
             self.channel.send_ans(msgno, beep.Payload(xml))
             self.channel.send_nul(msgno)
 
-            raise beep.TerminateSession, 'Cancelled'
+            raise beep.TerminateSession('Cancelled')
 
 
 def main():

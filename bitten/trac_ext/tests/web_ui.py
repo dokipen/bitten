@@ -223,7 +223,7 @@ class BuildConfigControllerTestCase(unittest.TestCase):
                          'label': 'Test', 'description': 'Bla bla'})
 
         def get_node(path, rev=None):
-            raise TracError, 'No such node'
+            raise TracError('No such node')
         self.repos = Mock(get_node=get_node)
 
         module = BuildConfigController(self.env)
