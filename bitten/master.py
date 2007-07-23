@@ -164,8 +164,7 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
             self.channel.send_rpy(msgno, beep.Payload(xml))
 
     def send_initiation(self, queue, build):
-        log.info('Initiating build of "%s" on slave %s', build.config,
-                 self.name)
+	log.info('Initiating build of %d ("%s" as of [%s]) on slave %s', build.id, build.config, build.rev, self.name) 
 
         build.slave = self.name
         build.slave_info.update(self.info)
@@ -246,6 +245,16 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
                 if payload.content_type != beep.BEEP_XML:
                     raise beep.ProtocolError(500)
                 elem = xmlio.parse(payload.body)
+
+		# verify that the build hasn't been modified out from
+		# under us-- we don't want to accept any build information
+		# from builds that have been invalidated or claimed by
+		# other slaves.
+		current_build = Build.fetch(queue.env, build.id)
+		if current_build.status != Build.IN_PROGRESS or current_build.slave != self.name:
+                    raise beep.ProtocolError(550, 'Build %s has been invalidated, will not accept completed steps from slave %s' % (build.id, self.name))
+		
+	
                 if elem.name == 'started':
                     self._build_started(queue, build, elem, timestamp_delta)
                 elif elem.name == 'step':
@@ -293,7 +302,7 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
             step.started -= timestamp_delta
             step.stopped -= timestamp_delta
         if elem.attr['result'] == 'failure':
-            log.warning('Step failed')
+	    log.warning('Build %s Step %s failed', build.id, elem.attr['id']) 
             step.status = BuildStep.FAILURE
         else:
             step.status = BuildStep.SUCCESS
