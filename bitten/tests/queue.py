@@ -13,6 +13,11 @@ import tempfile
 import unittest
 
 from trac.test import EnvironmentStub, Mock
+try:
+    # Needed for more recent versions of Trac to register the SVN plugin
+    from trac.versioncontrol.svn_fs import SubversionConnector
+except ImportError:
+    pass
 from bitten.model import BuildConfig, TargetPlatform, Build, BuildStep, schema
 from bitten.queue import BuildQueue, collect_changes
 from bitten.trac_ext.compat import schema_to_sql

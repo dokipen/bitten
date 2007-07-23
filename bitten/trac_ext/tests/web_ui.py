@@ -16,6 +16,7 @@ from trac.perm import PermissionCache, PermissionSystem
 from trac.test import EnvironmentStub, Mock
 from trac.versioncontrol import Repository
 from trac.web.clearsilver import HDFWrapper
+from trac.web.href import Href
 from trac.web.main import Request, RequestDone
 from bitten.model import BuildConfig, TargetPlatform, Build, schema
 from bitten.trac_ext.compat import schema_to_sql
@@ -55,8 +56,8 @@ class BuildConfigControllerTestCase(unittest.TestCase):
     def test_overview(self):
         PermissionSystem(self.env).grant_permission('joe', 'BUILD_VIEW')
         req = Mock(method='GET', base_path='', cgi_location='',
-                   path_info='/build', args={}, hdf=HDFWrapper(),
-                   perm=PermissionCache(self.env, 'joe'))
+                   path_info='/build', href=Href('/build'), args={}, chrome={},
+                   hdf=HDFWrapper(), perm=PermissionCache(self.env, 'joe'))
 
         module = BuildConfigController(self.env)
         assert module.match_request(req)
@@ -68,8 +69,8 @@ class BuildConfigControllerTestCase(unittest.TestCase):
     def test_overview_admin(self):
         PermissionSystem(self.env).grant_permission('joe', 'BUILD_ADMIN')
         req = Mock(method='GET', base_path='', cgi_location='',
-                   path_info='/build', args={}, hdf=HDFWrapper(),
-                   perm=PermissionCache(self.env, 'joe'))
+                   path_info='/build', href=Href('/build'), args={}, chrome={},
+                   hdf=HDFWrapper(), perm=PermissionCache(self.env, 'joe'))
 
         module = BuildConfigController(self.env)
         assert module.match_request(req)
@@ -85,8 +86,9 @@ class BuildConfigControllerTestCase(unittest.TestCase):
 
         PermissionSystem(self.env).grant_permission('joe', 'BUILD_VIEW')
         req = Mock(method='GET', base_path='', cgi_location='',
-                   path_info='/build/test', args={}, hdf=HDFWrapper(),
-                   authname='joe', perm=PermissionCache(self.env, 'joe'))
+                   path_info='/build/test', href=Href('/build'), args={},
+                   chrome={}, hdf=HDFWrapper(), authname='joe',
+                   perm=PermissionCache(self.env, 'joe'))
 
         root = Mock(get_entries=lambda: ['foo'],
                     get_history=lambda: [('trunk', rev, 'edit') for rev in
@@ -111,8 +113,9 @@ class BuildConfigControllerTestCase(unittest.TestCase):
 
         PermissionSystem(self.env).grant_permission('joe', 'BUILD_VIEW')
         req = Mock(method='GET', base_path='', cgi_location='',
-                   path_info='/build/test', args={}, hdf=HDFWrapper(),
-                   authname='joe', perm=PermissionCache(self.env, 'joe'))
+                   path_info='/build/test', href=Href('/build/test'), args={},
+                   chrome={}, hdf=HDFWrapper(), authname='joe',
+                   perm=PermissionCache(self.env, 'joe'))
 
         root = Mock(get_entries=lambda: ['foo'],
                     get_history=lambda: [('trunk', rev, 'edit') for rev in
@@ -124,8 +127,12 @@ class BuildConfigControllerTestCase(unittest.TestCase):
         assert module.match_request(req)
         module.process_request(req)
 
-        self.assertEqual('/trac.cgi/build/test?page=2',
-                         req.hdf.get('chrome.links.next.0.href'))
+        if req.chrome: # Trac 0.11
+            self.assertEqual('/trac.cgi/build/test?page=2',
+                             req.chrome['links']['next'][0]['href'])
+        else:
+            self.assertEqual('/trac.cgi/build/test?page=2',
+                             req.hdf.get('chrome.links.next.0.href'))
 
     def test_view_config_admin(self):
         config = BuildConfig(self.env)
@@ -134,8 +141,9 @@ class BuildConfigControllerTestCase(unittest.TestCase):
 
         PermissionSystem(self.env).grant_permission('joe', 'BUILD_ADMIN')
         req = Mock(method='GET', base_path='', cgi_location='',
-                   path_info='/build/test', args={}, hdf=HDFWrapper(),
-                   authname='joe', perm=PermissionCache(self.env, 'joe'))
+                   path_info='/build/test', href=Href('/build'), args={},
+                   chrome={}, hdf=HDFWrapper(), authname='joe',
+                   perm=PermissionCache(self.env, 'joe'))
 
         module = BuildConfigController(self.env)
         assert module.match_request(req)
@@ -148,6 +156,7 @@ class BuildConfigControllerTestCase(unittest.TestCase):
         PermissionSystem(self.env).grant_permission('joe', 'BUILD_ADMIN')
         req = Mock(method='GET', base_path='', cgi_location='',
                    path_info='/build', args={'action': 'new'}, hdf=HDFWrapper(),
+                   href=Href('/build'), chrome={},
                    perm=PermissionCache(self.env, 'joe'))
 
         module = BuildConfigController(self.env)
@@ -272,8 +281,8 @@ class BuildConfigControllerTestCase(unittest.TestCase):
 
         PermissionSystem(self.env).grant_permission('joe', 'BUILD_ADMIN')
         req = Mock(method='GET', base_path='', cgi_location='',
-                   path_info='/build/test', hdf=HDFWrapper(),
-                   perm=PermissionCache(self.env, 'joe'),
+                   path_info='/build/test', href=Href('/build'), chrome={},
+                   hdf=HDFWrapper(), perm=PermissionCache(self.env, 'joe'),
                    args={'action': 'delete'})
 
         module = BuildConfigController(self.env)
@@ -334,6 +343,7 @@ class BuildConfigControllerTestCase(unittest.TestCase):
         PermissionSystem(self.env).grant_permission('joe', 'BUILD_ADMIN')
         req = Mock(method='GET', base_path='', cgi_location='',
                    path_info='/build/test', hdf=HDFWrapper(),
+                   href=Href('/build/test'), chrome={},
                    perm=PermissionCache(self.env, 'joe'),
                    args={'action': 'edit'})
 
@@ -400,6 +410,7 @@ class BuildConfigControllerTestCase(unittest.TestCase):
         PermissionSystem(self.env).grant_permission('joe', 'BUILD_ADMIN')
         req = Mock(method='GET', base_path='', cgi_location='',
                    path_info='/build/test', hdf=HDFWrapper(),
+                   href=Href('/build/test'), chrome={},
                    perm=PermissionCache(self.env, 'joe'),
                    args={'action': 'edit', 'new': '1'})
 
@@ -462,6 +473,7 @@ class BuildConfigControllerTestCase(unittest.TestCase):
         PermissionSystem(self.env).grant_permission('joe', 'BUILD_ADMIN')
         req = Mock(method='GET', base_path='', cgi_location='',
                    path_info='/build/test', hdf=HDFWrapper(),
+                   href=Href('/build'), chrome={},
                    perm=PermissionCache(self.env, 'joe'),
                    args={'action': 'edit', 'platform': platform.id})
 
