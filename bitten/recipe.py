@@ -127,7 +127,8 @@ class Context(object):
             try:
                 xml_elem = xmlio.Fragment()
                 for child in xmlio.parse(fileobj).children():
-                    xml_elem.append(xmlio.Element(child.name, **child.attr)[
+		    child_elem = xmlio.Element(child.name, **dict([(name, value) for name, value in child.attr.items() if value is not None]))	
+                    xml_elem.append(child_elem[
                         [xmlio.Element(grandchild.name)[grandchild.gettext()]
                         for grandchild in child.children()]
                     ])
