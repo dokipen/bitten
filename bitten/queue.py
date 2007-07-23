@@ -130,7 +130,8 @@ class BuildQueue(object):
                 if not config.active:
                     log.info('Dropping build of configuration "%s" at '
                              'revision [%s] on %s because the configuration is '
-                             'deactivated', config.name)
+                             'deactivated', config.name, build.rev,
+                             build.platform)
                     builds_to_delete.append(build)
                     continue
 
@@ -144,7 +145,7 @@ class BuildQueue(object):
                     log.info('Dropping build of configuration "%s" at '
                              'revision [%s] on %s because it is outside of the '
                              'revision range of the configuration', config.name,
-                             rev, platform.name)
+                             build.rev, build.platform)
                     builds_to_delete.append(build)
                     continue
 
