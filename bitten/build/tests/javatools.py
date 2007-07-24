@@ -1,4 +1,4 @@
-# -*- coding: iso8859-1 -*-
+# -*- coding: utf-8 -*-
 #
 # Copyright (C) 2006 Christopher Lenz <cmlenz@gmx.de>
 # Copyright (C) 2006 Matthew Good <matt@matt-good.net>

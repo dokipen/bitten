@@ -1,6 +1,6 @@
-# -*- coding: iso8859-1 -*-
+# -*- coding: utf-8 -*-
 #
-# -*- coding: iso8859-1 -*-
+# -*- coding: utf-8 -*-
 #
 # Copyright (C) 2005 Christopher Lenz <cmlenz@gmx.de>
 # All rights reserved.
