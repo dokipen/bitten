@@ -31,11 +31,15 @@
      /if ?>
     </dd><?cs
    /if ?>
-   <dt class="time">Started:</dt>
+   <dt class="time"><?cs if:build.stopped ?>Started:<?cs else ?>Building since:<?cs /if ?>
    <dd class="time"><?cs var:build.started ?> (<?cs
     var:build.started_delta ?> ago)
    </dd>
-   <dt class="duration">Took:</dt>
+   <?cs if:build.stopped ?>
+     <dt class="time">Stopped:</dt>
+     <dd class="time"><?cs var:build.stopped ?> (<?cs var:build.stopped_delta ?> ago) </dd>
+   <?cs /if ?>
+   <dt class="duration">Duration:</dt>
    <dd class="duration"><?cs
     var:build.duration ?>
    </dd>

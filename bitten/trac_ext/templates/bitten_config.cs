@@ -17,6 +17,15 @@
     /if ?></ul><?cs
    /if ?><?cs
   /with ?><?cs
+ elif:page.mode == 'overview' ?><?cs
+  with:links = chrome.links ?><?cs
+    if:len(links.views) ?><ul>
+     <li class="last">
+      <a href="<?cs var:links.views.0.href ?>"><?cs
+        var:links.views.0.title ?></a>
+     </li><?cs
+    /if ?></ul><?cs
+  /with ?><?cs
  /if ?></div>
  <div id="content" class="build">
   <h1><?cs var:title ?></h1><?cs
@@ -268,6 +277,54 @@
      /each ?></tbody><?cs
     /if ?></table><?cs
    /if ?></div><br style="clear: right"/><?cs
+
+  elif:page.mode == 'view_inprogress' ?><?cs
+   each:config = configs ?>
+    <h2 class="config <?cs if:!config.active ?>deactivated<?cs
+    /if ?>"><a href="<?cs var:config.href ?>"><?cs var:config.label ?></a></h2>
+     <table class="listing" id="builds"><thead><tr>
+     <th class="chgset" abbrev="Changeset">Chgset</th>
+     <th>Build</th></tr></thead><?cs 
+      each:build = config.builds ?><tr><th class="chgset" scope="row">
+        <a href="<?cs var:build.rev_href ?>" title="View Changeset">[<?cs
+        var:build.rev ?>]</a></th><td class="<?cs
+        var:build.cls ?>"><div class="info">
+        <a href="<?cs
+        var:build.href ?>" title="View build results"><?cs var:build.id ?>:
+         <strong class="status"><?cs var:build.platform ?></strong></a>
+        <div class="system">
+       <strong><?cs var:build.slave.name ?></strong> (<?cs
+       var:build.slave.ipnr ?>)<br /><?cs
+       var:build.slave.os.name ?> <?cs var:build.slave.os.version ?><?cs 
+       if:build.slave.machine || build.slave.processor ?> / <?cs
+        alt:build.slave.processor ?><?cs
+         var:build.slave.machine ?><?cs
+        /alt ?><?cs
+       /if ?><br /><?cs
+         if:build.started ?>
+           Building since: <?cs var:build.started ?>
+           (<?cs var:build.started_delta ?> ago)<?cs
+         /if ?>
+        </div>
+        </div><?cs
+         if:len(build.steps) ?><ul class="steps"><?cs
+          each:step = build.steps ?><li class="<?cs
+           if:step.failed ?>failed<?cs else ?>success<?cs /if ?>">
+           <span class="duration"><?cs var:step.duration ?></span> <a href="<?cs
+           var:step.href ?>"<?cs
+           if:step.description ?> title="<?cs
+            var:step.description ?>"<?cs
+           /if ?>><?cs
+           var:name(step) ?></a><?cs
+           if:step.failed && len(step.errors) ?><ul><?cs
+            each:error = step.errors ?><li><?cs
+             var:error ?></li><?cs
+            /each ?></ul><?cs
+           /if ?></li><?cs
+          /each ?></ul><?cs
+         /if ?></td></td></tr><?cs
+     /each ?></table><?cs
+   /each ?></div><?cs
 
   elif:page.mode == 'edit_platform' ?>
    <form class="platform" method="post" action="">

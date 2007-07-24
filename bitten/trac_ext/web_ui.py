@@ -51,6 +51,7 @@ def _build_to_hdf(env, req, build):
     if build.started:
         hdf['started'] = format_datetime(build.started)
         hdf['started_delta'] = pretty_timedelta(build.started)
+        hdf['duration'] = pretty_timedelta(build.started)
     if build.stopped:
         hdf['stopped'] = format_datetime(build.stopped)
         hdf['stopped_delta'] = pretty_timedelta(build.stopped)
@@ -120,6 +121,7 @@ class BuildConfigController(Component):
         req.perm.assert_permission('BUILD_VIEW')
 
         action = req.args.get('action')
+        view = req.args.get('view')
         config = req.args.get('config')
 
         if req.method == 'POST':
@@ -164,6 +166,8 @@ class BuildConfigController(Component):
             else:
                 if action == 'new':
                     self._render_config_form(req)
+                elif view == 'inprogress':
+                    self._render_inprogress(req)
                 else:
                     self._render_overview(req)
 
@@ -351,6 +355,8 @@ class BuildConfigController(Component):
             show_all = True
         req.hdf['config.show_all'] = show_all
 
+        add_link(req, 'views', req.href.build(view='inprogress'), 'In Progress Builds')
+
         configs = BuildConfig.select(self.env, include_inactive=show_all)
         for idx, config in enumerate(configs):
             prefix = 'configs.%d' % idx
@@ -396,6 +402,60 @@ class BuildConfigController(Component):
 
         req.hdf['page.mode'] = 'overview'
         req.hdf['config.can_create'] = req.perm.has_permission('BUILD_CREATE')
+
+    def _render_inprogress(self, req):
+        req.hdf['title'] = 'In Progress Builds'
+
+        db = self.env.get_db_cnx()
+
+        configs = BuildConfig.select(self.env, include_inactive=False)
+        for idx, config in enumerate(configs):
+            if not config.active:
+                continue
+
+            in_progress_builds = Build.select(self.env, config=config.name,
+                                              status=Build.IN_PROGRESS, db=db)
+            
+            # sort correctly by revision.
+            builds = list(in_progress_builds)
+            builds.sort(lambda x, y: int(y.rev) - int(x.rev))
+            prefix = 'configs.%d' % idx
+
+            current_builds = 0
+            for idx2, build in enumerate(builds):
+                prefix2 = '%s.builds.%d' % (prefix, idx2)
+                rev = build.rev
+                req.hdf[prefix2] = _build_to_hdf(self.env, req, build)
+                req.hdf[prefix2 + '.rev'] = rev
+                req.hdf[prefix2 + '.rev_href'] = self.env.href.changeset(rev)
+                platform = TargetPlatform.fetch(self.env, build.platform)
+                req.hdf[prefix2 + '.platform'] = platform.name
+                
+                for step in BuildStep.select(self.env, build=build.id, db=db):
+                    req.hdf['%s.steps.%s' % (prefix2, step.name)] = {
+                         'description': step.description,
+                         'duration': datetime.fromtimestamp(step.stopped) - \
+                                     datetime.fromtimestamp(step.started),
+                         'failed': not step.successful,
+                         'errors': step.errors,
+                         'href': req.hdf[prefix2 + '.href'] + '#step_' + step.name }
+
+                current_builds = current_builds + 1
+
+            if current_builds == 0: 
+                continue
+
+            description = config.description
+            if description:
+                description = wiki_to_html(description, self.env, req)
+            req.hdf[prefix] = {
+                'name': config.name, 'label': config.label or config.name,
+                'active': config.active, 'path': config.path,
+                'description': description,
+                'href': self.env.href.build(config.name),
+            }
+
+        req.hdf['page.mode'] = 'view_inprogress'
 
     def _render_config(self, req, config_name):
         db = self.env.get_db_cnx()
