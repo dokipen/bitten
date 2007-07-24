@@ -59,15 +59,6 @@ class Slave(beep.Initiator):
         self.work_dir = work_dir
         self.keep_files = keep_files
         self.single_build = single_build
-        self.schedule(120, self._send_heartbeat)
-
-    def _send_heartbeat(self):
-        for channelno in self.channels.keys():
-            if channelno == 0:
-                log.info("Sending heartbeat on channel %s" % channelno);
-                self.channels[channelno].send_heartbeat()
-        self.schedule(120, self._send_heartbeat)
-
 
     def greeting_received(self, profiles):
         """Start a channel for the build orchestration profile, if advertised
