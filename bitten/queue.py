@@ -119,20 +119,20 @@ class BuildQueue(object):
         Otherwise, this function will return C{(None, None)}
         """
         log.debug('Checking for pending builds...')
-	if len(available_slaves) == 0: 
+        if len(available_slaves) == 0: 
             log.debug('No available slaves.')
             return None, None
 
         repos = self.env.get_repository()
 
-	# delete any old builds.
+        # delete any old builds.
         builds_to_delete = []
         try:
             for build in Build.select(self.env, status=Build.PENDING):
-		if self.should_delete_build(build, repos):
-		   builds_to_delete.append(build)
+                if self.should_delete_build(build, repos):
+                   builds_to_delete.append(build)
         finally:
-            db = self.env.get_db_cnx()	
+            db = self.env.get_db_cnx()  
             for build in builds_to_delete:
                 build.delete(db=db)
 
@@ -143,32 +143,32 @@ class BuildQueue(object):
         # revisions are done/in progress for our set of available
         # slaves, we'll just fall back to processing the remaining
         # builds in descending revision order. First thing we'll do is
-	# figure out the newest revision that has a build for each config.
+        # figure out the newest revision that has a build for each config.
 
-	# now make sure all the newest revisions of each config that can be
-	# built are in-progress or done.
-        for config in BuildConfig.select(self.env):	
-	    # need to loop to get all target platforms of the
+        # now make sure all the newest revisions of each config that can be
+        # built are in-progress or done.
+        for config in BuildConfig.select(self.env):     
+            # need to loop to get all target platforms of the
             # newest revision
-	    newest_rev = -1
+            newest_rev = -1
             for build in Build.select(self.env, config.name):
-		if build.rev < newest_rev:
-		   break
-		if self.should_delete_build(build, repos):
-		   continue
-		newest_rev = build.rev
+                if build.rev < newest_rev:
+                   break
+                if self.should_delete_build(build, repos):
+                   continue
+                newest_rev = build.rev
 
-		if build.status == Build.PENDING:
-   	            slaves = self.slaves.get(build.platform, [])
-	            for idx, slave in enumerate([name for name in slaves
-						 if name in available_slaves]):
+                if build.status == Build.PENDING:
+                    slaves = self.slaves.get(build.platform, [])
+                    for idx, slave in enumerate([name for name in slaves
+                                                 if name in available_slaves]):
                         slaves.append(slaves.pop(idx)) # Round robin 
                         return build, slave
 
-	# now just assign anyone who's left
+        # now just assign anyone who's left
         for build in Build.select(self.env, status=Build.PENDING):
-	    if self.should_delete_build(build, repos):
-		continue
+            if self.should_delete_build(build, repos):
+                continue
             # Find a slave for the build platform that is not already building
             # something else
             slaves = self.slaves.get(build.platform, [])
@@ -183,7 +183,7 @@ class BuildQueue(object):
     def should_delete_build(self, build, repos):
         # Ignore pending builds for deactived build configs
         config = BuildConfig.fetch(self.env, build.config)
-        if not config.active:	
+        if not config.active:   
             log.info('Dropping build of configuration "%s" at '
                      'revision [%s] on "%s" because the configuration is '
                      'deactivated', config.name, build.rev, TargetPlatform.fetch(self.env, build.platform).name)
@@ -199,8 +199,8 @@ class BuildQueue(object):
                      'revision [%s] on "%s" because it is outside of the '
                      'revision range of the configuration', config.name,
                      build.rev, TargetPlatform.fetch(self.env, build.platform).name)
-	    return True
-	return False
+            return True
+        return False
 
     def populate(self):
         """Add a build for the next change on each build configuration to the

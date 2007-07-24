@@ -730,8 +730,8 @@ class BuildLog(object):
         if self.messages:
             cursor.executemany("INSERT INTO bitten_log_message "
                                "(log,line,level,message) VALUES (%s,%s,%s,%s)",
-                               [(id, idx, message[0], message[1]) for idx, message
-                                in enumerate(self.messages)])
+                               [(id, idx, msg[0], msg[1]) for idx, msg in
+                                enumerate(self.messages)])
 
         if handle_ta:
             db.commit()

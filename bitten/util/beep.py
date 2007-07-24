@@ -122,27 +122,29 @@ class EventLoop(object):
         granularity = timedelta(seconds=granularity)
         socket_map = asyncore.socket_map
         last_event_check = datetime.min
-	try: 
+        try:
             while socket_map:
                 now = datetime.now()
                 if now - last_event_check >= granularity:
                     last_event_check = now
                     while self.eventqueue:
                         when, callback = heappop(self.eventqueue)
-		        if now < when:
+                        if now < when:
                             heappush(self.eventqueue, (when, callback))
-			    log.debug('Checking done %d events.', len(self.eventqueue))
+                            log.debug('Checking done %d events.',
+                                      len(self.eventqueue))
                             break
-	                try:
+                        try:
                             callback()
-	                except:
-                            log.error('Exception caught firing callback %s. Ignoring.', callback.__name__)
-		try: 
+                        except:
+                            log.error('Exception caught firing callback %s. '
+                                      'Ignoring.', callback.__name__)
+                try: 
                     asyncore.loop(timeout, True, None, 1)
-		except: 
-		    log.error('Exception caught in asyncore.loop, ignoring.');
-	except:
-	    log.error('Exception caught in run()');
+                except: 
+                    log.error('Exception caught in asyncore.loop, ignoring.');
+        except:
+            log.error('Exception caught in run()');
 
 
     def schedule(self, delta, callback):
@@ -524,7 +526,7 @@ class Channel(object):
         @param payload: The message payload (a `Payload` instance)
         @param handle_reply: A function that is called when a reply to this
                              message is received
-	@param force_flush: Flush the beep channel after sending the message
+        @param force_flush: Flush the beep channel after sending the message
         @return: the message number assigned to the message
         """
         while True: # Find a unique message number
@@ -535,11 +537,11 @@ class Channel(object):
         if handle_reply is not None:
             assert callable(handle_reply), 'Reply handler must be callable'
             self.reply_handlers[msgno] = handle_reply
-	if force_flush == True:
+        if force_flush == True:
             self.send_with_producer(FrameProducer(self, 'MSG', msgno, None,
                                                       payload))
-	else: 
- 	    self.session.push_with_producer(FrameProducer(self, 'MSG', msgno, None, payload))
+        else: 
+            self.session.push_with_producer(FrameProducer(self, 'MSG', msgno, None, payload))
 
         return msgno
 
@@ -585,15 +587,15 @@ class Channel(object):
     def send_with_producer(self, fp): 
         """Sends a message contained in the given FrameProducer to the peer, 
         ensuring the message is flushed before continuing.      
-	""" 
-	# push with producer seems to send the first frame out the door 
-	self.session.push_with_producer(fp) 
-	# if there are any more, make sure they get out as well. 
-	if not fp.done:  
-	    while not fp.done: 
-	       asyncore.loop(count=1) 
-	    # make sure to flush the last bit. 
-	    asyncore.loop(count=1) 
+        """ 
+        # push with producer seems to send the first frame out the door 
+        self.session.push_with_producer(fp) 
+        # if there are any more, make sure they get out as well. 
+        if not fp.done:  
+            while not fp.done: 
+               asyncore.loop(count=1) 
+            # make sure to flush the last bit. 
+            asyncore.loop(count=1) 
 
 class ProfileHandler(object):
     """Abstract base class for handlers of specific BEEP profiles.

@@ -58,15 +58,15 @@ class Slave(beep.Initiator):
             os.makedirs(work_dir)
         self.work_dir = work_dir
         self.keep_files = keep_files
-	self.single_build = single_build
-	self.schedule(120, self._send_heartbeat)
+        self.single_build = single_build
+        self.schedule(120, self._send_heartbeat)
 
     def _send_heartbeat(self):
         for channelno in self.channels.keys():
             if channelno == 0:
                 log.info("Sending heartbeat on channel %s" % channelno);
                 self.channels[channelno].send_heartbeat()
-	self.schedule(120, self._send_heartbeat)
+        self.schedule(120, self._send_heartbeat)
 
 
     def greeting_received(self, profiles):
@@ -167,9 +167,9 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
                 if not self.session.keep_files:
                     shutil.rmtree(basedir)
                     os.remove(archive_path)
-	        if self.session.single_build:
-	            log.info('Exiting after single build completion.')
-	            self.session.quit()
+                if self.session.single_build:
+                    log.info('Exiting after single build completion.')
+                    self.session.quit()
 
     def unpack_snapshot(self, project_dir, archive_name):
         """Unpack a snapshot archive.
@@ -356,7 +356,7 @@ def main():
     slave = Slave(host, port, name=options.name, config=options.config,
                   dry_run=options.dry_run, work_dir=options.work_dir,
                   keep_files=options.keep_files, 
- 	          single_build=options.single_build)
+                  single_build=options.single_build)
     try:
         slave.run()
     except KeyboardInterrupt:
