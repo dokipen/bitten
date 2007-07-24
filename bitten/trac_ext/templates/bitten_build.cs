@@ -31,7 +31,7 @@
      /if ?>
     </dd><?cs
    /if ?>
-   <dt class="time">Completed:</dt>
+   <dt class="time">Started:</dt>
    <dd class="time"><?cs var:build.started ?> (<?cs
     var:build.started_delta ?> ago)
    </dd>
