@@ -56,7 +56,7 @@ GROUP BY file, fixture ORDER BY fixture""", (build.id, step.name))
             total_failure += num_failure
             total_error += num_error
             if file:
-                data[-1]['href'] = self.env.href.browser(config.path, file)
+                data[-1]['href'] = req.href.browser(config.path, file)
 
         hdf = HDFWrapper(loadpaths=Chrome(self.env).get_all_templates_dirs())
         hdf['data'] = data
@@ -102,7 +102,7 @@ GROUP BY file, unit ORDER BY unit""", (build.id, step.name))
             if loc:
                 d = {'name': unit, 'loc': loc, 'cov': int(cov)}
                 if file:
-                    d['href'] = self.env.href.browser(config.path, file)
+                    d['href'] = req.href.browser(config.path, file)
                 data.append(d)
                 total_loc += loc
                 total_cov += loc * cov

@@ -16,7 +16,7 @@ The Bitten software consists of three separate parts:
    (http://trac.edgewall.com/) and provides a build management interface
    as well as presentation of build results.
 
-Both the build master and the web interface depend on Trac 0.9, and need
+Both the build master and the web interface depend on Trac 0.10, and need
 to be installed on the same machine, together with the Subversion
 repository. The build slave only requires Python (>= 2.3), setuptools
 (>= 0.6a2),  as well as any tools required by the build process itself. A
@@ -53,7 +53,7 @@ web interface, or just the build slave. In the latter case, you're already
 done. You might need to install software that the build of your project
 requires, but the Bitten build slave itself doesn't require anything extra.
 
-For the build master and web interface, you'll need to install Trac 0.9.3 or
+For the build master and web interface, you'll need to install Trac 0.10 or
 later. Please refer to the Trac documentation for information on how it is
 installed.
 

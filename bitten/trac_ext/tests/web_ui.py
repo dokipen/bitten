@@ -56,7 +56,7 @@ class BuildConfigControllerTestCase(unittest.TestCase):
     def test_overview(self):
         PermissionSystem(self.env).grant_permission('joe', 'BUILD_VIEW')
         req = Mock(method='GET', base_path='', cgi_location='',
-                   path_info='/build', href=Href('/build'), args={}, chrome={},
+                   path_info='/build', href=Href('/trac'), args={}, chrome={},
                    hdf=HDFWrapper(), perm=PermissionCache(self.env, 'joe'))
 
         module = BuildConfigController(self.env)
@@ -69,7 +69,7 @@ class BuildConfigControllerTestCase(unittest.TestCase):
     def test_overview_admin(self):
         PermissionSystem(self.env).grant_permission('joe', 'BUILD_ADMIN')
         req = Mock(method='GET', base_path='', cgi_location='',
-                   path_info='/build', href=Href('/build'), args={}, chrome={},
+                   path_info='/build', href=Href('/trac'), args={}, chrome={},
                    hdf=HDFWrapper(), perm=PermissionCache(self.env, 'joe'))
 
         module = BuildConfigController(self.env)
@@ -86,7 +86,7 @@ class BuildConfigControllerTestCase(unittest.TestCase):
 
         PermissionSystem(self.env).grant_permission('joe', 'BUILD_VIEW')
         req = Mock(method='GET', base_path='', cgi_location='',
-                   path_info='/build/test', href=Href('/build'), args={},
+                   path_info='/build/test', href=Href('/trac'), args={},
                    chrome={}, hdf=HDFWrapper(), authname='joe',
                    perm=PermissionCache(self.env, 'joe'))
 
@@ -113,7 +113,7 @@ class BuildConfigControllerTestCase(unittest.TestCase):
 
         PermissionSystem(self.env).grant_permission('joe', 'BUILD_VIEW')
         req = Mock(method='GET', base_path='', cgi_location='',
-                   path_info='/build/test', href=Href('/build/test'), args={},
+                   path_info='/build/test', href=Href('/trac'), args={},
                    chrome={}, hdf=HDFWrapper(), authname='joe',
                    perm=PermissionCache(self.env, 'joe'))
 
@@ -128,10 +128,10 @@ class BuildConfigControllerTestCase(unittest.TestCase):
         module.process_request(req)
 
         if req.chrome: # Trac 0.11
-            self.assertEqual('/trac.cgi/build/test?page=2',
+            self.assertEqual('/trac/build/test?page=2',
                              req.chrome['links']['next'][0]['href'])
         else:
-            self.assertEqual('/trac.cgi/build/test?page=2',
+            self.assertEqual('/trac/build/test?page=2',
                              req.hdf.get('chrome.links.next.0.href'))
 
     def test_view_config_admin(self):
@@ -141,7 +141,7 @@ class BuildConfigControllerTestCase(unittest.TestCase):
 
         PermissionSystem(self.env).grant_permission('joe', 'BUILD_ADMIN')
         req = Mock(method='GET', base_path='', cgi_location='',
-                   path_info='/build/test', href=Href('/build'), args={},
+                   path_info='/build/test', href=Href('/trac'), args={},
                    chrome={}, hdf=HDFWrapper(), authname='joe',
                    perm=PermissionCache(self.env, 'joe'))
 
@@ -156,7 +156,7 @@ class BuildConfigControllerTestCase(unittest.TestCase):
         PermissionSystem(self.env).grant_permission('joe', 'BUILD_ADMIN')
         req = Mock(method='GET', base_path='', cgi_location='',
                    path_info='/build', args={'action': 'new'}, hdf=HDFWrapper(),
-                   href=Href('/build'), chrome={},
+                   href=Href('/trac'), chrome={},
                    perm=PermissionCache(self.env, 'joe'))
 
         module = BuildConfigController(self.env)
@@ -172,15 +172,16 @@ class BuildConfigControllerTestCase(unittest.TestCase):
             redirected_to.append(url)
             raise RequestDone
         req = Mock(method='POST', base_path='', cgi_location='',
-                   path_info='/build', redirect=redirect, hdf=HDFWrapper(),
-                   authname='joe', perm=PermissionCache(self.env, 'joe'),
+                   path_info='/build', href=Href('/trac'), redirect=redirect,
+                   hdf=HDFWrapper(), authname='joe',
+                   perm=PermissionCache(self.env, 'joe'),
                    args={'action': 'new', 'name': 'test', 'path': 'test/trunk',
                          'label': 'Test', 'description': 'Bla bla'})
 
         module = BuildConfigController(self.env)
         assert module.match_request(req)
         self.assertRaises(RequestDone, module.process_request, req)
-        self.assertEqual('/trac.cgi/build/test', redirected_to[0])
+        self.assertEqual('/trac/build/test', redirected_to[0])
 
         config = BuildConfig.fetch(self.env, 'test')
         assert config.exists
@@ -192,7 +193,7 @@ class BuildConfigControllerTestCase(unittest.TestCase):
     def test_new_config_submit_without_name(self):
         PermissionSystem(self.env).grant_permission('joe', 'BUILD_ADMIN')
         req = Mock(method='POST', base_path='', cgi_location='',
-                   path_info='/build', hdf=HDFWrapper(),
+                   path_info='/build', href=Href('/trac'), hdf=HDFWrapper(),
                    perm=PermissionCache(self.env, 'joe'),
                    args={'action': 'new', 'name': '', 'path': 'test/trunk',
                          'label': 'Test', 'description': 'Bla bla'})
@@ -204,7 +205,7 @@ class BuildConfigControllerTestCase(unittest.TestCase):
     def test_new_config_submit_with_invalid_name(self):
         PermissionSystem(self.env).grant_permission('joe', 'BUILD_ADMIN')
         req = Mock(method='POST', base_path='', cgi_location='',
-                   path_info='/build', hdf=HDFWrapper(),
+                   path_info='/build', href=Href('/trac'), hdf=HDFWrapper(),
                    perm=PermissionCache(self.env, 'joe'),
                    args={'action': 'new', 'name': 'Foo bar',
                          'path': 'test/trunk', 'label': 'Test',
@@ -217,7 +218,7 @@ class BuildConfigControllerTestCase(unittest.TestCase):
     def test_new_config_submit_invalid_path(self):
         PermissionSystem(self.env).grant_permission('joe', 'BUILD_ADMIN')
         req = Mock(method='POST', base_path='', cgi_location='',
-                   path_info='/build', hdf=HDFWrapper(),
+                   path_info='/build', href=Href('/trac'), hdf=HDFWrapper(),
                    authname='joe', perm=PermissionCache(self.env, 'joe'),
                    args={'action': 'new', 'name': 'test', 'path': 'test/trunk',
                          'label': 'Test', 'description': 'Bla bla'})
@@ -233,7 +234,7 @@ class BuildConfigControllerTestCase(unittest.TestCase):
     def test_new_config_submit_with_non_wellformed_recipe(self):
         PermissionSystem(self.env).grant_permission('joe', 'BUILD_ADMIN')
         req = Mock(method='POST', base_path='', cgi_location='',
-                   path_info='/build', hdf=HDFWrapper(),
+                   path_info='/build', href=Href('/trac'), hdf=HDFWrapper(),
                    authname='joe', perm=PermissionCache(self.env, 'joe'),
                    args={'action': 'new', 'name': 'test', 'path': 'test/trunk',
                          'label': 'Test', 'description': 'Bla bla',
@@ -246,7 +247,7 @@ class BuildConfigControllerTestCase(unittest.TestCase):
     def test_new_config_submit_with_invalid_recipe(self):
         PermissionSystem(self.env).grant_permission('joe', 'BUILD_ADMIN')
         req = Mock(method='POST', base_path='', cgi_location='',
-                   path_info='/build', hdf=HDFWrapper(),
+                   path_info='/build', href=Href('/trac'), hdf=HDFWrapper(),
                    authname='joe', perm=PermissionCache(self.env, 'joe'),
                    args={'action': 'new', 'name': 'test', 'path': 'test/trunk',
                          'label': 'Test', 'description': 'Bla bla',
@@ -263,14 +264,14 @@ class BuildConfigControllerTestCase(unittest.TestCase):
             redirected_to.append(url)
             raise RequestDone
         req = Mock(method='POST', base_path='', cgi_location='',
-                   path_info='/build', redirect=redirect, hdf=HDFWrapper(),
-                   perm=PermissionCache(self.env, 'joe'),
+                   path_info='/build', href=Href('/trac'), redirect=redirect,
+                   hdf=HDFWrapper(), perm=PermissionCache(self.env, 'joe'),
                    args={'action': 'new', 'cancel': '1', 'name': 'test'})
 
         module = BuildConfigController(self.env)
         assert module.match_request(req)
         self.assertRaises(RequestDone, module.process_request, req)
-        self.assertEqual('/trac.cgi/build', redirected_to[0])
+        self.assertEqual('/trac/build', redirected_to[0])
 
         self.assertEqual(None, BuildConfig.fetch(self.env, 'test'))
 
@@ -281,7 +282,7 @@ class BuildConfigControllerTestCase(unittest.TestCase):
 
         PermissionSystem(self.env).grant_permission('joe', 'BUILD_ADMIN')
         req = Mock(method='GET', base_path='', cgi_location='',
-                   path_info='/build/test', href=Href('/build'), chrome={},
+                   path_info='/build/test', href=Href('/trac'), chrome={},
                    hdf=HDFWrapper(), perm=PermissionCache(self.env, 'joe'),
                    args={'action': 'delete'})
 
@@ -302,14 +303,15 @@ class BuildConfigControllerTestCase(unittest.TestCase):
             redirected_to.append(url)
             raise RequestDone
         req = Mock(method='POST', base_path='', cgi_location='',
-                   path_info='/build/test', redirect=redirect, hdf=HDFWrapper(),
+                   path_info='/build/test', href=Href('/trac'),
+                   redirect=redirect, hdf=HDFWrapper(),
                    perm=PermissionCache(self.env, 'joe'),
                    args={'action': 'delete'})
 
         module = BuildConfigController(self.env)
         assert module.match_request(req)
         self.assertRaises(RequestDone, module.process_request, req)
-        self.assertEqual('/trac.cgi/build', redirected_to[0])
+        self.assertEqual('/trac/build', redirected_to[0])
 
         self.assertEqual(None, BuildConfig.fetch(self.env, 'test'))
 
@@ -324,14 +326,15 @@ class BuildConfigControllerTestCase(unittest.TestCase):
             redirected_to.append(url)
             raise RequestDone
         req = Mock(method='POST', base_path='', cgi_location='',
-                   path_info='/build/test', redirect=redirect, hdf=HDFWrapper(),
+                   path_info='/build/test', href=Href('/trac'),
+                   redirect=redirect, hdf=HDFWrapper(),
                    perm=PermissionCache(self.env, 'joe'),
                    args={'action': 'delete', 'cancel': ''})
 
         module = BuildConfigController(self.env)
         assert module.match_request(req)
         self.assertRaises(RequestDone, module.process_request, req)
-        self.assertEqual('/trac.cgi/build/test', redirected_to[0])
+        self.assertEqual('/trac/build/test', redirected_to[0])
 
         self.assertEqual(True, BuildConfig.fetch(self.env, 'test').exists)
 
@@ -364,7 +367,8 @@ class BuildConfigControllerTestCase(unittest.TestCase):
             redirected_to.append(url)
             raise RequestDone
         req = Mock(method='POST', base_path='', cgi_location='',
-                   path_info='/build/test', redirect=redirect, hdf=HDFWrapper(),
+                   path_info='/build/test', href=Href('/trac'),
+                   redirect=redirect, hdf=HDFWrapper(),
                    authname='joe', perm=PermissionCache(self.env, 'joe'),
                    args={'action': 'edit', 'name': 'foo', 'path': 'test/trunk',
                          'label': 'Test',  'description': 'Bla bla'})
@@ -372,7 +376,7 @@ class BuildConfigControllerTestCase(unittest.TestCase):
         module = BuildConfigController(self.env)
         assert module.match_request(req)
         self.assertRaises(RequestDone, module.process_request, req)
-        self.assertEqual('/trac.cgi/build/foo', redirected_to[0])
+        self.assertEqual('/trac/build/foo', redirected_to[0])
 
         self.assertEqual(None, BuildConfig.fetch(self.env, 'test'))
 
@@ -393,14 +397,15 @@ class BuildConfigControllerTestCase(unittest.TestCase):
             redirected_to.append(url)
             raise RequestDone
         req = Mock(method='POST', base_path='', cgi_location='',
-                   path_info='/build/test', redirect=redirect, hdf=HDFWrapper(),
+                   path_info='/build/test', href=Href('/trac'),
+                   redirect=redirect, hdf=HDFWrapper(),
                    perm=PermissionCache(self.env, 'joe'),
                    args={'action': 'edit', 'cancel': ''})
 
         module = BuildConfigController(self.env)
         assert module.match_request(req)
         self.assertRaises(RequestDone, module.process_request, req)
-        self.assertEqual('/trac.cgi/build/test', redirected_to[0])
+        self.assertEqual('/trac/build/test', redirected_to[0])
 
     def test_new_platform(self):
         config = BuildConfig(self.env)
@@ -409,9 +414,8 @@ class BuildConfigControllerTestCase(unittest.TestCase):
 
         PermissionSystem(self.env).grant_permission('joe', 'BUILD_ADMIN')
         req = Mock(method='GET', base_path='', cgi_location='',
-                   path_info='/build/test', hdf=HDFWrapper(),
-                   href=Href('/build/test'), chrome={},
-                   perm=PermissionCache(self.env, 'joe'),
+                   path_info='/build/test', hdf=HDFWrapper(), href=Href('trac'),
+                   chrome={}, perm=PermissionCache(self.env, 'joe'),
                    args={'action': 'edit', 'new': '1'})
 
         module = BuildConfigController(self.env)
@@ -431,14 +435,15 @@ class BuildConfigControllerTestCase(unittest.TestCase):
             redirected_to.append(url)
             raise RequestDone
         req = Mock(method='POST', base_path='', cgi_location='',
-                   path_info='/build/test', redirect=redirect, hdf=HDFWrapper(),
+                   path_info='/build/test', href=Href('/trac'),
+                   redirect=redirect, hdf=HDFWrapper(),
                    perm=PermissionCache(self.env, 'joe'),
                    args={'action': 'new', 'name': 'Test'})
 
         module = BuildConfigController(self.env)
         assert module.match_request(req)
         self.assertRaises(RequestDone, module.process_request, req)
-        self.assertEqual('/trac.cgi/build/test?action=edit', redirected_to[0])
+        self.assertEqual('/trac/build/test?action=edit', redirected_to[0])
 
     def test_new_platform_cancel(self):
         config = BuildConfig(self.env)
@@ -451,14 +456,15 @@ class BuildConfigControllerTestCase(unittest.TestCase):
             redirected_to.append(url)
             raise RequestDone
         req = Mock(method='POST', base_path='', cgi_location='',
-                   path_info='/build/test', redirect=redirect, hdf=HDFWrapper(),
+                   path_info='/build/test', href=Href('/trac'),
+                   redirect=redirect, hdf=HDFWrapper(),
                    perm=PermissionCache(self.env, 'joe'),
                    args={'action': 'new', 'cancel': ''})
  
         module = BuildConfigController(self.env)
         assert module.match_request(req)
         self.assertRaises(RequestDone, module.process_request, req)
-        self.assertEqual('/trac.cgi/build/test?action=edit', redirected_to[0])
+        self.assertEqual('/trac/build/test?action=edit', redirected_to[0])
 
     def test_edit_platform(self):
         config = BuildConfig(self.env)
@@ -473,7 +479,7 @@ class BuildConfigControllerTestCase(unittest.TestCase):
         PermissionSystem(self.env).grant_permission('joe', 'BUILD_ADMIN')
         req = Mock(method='GET', base_path='', cgi_location='',
                    path_info='/build/test', hdf=HDFWrapper(),
-                   href=Href('/build'), chrome={},
+                   href=Href('/trac'), chrome={},
                    perm=PermissionCache(self.env, 'joe'),
                    args={'action': 'edit', 'platform': platform.id})
 
@@ -499,7 +505,8 @@ class BuildConfigControllerTestCase(unittest.TestCase):
             redirected_to.append(url)
             raise RequestDone
         req = Mock(method='POST', base_path='', cgi_location='',
-                   path_info='/build/test', redirect=redirect, hdf=HDFWrapper(),
+                   path_info='/build/test', href=Href('/trac'),
+                   redirect=redirect, hdf=HDFWrapper(),
                    args={'action': 'edit', 'platform': platform.id,
                          'name': 'Test'},
                    perm=PermissionCache(self.env, 'joe'))
@@ -507,7 +514,7 @@ class BuildConfigControllerTestCase(unittest.TestCase):
         module = BuildConfigController(self.env)
         assert module.match_request(req)
         self.assertRaises(RequestDone, module.process_request, req)
-        self.assertEqual('/trac.cgi/build/test?action=edit', redirected_to[0])
+        self.assertEqual('/trac/build/test?action=edit', redirected_to[0])
 
     def test_edit_platform_cancel(self):
         config = BuildConfig(self.env)
@@ -525,7 +532,8 @@ class BuildConfigControllerTestCase(unittest.TestCase):
             redirected_to.append(url)
             raise RequestDone
         req = Mock(method='POST', base_path='', cgi_location='',
-                   path_info='/build/test', redirect=redirect, hdf=HDFWrapper(),
+                   path_info='/build/test', href=Href('/trac'),
+                   redirect=redirect, hdf=HDFWrapper(),
                    args={'action': 'edit', 'platform': platform.id,
                          'cancel': ''},
                    perm=PermissionCache(self.env, 'joe'))
@@ -533,7 +541,7 @@ class BuildConfigControllerTestCase(unittest.TestCase):
         module = BuildConfigController(self.env)
         assert module.match_request(req)
         self.assertRaises(RequestDone, module.process_request, req)
-        self.assertEqual('/trac.cgi/build/test?action=edit', redirected_to[0])
+        self.assertEqual('/trac/build/test?action=edit', redirected_to[0])
 
 
 def suite():

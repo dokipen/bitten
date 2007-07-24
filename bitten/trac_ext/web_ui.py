@@ -46,8 +46,8 @@ def _build_to_hdf(env, req, build):
     hdf = {'id': build.id, 'name': build.slave, 'rev': build.rev,
            'status': _status_label[build.status],
            'cls': _status_label[build.status].replace(' ', '-'),
-           'href': env.href.build(build.config, build.id),
-           'chgset_href': env.href.changeset(build.rev)}
+           'href': req.href.build(build.config, build.id),
+           'chgset_href': req.href.changeset(build.rev)}
     if build.started:
         hdf['started'] = format_datetime(build.started)
         hdf['started_delta'] = pretty_timedelta(build.started)
@@ -89,7 +89,7 @@ class BittenChrome(Component):
             return
         yield ('mainnav', 'build', \
                Markup('<a href="%s" accesskey="5">Build Status</a>',
-                      self.env.href.build()))
+                      req.href.build()))
 
     # ITemplatesProvider methods
 
@@ -177,7 +177,7 @@ class BuildConfigController(Component):
         req.perm.assert_permission('BUILD_CREATE')
 
         if 'cancel' in req.args:
-            req.redirect(self.env.href.build())
+            req.redirect(req.href.build())
 
         config_name = req.args.get('name')
 
@@ -189,14 +189,14 @@ class BuildConfigController(Component):
         self._process_config(req, config)
         config.insert()
 
-        req.redirect(self.env.href.build(config.name))
+        req.redirect(req.href.build(config.name))
 
     def _do_delete_config(self, req, config_name):
         """Save changes to a build configuration."""
         req.perm.assert_permission('BUILD_DELETE')
 
         if 'cancel' in req.args:
-            req.redirect(self.env.href.build(config_name))
+            req.redirect(req.href.build(config_name))
 
         db = self.env.get_db_cnx()
 
@@ -207,14 +207,14 @@ class BuildConfigController(Component):
 
         db.commit()
 
-        req.redirect(self.env.href.build())
+        req.redirect(req.href.build())
 
     def _do_save_config(self, req, config_name):
         """Save changes to a build configuration."""
         req.perm.assert_permission('BUILD_MODIFY')
 
         if 'cancel' in req.args:
-            req.redirect(self.env.href.build(config_name))
+            req.redirect(req.href.build(config_name))
 
         config = BuildConfig.fetch(self.env, config_name)
         if not config:
@@ -232,7 +232,7 @@ class BuildConfigController(Component):
             self._process_config(req, config)
 
         config.update()
-        req.redirect(self.env.href.build(config.name))
+        req.redirect(req.href.build(config.name))
 
     def _process_config(self, req, config):
         name = req.args.get('name')
@@ -279,12 +279,12 @@ class BuildConfigController(Component):
         req.perm.assert_permission('BUILD_MODIFY')
 
         if 'cancel' in req.args:
-            req.redirect(self.env.href.build(config_name, action='edit'))
+            req.redirect(req.href.build(config_name, action='edit'))
 
         platform = TargetPlatform(self.env, config=config_name)
         if self._process_platform(req, platform):
             platform.insert()
-            req.redirect(self.env.href.build(config_name, action='edit'))
+            req.redirect(req.href.build(config_name, action='edit'))
 
     def _do_delete_platforms(self, req):
         """Delete selected target platforms."""
@@ -308,12 +308,12 @@ class BuildConfigController(Component):
         req.perm.assert_permission('BUILD_MODIFY')
 
         if 'cancel' in req.args:
-            req.redirect(self.env.href.build(config_name, action='edit'))
+            req.redirect(req.href.build(config_name, action='edit'))
 
         platform = TargetPlatform.fetch(self.env, platform_id)
         if self._process_platform(req, platform):
             platform.update()
-            req.redirect(self.env.href.build(config_name, action='edit'))
+            req.redirect(req.href.build(config_name, action='edit'))
 
     def _process_platform(self, req, platform):
         platform.name = req.args.get('name')
@@ -361,7 +361,7 @@ class BuildConfigController(Component):
                 'name': config.name, 'label': config.label or config.name,
                 'active': config.active, 'path': config.path,
                 'description': description,
-                'href': self.env.href.build(config.name),
+                'href': req.href.build(config.name),
             }
             if not config.active:
                 continue
@@ -376,7 +376,7 @@ class BuildConfigController(Component):
                     if prev_rev is None:
                         chgset = repos.get_changeset(rev)
                         req.hdf[prefix + '.youngest_rev'] = {
-                            'id': rev, 'href': self.env.href.changeset(rev),
+                            'id': rev, 'href': req.href.changeset(rev),
                             'author': chgset.author or 'anonymous',
                             'date': format_datetime(chgset.date),
                             'message': wiki_to_oneliner(
@@ -403,18 +403,18 @@ class BuildConfigController(Component):
         config = BuildConfig.fetch(self.env, config_name, db=db)
         req.hdf['title'] = 'Build Configuration "%s"' \
                            % config.label or config.name
-        add_link(req, 'up', self.env.href.build(), 'Build Status')
+        add_link(req, 'up', req.href.build(), 'Build Status')
         description = config.description
         if description:
             description = wiki_to_html(description, self.env, req)
         req.hdf['config'] = {
             'name': config.name, 'label': config.label, 'path': config.path,
             'min_rev': config.min_rev,
-            'min_rev_href': self.env.href.changeset(config.min_rev),
+            'min_rev_href': req.href.changeset(config.min_rev),
             'max_rev': config.max_rev,
-            'max_rev_href': self.env.href.changeset(config.max_rev),
+            'max_rev_href': req.href.changeset(config.max_rev),
             'active': config.active, 'description': description,
-            'browser_href': self.env.href.browser(config.path),
+            'browser_href': req.href.browser(config.path),
             'can_modify': req.perm.has_permission('BUILD_MODIFY'),
             'can_delete': req.perm.has_permission('BUILD_DELETE')
         }
@@ -433,8 +433,8 @@ class BuildConfigController(Component):
 
         if has_reports:
             req.hdf['config.charts'] = [
-                {'href': self.env.href.build(config.name, 'chart/test')},
-                {'href': self.env.href.build(config.name, 'chart/coverage')}
+                {'href': req.href.build(config.name, 'chart/test')},
+                {'href': req.href.build(config.name, 'chart/coverage')}
             ]
             charts_license = self.config.get('bitten', 'charts_license')
             if charts_license:
@@ -456,7 +456,7 @@ class BuildConfigController(Component):
                 break
             elif idx >= (page - 1) * builds_per_page:
                 prefix = 'config.builds.%d' % rev
-                req.hdf[prefix + '.href'] = self.env.href.changeset(rev)
+                req.hdf[prefix + '.href'] = req.href.changeset(rev)
                 if build and build.status != Build.PENDING:
                     build_hdf = _build_to_hdf(self.env, req, build)
                     req.hdf['%s.%s' % (prefix, platform.id)] = build_hdf
@@ -475,12 +475,12 @@ class BuildConfigController(Component):
 
         if page > 1:
             if page == 2:
-                prev_href = self.env.href.build(config.name)
+                prev_href = req.href.build(config.name)
             else:
-                prev_href = self.env.href.build(config.name, page=page - 1)
+                prev_href = req.href.build(config.name, page=page - 1)
             add_link(req, 'prev', prev_href, 'Previous Page')
         if more:
-            next_href = self.env.href.build(config.name, page=page + 1)
+            next_href = req.href.build(config.name, page=page + 1)
             add_link(req, 'next', next_href, 'Next Page')
 
     def _render_config_confirm(self, req, config_name):
@@ -509,8 +509,8 @@ class BuildConfigController(Component):
                                                                  config_name)):
                 req.hdf['config.platforms.%d' % idx] = {
                     'id': platform.id, 'name': platform.name,
-                    'href': self.env.href.build(config_name, action='edit',
-                                                platform=platform.id)
+                    'href': req.href.build(config_name, action='edit',
+                                           platform=platform.id)
                 }
         else:
             req.perm.assert_permission('BUILD_CREATE')
@@ -568,9 +568,9 @@ class BuildController(Component):
         if req.method == 'POST':
             if req.args.get('action') == 'invalidate':
                 self._do_invalidate(req, build, db)
-            req.redirect(self.env.href.build(build.config, build.id))
+            req.redirect(req.href.build(build.config, build.id))
 
-        add_link(req, 'up', self.env.href.build(build.config),
+        add_link(req, 'up', req.href.build(build.config),
                  'Build Configuration')
         status2title = {Build.SUCCESS: 'Success', Build.FAILURE: 'Failure',
                         Build.IN_PROGRESS: 'In Progress'}
@@ -580,7 +580,7 @@ class BuildController(Component):
         config = BuildConfig.fetch(self.env, build.config, db=db)
         req.hdf['build.config'] = {
             'name': config.label,
-            'href': self.env.href.build(config.name)
+            'href': req.href.build(config.name)
         }
 
         formatters = []
@@ -667,7 +667,7 @@ class BuildController(Component):
                     buf.write('</ul>')
                     message = Markup(buf.getvalue())
             else:
-                href = self.env.href.build(config, id)
+                href = req.href.build(config, id)
                 if errors:
                     steps = []
                     for step, error in errors:
@@ -701,7 +701,7 @@ class BuildController(Component):
 
         db.commit()
 
-        req.redirect(self.env.href.build(build.config))
+        req.redirect(req.href.build(build.config))
 
     def _render_log(self, req, build, formatters, step):
         items = []
@@ -738,7 +738,7 @@ class SourceFileLinkFormatter(Component):
         """Return the log message formatter function."""
         config = BuildConfig.fetch(self.env, name=build.config)
         repos = self.env.get_repository(req.authname)
-        href = self.env.href.browser
+        href = req.href.browser
         cache = {}
         def _replace(m):
             filepath = posixpath.normpath(m.group('path').replace('\\', '/'))
