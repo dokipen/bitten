@@ -684,6 +684,11 @@ class BuildController(Component):
         if 'build' not in filters:
             return
 
+        if isinstance(start, datetime): # Trac>=0.11
+            from trac.util.datefmt import to_timestamp
+            start = to_timestamp(start)
+            stop = to_timestamp(stop)
+
         add_stylesheet(req, 'bitten/bitten.css')
 
         db = self.env.get_db_cnx()
