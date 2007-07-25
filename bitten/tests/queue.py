@@ -173,8 +173,10 @@ class BuildQueueTestCase(unittest.TestCase):
         Make sure that builds for a deactived build config are not scheduled.
         """
         BuildConfig(self.env, 'test').insert()
-        build = Build(self.env, config='test', platform=1, rev=123, rev_time=42,
-                      status=Build.PENDING)
+        platform = TargetPlatform(self.env, config='test', name='Foo')
+        platform.insert()
+        build = Build(self.env, config='test', platform=platform.id, rev=123,
+                      rev_time=42, status=Build.PENDING)
         build.insert()
 
         queue = BuildQueue(self.env)
@@ -188,8 +190,8 @@ class BuildQueueTestCase(unittest.TestCase):
         the end of the slave list for that target platform.
         """
         BuildConfig(self.env, 'test', active=True).insert()
-        build = Build(self.env, config='test', platform=1, rev=123, rev_time=42,
-                      status=Build.PENDING)
+        build = Build(self.env, config='test', platform=1,
+                      rev=123, rev_time=42, status=Build.PENDING)
         build.insert()
 
         queue = BuildQueue(self.env)
