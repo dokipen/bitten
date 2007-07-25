@@ -98,7 +98,10 @@ GROUP BY file, unit ORDER BY unit""", (build.id, step.name))
         data = []
         total_loc, total_cov = 0, 0
         for unit, file, loc, cov in cursor:
-            loc, cov = int(loc), float(cov)
+            try:
+                loc, cov = int(loc), float(cov)
+            except TypeError:
+                continue # no rows
             if loc:
                 d = {'name': unit, 'loc': loc, 'cov': int(cov)}
                 if file:
@@ -107,7 +110,11 @@ GROUP BY file, unit ORDER BY unit""", (build.id, step.name))
                 total_loc += loc
                 total_cov += loc * cov
 
+        coverage = 0
+        if total_loc != 0:
+            coverage = total_cov // total_loc
+
         hdf = HDFWrapper(loadpaths=Chrome(self.env).get_all_templates_dirs())
         hdf['data'] = data
-        hdf['totals'] = {'loc': total_loc, 'cov': int(total_cov / total_loc)}
+        hdf['totals'] = {'loc': total_loc, 'cov': int(coverage)}
         return hdf.render('bitten_summary_coverage.cs')
