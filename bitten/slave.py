@@ -245,6 +245,9 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
                                  step.id)
                     if not self.session.dry_run:
                         self.channel.send_ans(msgno, beep.Payload(xml))
+                    if step_failed and step.onerror == 'fail':
+                        log.warning('Stopping build due to failure')
+                        break
                 except InvalidRecipeError, e:
                     log.warning('Build step %s failed: %s', step.id, e)
                     duration = datetime.utcnow() - started

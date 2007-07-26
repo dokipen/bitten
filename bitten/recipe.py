@@ -188,9 +188,9 @@ class Step(object):
             if type == Recipe.ERROR:
                 errors.append((generator, output))
         if errors:
-            if self.onerror == 'fail':
+            if self.onerror != 'ignore':
                 raise BuildError('Build step %s failed' % self.id)
-            log.warning('Ignoring errors in step %s (%s)', self.id,
+            log.warning('Continuing despite errors in step %s (%s)', self.id,
                         ', '.join([error[1] for error in errors]))
 
 
