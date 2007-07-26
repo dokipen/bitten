@@ -136,12 +136,12 @@ class EventLoop(object):
                             break
                         try:
                             callback()
-                        except:
+                        except Exception:
                             log.error('Exception caught firing callback %s. '
                                       'Ignoring.', callback.__name__)
-                try: 
+                try:
                     asyncore.loop(timeout, True, None, 1)
-                except: 
+                except Exception:
                     log.error('Exception caught in asyncore.loop, ignoring.');
         except:
             log.error('Exception caught in run()');
