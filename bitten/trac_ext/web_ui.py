@@ -35,6 +35,7 @@ from bitten.model import BuildConfig, TargetPlatform, Build, BuildStep, \
 from bitten.queue import collect_changes
 from bitten.recipe import Recipe, InvalidRecipeError
 from bitten.trac_ext.api import ILogFormatter, IReportSummarizer
+from bitten.trac_ext.charts import ReportChartController
 from bitten.util import xmlio
 
 _status_label = {Build.PENDING: 'pending',
@@ -492,10 +493,13 @@ class BuildConfigController(Component):
             break
 
         if has_reports:
-            req.hdf['config.charts'] = [
-                {'href': req.href.build(config.name, 'chart/test')},
-                {'href': req.href.build(config.name, 'chart/coverage')}
-            ]
+            chart_generators = []
+            for generator in self.chart_generators: 
+                for category in generator.get_supported_categories(): 
+                    chart_generators.append({
+                        'href': req.href.build(config.name, 'chart/' + category) 
+                    })
+            req.hdf['config.charts'] = chart_generators 
             charts_license = self.config.get('bitten', 'charts_license')
             if charts_license:
                 req.hdf['config.charts_license'] = charts_license
