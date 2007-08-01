@@ -494,7 +494,7 @@ class BuildConfigController(Component):
 
         if has_reports:
             chart_generators = []
-            for generator in self.chart_generators: 
+            for generator in ReportChartController.chart_generators: 
                 for category in generator.get_supported_categories(): 
                     chart_generators.append({
                         'href': req.href.build(config.name, 'chart/' + category) 
