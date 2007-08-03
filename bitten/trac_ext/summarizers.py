@@ -94,8 +94,8 @@ FROM bitten_report AS report
       item_percentage.item=item_name.item AND
       item_percentage.name='percentage')
 WHERE category='coverage' AND build=%s AND step=%s
-GROUP BY file, item_name.value ORDER BY item_name.value
-ORDER BY unit""", (build.id, step.name))
+GROUP BY file, item_name.value
+ORDER BY item_name.value""", (build.id, step.name))
 
         data = []
         total_loc, total_cov = 0, 0
