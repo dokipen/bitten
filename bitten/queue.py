@@ -43,7 +43,12 @@ def collect_changes(repos, config, db=None):
     env = config.env
     if not db:
         db = env.get_db_cnx()
-    node = repos.get_node(config.path)
+    try:
+        node = repos.get_node(config.path)
+    except NoSuchNode, e:
+        env.log.warn('Node for configuration %r not found', config.name,
+                     exc_info=True)
+        return
 
     for path, rev, chg in node.get_history():
 
