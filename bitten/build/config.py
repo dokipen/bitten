@@ -149,7 +149,7 @@ class Configuration(object):
 
     _VAR_RE = re.compile(r'\$\{(?P<ref>\w[\w.]*?\w)(?:\:(?P<def>.+))?\}')
 
-    def interpolate(self, text):
+    def interpolate(self, text, **vars):
         """Interpolate configuration properties into a string.
         
         Properties can be referenced in the text using the notation
@@ -160,11 +160,14 @@ class Configuration(object):
         provided, the reference is not replaced at all.
 
         @param text: the string containing variable references
+        @param vars: extra variables to use for the interpolation
         """
         def _replace(m):
             refname = m.group('ref')
             if refname in self:
                 return self[refname]
+            elif refname in vars:
+                return vars[refname]
             elif m.group('def'):
                 return m.group('def')
             else:

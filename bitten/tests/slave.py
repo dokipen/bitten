@@ -14,15 +14,14 @@ import unittest
 import zipfile
 
 from trac.test import Mock
-from bitten.slave import Slave, OrchestrationProfileHandler
-from bitten.util import beep
+from bitten.slave import BuildSlave
 
 
-class OrchestrationProfileHandlerTestCase(unittest.TestCase):
+class BuildSlaveTestCase(unittest.TestCase):
 
     def setUp(self):
         self.work_dir = tempfile.mkdtemp(prefix='bitten_test')
-        self.slave = Slave(None, None, work_dir=self.work_dir)
+        self.slave = Slave(None, work_dir=self.work_dir)
         self.handler = OrchestrationProfileHandler(Mock(session=self.slave))
 
     def tearDown(self):
@@ -34,23 +33,10 @@ class OrchestrationProfileHandlerTestCase(unittest.TestCase):
         fd.close()
         return filename
 
-    def test_unpack_invalid_snapshot(self):
-        """
-        Verify handling of `TarError` exceptions when trying to unpack an
-        invalid .tar.bz2 file.
-        """
-        path = self._create_file('invalid.tar.bz2')
-        tarbz2 = file(path, 'w')
-        tarbz2.write('INVALID')
-        tarbz2.close()
-        self.assertRaises(beep.ProtocolError, self.handler.unpack_snapshot,
-                          os.path.dirname(path), 'invalid.tar.bz2')
-
 
 def suite():
     suite = unittest.TestSuite()
-    suite.addTest(unittest.makeSuite(OrchestrationProfileHandlerTestCase,
-                                     'test'))
+    suite.addTest(unittest.makeSuite(BuildSlaveTestCase, 'test'))
     return suite
 
 if __name__ == '__main__':

@@ -11,11 +11,10 @@ import doctest
 import unittest
 
 from bitten.util import xmlio
-from bitten.util.tests import beep, md5sum
+from bitten.util.tests import md5sum
 
 def suite():
     suite = unittest.TestSuite()
-    suite.addTest(beep.suite())
     suite.addTest(md5sum.suite())
     suite.addTest(doctest.DocTestSuite(xmlio))
     return suite

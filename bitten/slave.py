@@ -10,6 +10,7 @@
 """Implementation of the build slave."""
 
 from datetime import datetime
+import httplib
 import logging
 import os
 import platform
@@ -18,25 +19,27 @@ try:
 except NameError:
     from sets import Set as set
 import shutil
+import socket
 import tempfile
-import tarfile
+import time
+import urlparse
 
 from bitten.build import BuildError
 from bitten.build.config import Configuration
 from bitten.recipe import Recipe, InvalidRecipeError
-from bitten.util import beep, xmlio
+from bitten.util import xmlio
 
 log = logging.getLogger('bitten.slave')
 
 
-class Slave(beep.Initiator):
+class BuildSlave(object):
     """BEEP initiator implementation for the build slave."""
 
-    def __init__(self, ip, port, name=None, config=None, dry_run=False,
+    def __init__(self, url, name=None, config=None, dry_run=False,
                  work_dir=None, keep_files=False, single_build=False):
         """Create the build slave instance.
         
-        @param ip: Host name or IP address of the build master to connect to
+        @param url: The URL of the build master
         @param port: TCP port number of the build master to connect to
         @param name: The name with which this slave should identify itself
         @param config: The slave configuration
@@ -48,9 +51,11 @@ class Slave(beep.Initiator):
         @param single_build: Whether this slave should exit after completing a 
             single build, or continue processing builds forever
         """
-        beep.Initiator.__init__(self, ip, port)
+        self.url = url
+        if name is None:
+            name = platform.node().split('.', 1)[0].lower()
         self.name = name
-        self.config = config
+        self.config = Configuration(config)
         self.dry_run = dry_run
         if not work_dir:
             work_dir = tempfile.mkdtemp(prefix='bitten')
@@ -60,48 +65,41 @@ class Slave(beep.Initiator):
         self.keep_files = keep_files
         self.single_build = single_build
 
-    def greeting_received(self, profiles):
-        """Start a channel for the build orchestration profile, if advertised
-        by the peer.
-        
-        Otherwise, terminate the session.
-        """
-        if OrchestrationProfileHandler.URI not in profiles:
-            err = 'Peer does not support the Bitten orchestration profile'
-            log.error(err)
-            raise beep.TerminateSession(err)
-        self.channels[0].profile.send_start([OrchestrationProfileHandler])
+    def request(self, method, url, body=None, headers=None):
+        scheme, host, path, query, fragment = urlparse.urlsplit(url)
+        scheme = (scheme or 'http').lower()
 
-
-class OrchestrationProfileHandler(beep.ProfileHandler):
-    """Handler for communication on the Bitten build orchestration profile from
-    the perspective of the build slave.
-    """
-    URI = 'http://bitten.cmlenz.net/beep/orchestration'
-
-    def handle_connect(self):
-        """Register with the build master."""
-        self.build_xml = None
-
-        def handle_reply(cmd, msgno, ansno, payload):
-            if cmd == 'ERR':
-                if payload.content_type == beep.BEEP_XML:
-                    elem = xmlio.parse(payload.body)
-                    if elem.name == 'error':
-                        log.error('Slave registration failed: %s (%d)',
-                                  elem.gettext(), int(elem.attr['code']))
-                raise beep.TerminateSession('Registration failed!')
-            log.info('Registration successful')
-
-        self.config = Configuration(self.session.config)
-        if self.session.name is not None:
-            node = self.session.name
+        if scheme == 'https':
+            conn = httplib.HTTPSConnection(host)
         else:
-            node = platform.node().split('.', 1)[0].lower()
+            conn = httplib.HTTPConnection(host)
 
-        log.info('Registering with build master as %s', node)
-        log.debug('Properties: %s', self.config.properties)
-        xml = xmlio.Element('register', name=node)[
+        if headers is None:
+            headers = {}
+        if body is None:
+            body = ''
+        headers['Content-Length'] = len(body)
+        conn.request(method.upper(), path, body, headers)
+        return conn.getresponse()
+
+    def run(self):
+        while True:
+            try:
+                try:
+                    self._create_build()
+                except socket.error, e:
+                    log.error(e)
+                    raise ExitSlave()
+            except ExitSlave:
+                break
+            time.sleep(30)
+
+    def quit(self):
+        log.info('Shutting down')
+        raise ExitSlave()
+
+    def _create_build(self):
+        xml = xmlio.Element('slave', name=self.name)[
             xmlio.Element('platform', processor=self.config['processor'])[
                 self.config['machine']
             ],
@@ -110,182 +108,97 @@ class OrchestrationProfileHandler(beep.ProfileHandler):
                 self.config['os']
             ],
         ]
-        log.debug('Packages: %s', self.config.packages)
+
+        log.debug('Configured packages: %s', self.config.packages)
         for package, properties in self.config.packages.items():
             xml.append(xmlio.Element('package', name=package, **properties))
 
-        self.channel.send_msg(beep.Payload(xml), handle_reply, True)
+        body = str(xml)
+        log.debug('Sending slave configuration: %s', body)
+        resp = self.request('POST', self.url, body, {
+            'Content-Length': len(body),
+            'Content-Type': 'application/x-bitten+xml'
+        })
 
-    def handle_msg(self, msgno, payload):
-        """Handle either a build initiation or the transmission of a snapshot
-        archive.
-        
-        @param msgno: The identifier of the BEEP message
-        @param payload: The payload of the message
-        """
-        if payload.content_type == beep.BEEP_XML:
-            elem = xmlio.parse(payload.body)
-            if elem.name == 'build':
-                # Received a build request
-                self.build_xml = elem
-                xml = xmlio.Element('proceed')
-                self.channel.send_rpy(msgno, beep.Payload(xml))
+        if resp.status == 201:
+            self._initiate_build(resp.getheader('location'))
+        elif resp.status == 204:
+            log.info(resp.read())
+        else:
+            log.error('Unexpected response (%d): %s', resp.status, resp.reason)
+            raise ExitSlave()
 
-        elif payload.content_type == 'application/tar' and \
-             payload.content_encoding == 'bzip2':
-            # Received snapshot archive for build
-            project_name = self.build_xml.attr.get('project', 'default')
-            project_dir = os.path.join(self.session.work_dir, project_name)
-            if not os.path.exists(project_dir):
-                os.mkdir(project_dir)
-
-            archive_name = payload.content_disposition
-            if not archive_name:
-                archive_name = 'snapshot.tar.bz2'
-            archive_path = os.path.join(project_dir, archive_name)
-
-            archive_file = file(archive_path, 'wb')
+    def _initiate_build(self, build_url):
+        build_id = int(build_url.split('/')[-1])
+        log.info('Build %s pending at %s', build_id, build_url)
+        resp = self.request('GET', build_url)
+        if resp.status == 200:
+            xml = xmlio.parse(resp)
+            basedir = os.path.join(self.work_dir, 'build_%d' % build_id)
+            if not os.path.exists(basedir):
+                os.mkdir(basedir)
             try:
-                shutil.copyfileobj(payload.body, archive_file)
+                recipe = Recipe(xml, basedir, self.config)
+                self._execute_build(build_url, recipe)
             finally:
-                archive_file.close()
-            basedir = self.unpack_snapshot(project_dir, archive_name)
-
-            try:
-                recipe = Recipe(self.build_xml, basedir, self.config)
-                self.execute_build(msgno, recipe)
-            finally:
-                if not self.session.keep_files:
+                if not self.keep_files:
+                    log.debug('Removing build directory %s' % basedir)
                     shutil.rmtree(basedir)
-                    os.remove(archive_path)
-                if self.session.single_build:
-                    log.info('Exiting after single build completion.')
-                    self.session.quit()
+                if self.single_build:
+                    log.info('Exiting after single build completed.')
+                    raise ExitSlave()
+        else:
+            log.error('Unexpected response (%d): %s', resp.status, resp.reason)
+            raise ExitSlave()
 
-    def unpack_snapshot(self, project_dir, archive_name):
-        """Unpack a snapshot archive.
-        
-        @param project_dir: Base directory for builds for the project
-        @param archive_name: Name of the archive file
-        """
-        path = os.path.join(project_dir, archive_name)
-        log.debug('Received snapshot archive: %s', path)
+    def _execute_build(self, build_url, recipe):
+        for step in recipe:
+            log.info('Executing build step %r', step.id)
+            if not self._execute_step(build_url, recipe, step):
+                log.warning('Stopping build due to failure')
+                break
+        else:
+            log.warning('Build completed')
+
+    def _execute_step(self, build_url, recipe, step):
+        failed = False
+        started = datetime.utcnow()
+        xml = xmlio.Element('result', time=started.isoformat())
         try:
-            tar_file = tarfile.open(path, 'r:bz2')
-            tar_file.chown = lambda *args: None # Don't chown extracted members
-            basedir = None
-            try:
-                for tarinfo in tar_file:
-                    if tarinfo.isfile() or tarinfo.isdir():
-                        if tarinfo.name.startswith('/') or '..' in tarinfo.name:
-                            continue
-                        tar_file.extract(tarinfo, project_dir)
-                        if basedir is None:
-                            basedir = tarinfo.name.split('/', 1)[0]
-            finally:
-                tar_file.close()
-
-            basedir = os.path.join(project_dir,  basedir)
-            log.debug('Unpacked snapshot to %s' % basedir)
-            return basedir
-
-        except tarfile.TarError, e:
-            log.error('Could not unpack archive %s: %s', path, e, exc_info=True)
-            raise beep.ProtocolError(550, 'Could not unpack archive (%s)' % e)
-
-    def execute_build(self, msgno, recipe):
-        """Execute a build.
-        
-        Execute every step in the recipe, and report the outcome of each
-        step back to the server using an ANS message.
-        
-        @param msgno: The identifier of the snapshot transmission message
-        @param recipe: The recipe object
-        @type recipe: an instance of L{bitten.recipe.Recipe}
-        """
-        log.info('Building in directory %s', recipe.ctxt.basedir)
-        try:
-            if not self.session.dry_run:
-                xml = xmlio.Element('started',
-                                    time=datetime.utcnow().isoformat())
-                self.channel.send_ans(msgno, beep.Payload(xml))
-
-            failed = False
-            for step in recipe:
-                log.info('Executing build step "%s"', step.id)
-                started = datetime.utcnow()
-                try:
-                    xml = xmlio.Element('step', id=step.id,
-                                        description=step.description,
-                                        time=started.isoformat())
-                    step_failed = False
-                    try:
-                        for type, category, generator, output in \
-                                step.execute(recipe.ctxt):
-                            if type == Recipe.ERROR:
-                                step_failed = True
-                            xml.append(xmlio.Element(type, category=category,
-                                                     generator=generator)[
-                                output
-                            ])
-                    except BuildError, e:
-                        log.error('Build step %s failed (%s)', step.id, e)
-                        failed = step_failed = True
-                    except Exception, e:
-                        log.error('Internal error in build step %s',
-                                  step.id, exc_info=True)
-                        failed = step_failed = True
-                    xml.attr['duration'] = (datetime.utcnow() - started).seconds
-                    if step_failed:
-                        xml.attr['result'] = 'failure'
-                        log.warning('Build step %s failed', step.id)
-                    else:
-                        xml.attr['result'] = 'success'
-                        log.info('Build step %s completed successfully',
-                                 step.id)
-                    if not self.session.dry_run:
-                        self.channel.send_ans(msgno, beep.Payload(xml))
-                    if step_failed and step.onerror == 'fail':
-                        log.warning('Stopping build due to failure')
-                        break
-                except InvalidRecipeError, e:
-                    log.warning('Build step %s failed: %s', step.id, e)
-                    duration = datetime.utcnow() - started
+            for type, category, generator, output in \
+                    step.execute(recipe.ctxt):
+                if type == Recipe.ERROR:
                     failed = True
-                    xml = xmlio.Element('step', id=step.id, result='failure',
-                                        description=step.description,
-                                        time=started.isoformat(),
-                                        duration=duration.seconds)[
-                        xmlio.Element('error')[e]
-                    ]
-                    if not self.session.dry_run:
-                        self.channel.send_ans(msgno, beep.Payload(xml))
+                xml.append(xmlio.Element(type, category=category,
+                                         generator=generator)[
+                    output
+                ])
+        except BuildError, e:
+            log.error('Build step %r failed (%s)', step.id, e)
+            failed = True
+        except Exception, e:
+            log.error('Internal error in build step %r', step.id, exc_info=True)
+            failed = True
+        xml.attr['duration'] = (datetime.utcnow() - started).seconds
+        if failed:
+            xml.attr['status'] = 'failure'
+            log.warning('Build step %r failed', step.id)
+        else:
+            xml.attr['status'] = 'success'
+            log.info('Build step %s completed successfully', step.id)
 
-            if failed:
-                log.warning('Build failed')
-            else:
-                log.info('Build completed successfully')
-            if not self.session.dry_run:
-                xml = xmlio.Element('completed', time=datetime.utcnow().isoformat(),
-                                    result=['success', 'failure'][failed])
-                self.channel.send_ans(msgno, beep.Payload(xml))
+        resp = self.request('PUT', build_url + '/steps/' + step.id, str(xml), {
+            'Content-Type': 'application/x-bitten+xml'
+        })
+        if resp.status != 200:
+            log.error('Unexpected response (%d): %s', resp.status, resp.reason)
 
-                self.channel.send_nul(msgno)
-            else:
-                xml = xmlio.Element('error', code=550)['Dry run']
-                self.channel.send_err(msgno, beep.Payload(xml))
+        return not failed or step.onerror != 'fail'
 
-        except InvalidRecipeError, e:
-            xml = xmlio.Element('error')[e]
-            self.channel.send_ans(msgno, beep.Payload(xml))
-            self.channel.send_nul(msgno)
 
-        except (KeyboardInterrupt, SystemExit), e:
-            xml = xmlio.Element('aborted')['Build cancelled']
-            self.channel.send_ans(msgno, beep.Payload(xml))
-            self.channel.send_nul(msgno)
-
-            raise beep.TerminateSession('Cancelled')
+class ExitSlave(Exception):
+    """Exception used internally by the slave to signal that the slave process
+    should be stopped."""
 
 
 def main():
@@ -293,7 +206,7 @@ def main():
     from bitten import __version__ as VERSION
     from optparse import OptionParser
 
-    parser = OptionParser(usage='usage: %prog [options] host [port]',
+    parser = OptionParser(usage='usage: %prog [options] url',
                           version='%%prog %s' % VERSION)
     parser.add_option('--name', action='store', dest='name',
                       help='name of this slave (defaults to host name)')
@@ -314,23 +227,16 @@ def main():
                       const=logging.INFO, help='print as much as possible')
     parser.add_option('-q', '--quiet', action='store_const', dest='loglevel',
                       const=logging.ERROR, help='print as little as possible')
-    parser.add_option('-s', '--single', action='store_const', dest='single_build',
-                      const=logging.ERROR, help='exit after completing a single build')
+    parser.add_option('-s', '--single', action='store_true',
+                      dest='single_build',
+                      help='exit after completing a single build')
     parser.set_defaults(dry_run=False, keep_files=False,
                         loglevel=logging.WARNING, single_build=False)
     options, args = parser.parse_args()
 
     if len(args) < 1:
         parser.error('incorrect number of arguments')
-    host = args[0]
-    if len(args) > 1:
-        try:
-            port = int(args[1])
-            assert (1 <= port <= 65535), 'port number out of range'
-        except (AssertionError, ValueError):
-            parser.error('port must be an integer in the range 1-65535')
-    else:
-        port = 7633
+    url = args[0]
 
     logger = logging.getLogger('bitten')
     logger.setLevel(options.loglevel)
@@ -347,16 +253,20 @@ def main():
         handler.setFormatter(formatter)
         logger.addHandler(handler)
 
-    slave = Slave(host, port, name=options.name, config=options.config,
-                  dry_run=options.dry_run, work_dir=options.work_dir,
-                  keep_files=options.keep_files, 
-                  single_build=options.single_build)
+    slave = BuildSlave(url, name=options.name, config=options.config,
+                       dry_run=options.dry_run, work_dir=options.work_dir,
+                       keep_files=options.keep_files,
+                       single_build=options.single_build)
     try:
-        slave.run()
-    except KeyboardInterrupt:
-        slave.quit()
+        try:
+            slave.run()
+        except KeyboardInterrupt:
+            slave.quit()
+    except ExitSlave:
+        pass
 
-    if not options.keep_files and os.path.isdir(slave.work_dir):
+    if not options.work_dir:
+        log.debug('Removing temporary directory %s' % slave.work_dir)
         shutil.rmtree(slave.work_dir)
 
 if __name__ == '__main__':

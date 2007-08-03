@@ -76,7 +76,8 @@ class BuildSystem(Component):
     # IPermissionRequestor methods
 
     def get_permission_actions(self):
-        actions = ['BUILD_VIEW', 'BUILD_CREATE', 'BUILD_MODIFY', 'BUILD_DELETE']
+        actions = ['BUILD_VIEW', 'BUILD_CREATE', 'BUILD_MODIFY', 'BUILD_DELETE',
+                   'BUILD_EXEC']
         return actions + [('BUILD_ADMIN', actions)]
 
     # IWikiSyntaxProvider methods

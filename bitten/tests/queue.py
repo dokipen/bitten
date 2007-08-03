@@ -136,21 +136,22 @@ class BuildQueueTestCase(unittest.TestCase):
     def tearDown(self):
         shutil.rmtree(self.env.path)
 
-    def test_next_pending_build(self):
+    def test_get_build_for_slave(self):
         """
         Make sure that a pending build of an activated configuration is
         scheduled for a slave that matches the target platform.
         """
         BuildConfig(self.env, 'test', active=True).insert()
-        build = Build(self.env, config='test', platform=1, rev=123, rev_time=42,
-                      status=Build.PENDING)
+        platform = TargetPlatform(self.env, config='test', name='Foo')
+        platform.insert()
+        build = Build(self.env, config='test', platform=platform.id, rev=123,
+                      rev_time=42, status=Build.PENDING)
         build.insert()
         build_id = build.id
 
         queue = BuildQueue(self.env)
-        queue.slaves[1] = ['foobar']
-        build, slave = queue.get_next_pending_build(['foobar', 'dummy'])
-        self.assertEqual((build_id, 'foobar'), (build.id, slave))
+        build = queue.get_build_for_slave('foobar', {})
+        self.assertEqual(build_id, build.id)
 
     def test_next_pending_build_no_matching_slave(self):
         """
@@ -164,9 +165,8 @@ class BuildQueueTestCase(unittest.TestCase):
         build_id = build.id
 
         queue = BuildQueue(self.env)
-        queue.slaves[2] = ['foobar']
-        build, slave = queue.get_next_pending_build(['foobar', 'dummy'])
-        self.assertEqual((None, None), (build, slave))
+        build = queue.get_build_for_slave('foobar', {})
+        self.assertEqual(None, build)
 
     def test_next_pending_build_inactive_config(self):
         """
@@ -180,34 +180,20 @@ class BuildQueueTestCase(unittest.TestCase):
         build.insert()
 
         queue = BuildQueue(self.env)
-        queue.slaves[1] = ['foobar']
-        build, slave = queue.get_next_pending_build(['foobar', 'dummy'])
-        self.assertEqual((None, None), (build, slave))
+        build = queue.get_build_for_slave('foobar', {})
+        self.assertEqual(None, build)
 
-    def test_next_pending_build_slave_round_robin(self):
-        """
-        Verify that if a slave is selected for a pending build, it is moved to
-        the end of the slave list for that target platform.
-        """
-        BuildConfig(self.env, 'test', active=True).insert()
-        build = Build(self.env, config='test', platform=1,
-                      rev=123, rev_time=42, status=Build.PENDING)
-        build.insert()
-
-        queue = BuildQueue(self.env)
-        queue.slaves[1] = ['foo', 'bar', 'baz']
-        build, slave = queue.get_next_pending_build(['foo'])
-        self.assertEqual(['bar', 'baz', 'foo'], queue.slaves[1])
-
-    def test_register_slave_match_simple(self):
+    def test_match_slave_match(self):
         BuildConfig(self.env, 'test', active=True).insert()
         platform = TargetPlatform(self.env, config='test', name="Unix")
         platform.rules.append(('family', 'posix'))
         platform.insert()
+        platform_id = platform.id
 
         queue = BuildQueue(self.env)
-        assert queue.register_slave('foo', {'family': 'posix'})
-        self.assertEqual(['foo'], queue.slaves[platform.id])
+        platforms = queue.match_slave('foo', {'family': 'posix'})
+        self.assertEqual(1, len(platforms))
+        self.assertEqual(platform_id, platforms[0].id)
 
     def test_register_slave_match_simple_fail(self):
         BuildConfig(self.env, 'test', active=True).insert()
@@ -216,18 +202,20 @@ class BuildQueueTestCase(unittest.TestCase):
         platform.insert()
 
         queue = BuildQueue(self.env)
-        assert not queue.register_slave('foo', {'family': 'nt'})
-        self.assertRaises(KeyError, queue.slaves.__getitem__, platform.id)
+        platforms = queue.match_slave('foo', {'family': 'nt'})
+        self.assertEqual([], platforms)
 
     def test_register_slave_match_regexp(self):
         BuildConfig(self.env, 'test', active=True).insert()
         platform = TargetPlatform(self.env, config='test', name="Unix")
         platform.rules.append(('version', '8\.\d\.\d'))
         platform.insert()
+        platform_id = platform.id
 
         queue = BuildQueue(self.env)
-        assert queue.register_slave('foo', {'version': '8.2.0'})
-        self.assertEqual(['foo'], queue.slaves[platform.id])
+        platforms = queue.match_slave('foo', {'version': '8.2.0'})
+        self.assertEqual(1, len(platforms))
+        self.assertEqual(platform_id, platforms[0].id)
 
     def test_register_slave_match_regexp_multi(self):
         BuildConfig(self.env, 'test', active=True).insert()
@@ -235,10 +223,12 @@ class BuildQueueTestCase(unittest.TestCase):
         platform.rules.append(('os', '^Linux'))
         platform.rules.append(('processor', '^[xi]\d?86$'))
         platform.insert()
+        platform_id = platform.id
 
         queue = BuildQueue(self.env)
-        assert queue.register_slave('foo', {'os': 'Linux', 'processor': 'i686'})
-        self.assertEqual(['foo'], queue.slaves[platform.id])
+        platforms = queue.match_slave('foo', {'os': 'Linux', 'processor': 'i686'})
+        self.assertEqual(1, len(platforms))
+        self.assertEqual(platform_id, platforms[0].id)
 
     def test_register_slave_match_regexp_fail(self):
         BuildConfig(self.env, 'test', active=True).insert()
@@ -247,8 +237,8 @@ class BuildQueueTestCase(unittest.TestCase):
         platform.insert()
 
         queue = BuildQueue(self.env)
-        assert not queue.register_slave('foo', {'version': '7.8.1'})
-        self.assertRaises(KeyError, queue.slaves.__getitem__, platform.id)
+        platforms = queue.match_slave('foo', {'version': '7.8.1'})
+        self.assertEqual([], platforms)
 
     def test_register_slave_match_regexp_invalid(self):
         BuildConfig(self.env, 'test', active=True).insert()
@@ -257,34 +247,8 @@ class BuildQueueTestCase(unittest.TestCase):
         platform.insert()
 
         queue = BuildQueue(self.env)
-        assert not queue.register_slave('foo', {'version': '7.8.1'})
-        self.assertRaises(KeyError, queue.slaves.__getitem__, platform.id)
-
-    def test_unregister_slave_no_builds(self):
-        queue = BuildQueue(self.env)
-        queue.slaves[1] = ['foo', 'bar']
-        queue.slaves[2] = ['baz']
-        queue.unregister_slave('bar')
-        self.assertEqual(['foo'], queue.slaves[1])
-        self.assertEqual(['baz'], queue.slaves[2])
-
-    def test_unregister_slave_in_progress_build(self):
-        build = Build(self.env, config='test', platform=1, rev=123, rev_time=42,
-                      slave='foo', status=Build.IN_PROGRESS)
-        build.insert()
-
-        queue = BuildQueue(self.env)
-        queue.slaves[1] = ['foo', 'bar']
-        queue.slaves[2] = ['baz']
-        queue.unregister_slave('bar')
-        self.assertEqual(['foo'], queue.slaves[1])
-        self.assertEqual(['baz'], queue.slaves[2])
-
-        build = Build.fetch(self.env, id=build.id)
-        self.assertEqual(Build.PENDING, build.status)
-        self.assertEqual('', build.slave)
-        self.assertEqual({}, build.slave_info)
-        self.assertEqual(0, build.started)
+        platforms = queue.match_slave('foo', {'version': '7.8.1'})
+        self.assertEqual([], platforms)
 
 
 def suite():

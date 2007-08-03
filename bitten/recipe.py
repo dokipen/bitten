@@ -41,7 +41,7 @@ class Context(object):
     step = None # The current step
     generator = None # The current generator (namespace#name)
 
-    def __init__(self, basedir, config=None):
+    def __init__(self, basedir, config=None, vars=None):
         """Initialize the context.
         
         @param basedir: a string containing the working directory for the build
@@ -50,6 +50,7 @@ class Context(object):
         """
         self.basedir = os.path.realpath(basedir)
         self.config = config or Configuration()
+        self.vars = vars or {}
         self.output = []
 
     def run(self, step, namespace, name, attr):
@@ -81,7 +82,8 @@ class Context(object):
                 if keyword.iskeyword(name) or name in __builtins__:
                     name = name + '_'
                 return name
-            args = dict([(escape(name), self.config.interpolate(attr[name]))
+            args = dict([(escape(name),
+                          self.config.interpolate(attr[name], **self.vars))
                          for name in attr])
 
             self.generator = qname
@@ -172,6 +174,9 @@ class Step(object):
         self.description = elem.attr.get('description')
         self.onerror = elem.attr.get('onerror', 'fail')
 
+    def __repr__(self):
+        return '<%s %r>' % (type(self).__name__, self.id)
+
     def execute(self, ctxt):
         """Execute this step in the given context.
         
@@ -215,7 +220,9 @@ class Recipe(object):
         @type config: an instance of L{bitten.build.config.Configuration}
         """
         assert isinstance(xml, xmlio.ParsedElement)
-        self.ctxt = Context(basedir, config)
+        vars = dict([(name, value) for name, value in xml.attr.items()
+                     if not name.startswith('xmlns')])
+        self.ctxt = Context(basedir, config, vars)
         self._root = xml
 
     def __iter__(self):
