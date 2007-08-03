@@ -45,7 +45,8 @@ FROM bitten_report AS report
   ON (item_error.report=report.id AND item_error.item=item_fixture.item AND
       item_error.name='status' AND item_error.value='error')
 WHERE category='test' AND build=%s AND step=%s
-GROUP BY file, fixture ORDER BY fixture""", (build.id, step.name))
+GROUP BY file, fixture
+ORDER BY fixture""", (build.id, step.name))
 
         data = []
         total_success, total_failure, total_error = 0, 0, 0
@@ -78,7 +79,7 @@ class TestCoverageSummarizer(Component):
         cursor = db.cursor()
         cursor.execute("""
 SELECT item_name.value AS unit, item_file.value AS file,
-       item_lines.value AS loc, item_percentage.value AS cov
+       max(item_lines.value) AS loc, max(item_percentage.value) AS cov
 FROM bitten_report AS report
  LEFT OUTER JOIN bitten_report_item AS item_name
   ON (item_name.report=report.id AND item_name.name='name')
@@ -93,7 +94,8 @@ FROM bitten_report AS report
       item_percentage.item=item_name.item AND
       item_percentage.name='percentage')
 WHERE category='coverage' AND build=%s AND step=%s
-GROUP BY file, unit ORDER BY unit""", (build.id, step.name))
+GROUP BY file, item_name.value ORDER BY item_name.value
+ORDER BY unit""", (build.id, step.name))
 
         data = []
         total_loc, total_cov = 0, 0
