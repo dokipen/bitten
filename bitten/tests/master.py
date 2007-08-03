@@ -245,7 +245,8 @@ class BuildMasterTestCase(unittest.TestCase):
         outbody = StringIO()
         req = Mock(method='POST', base_path='',
                    path_info='/builds/%d/steps/' % build.id,
-                   href=Href('/trac'), remote_addr='127.0.0.1', args={},
+                   href=Href('/trac'), abs_href=Href('http://example.org/trac'),
+                   remote_addr='127.0.0.1', args={},
                    perm=PermissionCache(self.env, 'hal'),
                    read=inbody.read,
                    send_response=lambda x: outheaders.setdefault('Status', x),
@@ -257,7 +258,7 @@ class BuildMasterTestCase(unittest.TestCase):
             module.process_request(req)
             self.fail('Expected RequestDone')
         except RequestDone:
-            self.assertEqual(200, outheaders['Status'])
+            self.assertEqual(201, outheaders['Status'])
             self.assertEqual('20', outheaders['Content-Length'])
             self.assertEqual('text/plain', outheaders['Content-Type'])
             self.assertEqual('Build step processed', outbody.getvalue())
@@ -295,7 +296,8 @@ class BuildMasterTestCase(unittest.TestCase):
         outbody = StringIO()
         req = Mock(method='POST', base_path='',
                    path_info='/builds/%d/steps/' % build.id,
-                   href=Href('/trac'), remote_addr='127.0.0.1', args={},
+                   href=Href('/trac'), abs_href=Href('http://example.org/trac'),
+                   remote_addr='127.0.0.1', args={},
                    perm=PermissionCache(self.env, 'hal'),
                    read=inbody.read,
                    send_response=lambda x: outheaders.setdefault('Status', x),
@@ -307,7 +309,7 @@ class BuildMasterTestCase(unittest.TestCase):
             module.process_request(req)
             self.fail('Expected RequestDone')
         except RequestDone:
-            self.assertEqual(200, outheaders['Status'])
+            self.assertEqual(201, outheaders['Status'])
             self.assertEqual('20', outheaders['Content-Length'])
             self.assertEqual('text/plain', outheaders['Content-Type'])
             self.assertEqual('Build step processed', outbody.getvalue())
@@ -355,7 +357,8 @@ class BuildMasterTestCase(unittest.TestCase):
         outbody = StringIO()
         req = Mock(method='POST', base_path='',
                    path_info='/builds/%d/steps/' % build.id,
-                   href=Href('/trac'), remote_addr='127.0.0.1', args={},
+                   href=Href('/trac'), abs_href=Href('http://example.org/trac'),
+                   remote_addr='127.0.0.1', args={},
                    perm=PermissionCache(self.env, 'hal'),
                    read=inbody.read,
                    send_response=lambda x: outheaders.setdefault('Status', x),
@@ -367,7 +370,7 @@ class BuildMasterTestCase(unittest.TestCase):
             module.process_request(req)
             self.fail('Expected RequestDone')
         except RequestDone:
-            self.assertEqual(200, outheaders['Status'])
+            self.assertEqual(201, outheaders['Status'])
             self.assertEqual('20', outheaders['Content-Length'])
             self.assertEqual('text/plain', outheaders['Content-Type'])
             self.assertEqual('Build step processed', outbody.getvalue())
@@ -414,7 +417,8 @@ class BuildMasterTestCase(unittest.TestCase):
         outbody = StringIO()
         req = Mock(method='POST', base_path='',
                    path_info='/builds/%d/steps/' % build.id,
-                   href=Href('/trac'), remote_addr='127.0.0.1', args={},
+                   href=Href('/trac'), abs_href=Href('http://example.org/trac'),
+                   remote_addr='127.0.0.1', args={},
                    perm=PermissionCache(self.env, 'hal'),
                    read=inbody.read,
                    send_response=lambda x: outheaders.setdefault('Status', x),
@@ -426,7 +430,7 @@ class BuildMasterTestCase(unittest.TestCase):
             module.process_request(req)
             self.fail('Expected RequestDone')
         except RequestDone:
-            self.assertEqual(200, outheaders['Status'])
+            self.assertEqual(201, outheaders['Status'])
             self.assertEqual('20', outheaders['Content-Length'])
             self.assertEqual('text/plain', outheaders['Content-Type'])
             self.assertEqual('Build step processed', outbody.getvalue())
@@ -460,7 +464,8 @@ class BuildMasterTestCase(unittest.TestCase):
         outbody = StringIO()
         req = Mock(method='POST', base_path='',
                    path_info='/builds/%d/steps/' % build.id,
-                   href=Href('/trac'), remote_addr='127.0.0.1', args={},
+                   href=Href('/trac'), abs_href=Href('http://example.org/trac'),
+                   remote_addr='127.0.0.1', args={},
                    perm=PermissionCache(self.env, 'hal'),
                    read=inbody.read,
                    send_response=lambda x: outheaders.setdefault('Status', x),
@@ -472,7 +477,7 @@ class BuildMasterTestCase(unittest.TestCase):
             module.process_request(req)
             self.fail('Expected RequestDone')
         except RequestDone:
-            self.assertEqual(200, outheaders['Status'])
+            self.assertEqual(201, outheaders['Status'])
             self.assertEqual('20', outheaders['Content-Length'])
             self.assertEqual('text/plain', outheaders['Content-Type'])
             self.assertEqual('Build step processed', outbody.getvalue())

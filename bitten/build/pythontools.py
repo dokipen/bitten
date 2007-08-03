@@ -16,6 +16,7 @@ try:
     set
 except NameError:
     from sets import Set as set
+import shlex
 import sys
 
 from bitten.build import CommandLine, FileSet
@@ -35,15 +36,23 @@ def _python_path(ctxt):
         return python_path
     return sys.executable
 
-def distutils(ctxt, file_='setup.py', command='build'):
+def distutils(ctxt, file_='setup.py', command='build', options=None):
     """Execute a C{distutils} command.
     
     @param ctxt: the build context
     @type ctxt: an instance of L{bitten.recipe.Context}
     @param file_: name of the file defining the distutils setup
     @param command: the setup command to execute
+    @param options: additional options to pass to the command
     """
-    cmdline = CommandLine(_python_path(ctxt), [ctxt.resolve(file_), command],
+    if options:
+        if isinstance(options, basestring):
+            options = shlex.split(args)
+    else:
+        options = []
+
+    cmdline = CommandLine(_python_path(ctxt),
+                          [ctxt.resolve(file_), command] + options,
                           cwd=ctxt.basedir)
     log_elem = xmlio.Fragment()
     error_logged = False
