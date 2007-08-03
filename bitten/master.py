@@ -241,9 +241,11 @@ class BuildMaster(Component):
                 listener.build_completed(build)
 
         body = 'Build step processed'
-        req.send_response(200)
+        req.send_response(201)
         req.send_header('Content-Type', 'text/plain')
         req.send_header('Content-Length', str(len(body)))
+        req.send_header('Location', req.abs_href.builds(build.id, 'steps',
+                        stepname))
         req.write(body)
         raise RequestDone
 

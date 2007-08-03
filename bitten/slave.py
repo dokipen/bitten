@@ -10,7 +10,7 @@
 """Implementation of the build slave."""
 
 from datetime import datetime
-import httplib
+import urllib2
 import logging
 import os
 import platform
@@ -19,7 +19,6 @@ try:
 except NameError:
     from sets import Set as set
 import shutil
-import socket
 import tempfile
 import time
 import urlparse
@@ -32,11 +31,23 @@ from bitten.util import xmlio
 log = logging.getLogger('bitten.slave')
 
 
+class SaneHTTPErrorProcessor(urllib2.HTTPErrorProcessor):
+    "The HTTPErrorProcessor defined in urllib needs some love."
+
+    def http_response(self, request, response):
+        code, msg, hdrs = response.code, response.msg, response.info()
+        if code >= 300:
+            response = self.parent.error(
+                'http', request, response, code, msg, hdrs)
+        return response
+
+
 class BuildSlave(object):
     """BEEP initiator implementation for the build slave."""
 
     def __init__(self, url, name=None, config=None, dry_run=False,
-                 work_dir=None, keep_files=False, single_build=False):
+                 work_dir=None, keep_files=False, single_build=False,
+                 username=None, password=None):
         """Create the build slave instance.
         
         @param url: The URL of the build master
@@ -50,6 +61,9 @@ class BuildSlave(object):
             execution should be kept when done
         @param single_build: Whether this slave should exit after completing a 
             single build, or continue processing builds forever
+        @param username: the username to use when authentication against the
+            build master is requested
+        @param password: the password to use when authentication is needed
         """
         self.url = url
         if name is None:
@@ -65,29 +79,29 @@ class BuildSlave(object):
         self.keep_files = keep_files
         self.single_build = single_build
 
+        self.opener = urllib2.build_opener(SaneHTTPErrorProcessor)
+        password_mgr = urllib2.HTTPPasswordMgrWithDefaultRealm()
+        if username and password:
+            password_mgr.add_password(None, url, username, password)
+        self.opener.add_handler(urllib2.HTTPBasicAuthHandler(password_mgr))
+        self.opener.add_handler(urllib2.HTTPDigestAuthHandler(password_mgr))
+
     def request(self, method, url, body=None, headers=None):
-        scheme, host, path, query, fragment = urlparse.urlsplit(url)
-        scheme = (scheme or 'http').lower()
-
-        if scheme == 'https':
-            conn = httplib.HTTPSConnection(host)
-        else:
-            conn = httplib.HTTPConnection(host)
-
-        if headers is None:
-            headers = {}
-        if body is None:
-            body = ''
-        headers['Content-Length'] = len(body)
-        conn.request(method.upper(), path, body, headers)
-        return conn.getresponse()
+        req = urllib2.Request(url, body, headers or {})
+        try:
+            return self.opener.open(req)
+        except urllib2.HTTPError, e:
+            if e.code >= 300:
+                log.warn('Server returned error %d: %s', e.code, e.msg)
+                raise
+            return e
 
     def run(self):
         while True:
             try:
                 try:
                     self._create_build()
-                except socket.error, e:
+                except urllib2.URLError, e:
                     log.error(e)
                     raise ExitSlave()
             except ExitSlave:
@@ -120,19 +134,19 @@ class BuildSlave(object):
             'Content-Type': 'application/x-bitten+xml'
         })
 
-        if resp.status == 201:
-            self._initiate_build(resp.getheader('location'))
-        elif resp.status == 204:
+        if resp.code == 201:
+            self._initiate_build(resp.info().get('location'))
+        elif resp.code == 204:
             log.info(resp.read())
         else:
-            log.error('Unexpected response (%d): %s', resp.status, resp.reason)
+            log.error('Unexpected response (%d %s)', resp.code, resp.msg)
             raise ExitSlave()
 
     def _initiate_build(self, build_url):
         build_id = int(build_url.split('/')[-1])
         log.info('Build %s pending at %s', build_id, build_url)
         resp = self.request('GET', build_url)
-        if resp.status == 200:
+        if resp.code == 200:
             xml = xmlio.parse(resp)
             basedir = os.path.join(self.work_dir, 'build_%d' % build_id)
             if not os.path.exists(basedir):
@@ -148,7 +162,7 @@ class BuildSlave(object):
                     log.info('Exiting after single build completed.')
                     raise ExitSlave()
         else:
-            log.error('Unexpected response (%d): %s', resp.status, resp.reason)
+            log.error('Unexpected response (%d): %s', resp.code, resp.msg)
             raise ExitSlave()
 
     def _execute_build(self, build_url, recipe):
@@ -190,8 +204,8 @@ class BuildSlave(object):
         resp = self.request('POST', build_url + '/steps/', str(xml), {
             'Content-Type': 'application/x-bitten+xml'
         })
-        if resp.status != 201:
-            log.error('Unexpected response (%d): %s', resp.status, resp.reason)
+        if resp.code != 201:
+            log.error('Unexpected response (%d): %s', resp.code, resp.msg)
 
         return not failed or step.onerror != 'fail'
 
@@ -230,6 +244,10 @@ def main():
     parser.add_option('-s', '--single', action='store_true',
                       dest='single_build',
                       help='exit after completing a single build')
+    parser.add_option('-u', '--user', dest='username',
+                      help='the username to use for authentication')
+    parser.add_option('-p', '--password', dest='password',
+                      help='the password to use when authenticating')
     parser.set_defaults(dry_run=False, keep_files=False,
                         loglevel=logging.WARNING, single_build=False)
     options, args = parser.parse_args()
@@ -256,7 +274,8 @@ def main():
     slave = BuildSlave(url, name=options.name, config=options.config,
                        dry_run=options.dry_run, work_dir=options.work_dir,
                        keep_files=options.keep_files,
-                       single_build=options.single_build)
+                       single_build=options.single_build,
+                       username=options.username, password=options.password)
     try:
         try:
             slave.run()
