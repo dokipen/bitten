@@ -22,6 +22,7 @@ from itertools import ifilter
 import logging
 import re
 
+from trac.versioncontrol import NoSuchNode
 from bitten.model import BuildConfig, TargetPlatform, Build, BuildStep
 
 log = logging.getLogger('bitten.queue')
