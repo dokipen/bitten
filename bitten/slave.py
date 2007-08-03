@@ -87,6 +87,7 @@ class BuildSlave(object):
         self.opener.add_handler(urllib2.HTTPDigestAuthHandler(password_mgr))
 
     def request(self, method, url, body=None, headers=None):
+        log.debug('Sending %s request to %r', body and 'POST' or 'GET', url)
         req = urllib2.Request(url, body, headers or {})
         try:
             return self.opener.open(req)
