@@ -47,7 +47,7 @@ def distutils(ctxt, file_='setup.py', command='build', options=None):
     """
     if options:
         if isinstance(options, basestring):
-            options = shlex.split(args)
+            options = shlex.split(options)
     else:
         options = []
 
