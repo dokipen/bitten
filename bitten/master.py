@@ -57,7 +57,7 @@ class BuildMaster(Component):
     # IRequestHandler methods
 
     def match_request(self, req):
-        match = re.match(r'/builds(?:/(\d+)(?:/(\w+)/([^/]+))?)?$',
+        match = re.match(r'/builds(?:/(\d+)(?:/(\w+)/([^/]+)?)?)?$',
                          req.path_info)
         if match:
             if match.group(1):
@@ -82,12 +82,11 @@ class BuildMaster(Component):
         if not req.args['collection']:
             return self._process_build_initiation(req, config, build)
 
-        if req.method != 'PUT':
+        if req.method != 'POST':
             raise HTTPMethodNotAllowed('Method not allowed')
 
         if req.args['collection'] == 'steps':
-            return self._process_build_step(req, config, build,
-                                            req.args['member'])
+            return self._process_build_step(req, config, build)
         else:
             raise HTTPNotFound('No such collection')
 
@@ -149,7 +148,13 @@ class BuildMaster(Component):
         req.write(body)
         raise RequestDone
 
-    def _process_build_step(self, req, config, build, stepname):
+    def _process_build_step(self, req, config, build):
+        try:
+            elem = xmlio.parse(req.read())
+        except xmlio.ParseError, e:
+            raise HTTPBadRequest('XML parser error')
+        stepname = elem.attr['step']
+
         step = BuildStep.fetch(self.env, build=build.id, name=stepname)
         if step:
             raise HTTPConflict('Build step already exists')
@@ -164,11 +169,6 @@ class BuildMaster(Component):
         if index is None:
             raise HTTPForbidden('No such build step')
         last_step = index == num
-
-        try:
-            elem = xmlio.parse(req.read())
-        except xmlio.ParseError, e:
-            raise HTTPBadRequest('XML parser error')
 
         self.log.debug('Slave %s completed step %d (%s) with status %s',
                        build.slave, index, stepname, elem.attr['status'])
@@ -191,7 +191,7 @@ class BuildMaster(Component):
 
         # Collect log messages from the request body
         for idx, log_elem in enumerate(elem.children('log')):
-            build_log = BuildLog(self.env, build=build.id, step=step.name,
+            build_log = BuildLog(self.env, build=build.id, step=stepname,
                                  generator=log_elem.attr.get('generator'),
                                  orderno=idx)
             for message_elem in log_elem.children('message'):
@@ -201,7 +201,7 @@ class BuildMaster(Component):
 
         # Collect report data from the request body
         for report_elem in elem.children('report'):
-            report = Report(self.env, build=build.id, step=step.name,
+            report = Report(self.env, build=build.id, step=stepname,
                             category=report_elem.attr.get('category'),
                             generator=report_elem.attr.get('generator'))
             for item_elem in report_elem.children():

@@ -163,7 +163,7 @@ class BuildSlave(object):
     def _execute_step(self, build_url, recipe, step):
         failed = False
         started = datetime.utcnow()
-        xml = xmlio.Element('result', time=started.isoformat())
+        xml = xmlio.Element('result', step=step.id, time=started.isoformat())
         try:
             for type, category, generator, output in \
                     step.execute(recipe.ctxt):
@@ -187,10 +187,10 @@ class BuildSlave(object):
             xml.attr['status'] = 'success'
             log.info('Build step %s completed successfully', step.id)
 
-        resp = self.request('PUT', build_url + '/steps/' + step.id, str(xml), {
+        resp = self.request('POST', build_url + '/steps/', str(xml), {
             'Content-Type': 'application/x-bitten+xml'
         })
-        if resp.status != 200:
+        if resp.status != 201:
             log.error('Unexpected response (%d): %s', resp.status, resp.reason)
 
         return not failed or step.onerror != 'fail'

@@ -213,8 +213,8 @@ class BuildMasterTestCase(unittest.TestCase):
         build = Build(self.env, 'test', '123', 1, slave='hal', rev_time=42)
         build.insert()
 
-        req = Mock(method='PUT', base_path='',
-                   path_info='/builds/%d/files/abc.zip' % build.id,
+        req = Mock(method='POST', base_path='',
+                   path_info='/builds/%d/files/' % build.id,
                    href=Href('/trac'), remote_addr='127.0.0.1', args={},
                    perm=PermissionCache(self.env, 'hal'))
 
@@ -237,14 +237,14 @@ class BuildMasterTestCase(unittest.TestCase):
                       started=42)
         build.insert()
 
-        inbody = StringIO("""<result status="success"
+        inbody = StringIO("""<result step="foo" status="success"
                                      time="2007-04-01T15:30:00.0000"
                                      duration="3.45">
 </result>""")
         outheaders = {}
         outbody = StringIO()
-        req = Mock(method='PUT', base_path='',
-                   path_info='/builds/%d/steps/foo' % build.id,
+        req = Mock(method='POST', base_path='',
+                   path_info='/builds/%d/steps/' % build.id,
                    href=Href('/trac'), remote_addr='127.0.0.1', args={},
                    perm=PermissionCache(self.env, 'hal'),
                    read=inbody.read,
@@ -283,7 +283,7 @@ class BuildMasterTestCase(unittest.TestCase):
                       started=42)
         build.insert()
 
-        inbody = StringIO("""<result status="success"
+        inbody = StringIO("""<result step="foo" status="success"
                                      time="2007-04-01T15:30:00.0000"
                                      duration="3.45">
     <log generator="http://bitten.cmlenz.net/tools/python#unittest">
@@ -293,8 +293,8 @@ class BuildMasterTestCase(unittest.TestCase):
 </result>""")
         outheaders = {}
         outbody = StringIO()
-        req = Mock(method='PUT', base_path='',
-                   path_info='/builds/%d/steps/foo' % build.id,
+        req = Mock(method='POST', base_path='',
+                   path_info='/builds/%d/steps/' % build.id,
                    href=Href('/trac'), remote_addr='127.0.0.1', args={},
                    perm=PermissionCache(self.env, 'hal'),
                    read=inbody.read,
@@ -341,7 +341,7 @@ class BuildMasterTestCase(unittest.TestCase):
                       started=42)
         build.insert()
 
-        inbody = StringIO("""<result status="success"
+        inbody = StringIO("""<result step="foo" status="success"
                                      time="2007-04-01T15:30:00.0000"
                                      duration="3.45">
     <report category="test"
@@ -353,8 +353,8 @@ class BuildMasterTestCase(unittest.TestCase):
 </result>""")
         outheaders = {}
         outbody = StringIO()
-        req = Mock(method='PUT', base_path='',
-                   path_info='/builds/%d/steps/foo' % build.id,
+        req = Mock(method='POST', base_path='',
+                   path_info='/builds/%d/steps/' % build.id,
                    href=Href('/trac'), remote_addr='127.0.0.1', args={},
                    perm=PermissionCache(self.env, 'hal'),
                    read=inbody.read,
@@ -406,14 +406,14 @@ class BuildMasterTestCase(unittest.TestCase):
                       started=42)
         build.insert()
 
-        inbody = StringIO("""<result status="failure"
+        inbody = StringIO("""<result step="foo" status="failure"
                                      time="2007-04-01T15:30:00.0000"
                                      duration="3.45">
 </result>""")
         outheaders = {}
         outbody = StringIO()
-        req = Mock(method='PUT', base_path='',
-                   path_info='/builds/%d/steps/foo' % build.id,
+        req = Mock(method='POST', base_path='',
+                   path_info='/builds/%d/steps/' % build.id,
                    href=Href('/trac'), remote_addr='127.0.0.1', args={},
                    perm=PermissionCache(self.env, 'hal'),
                    read=inbody.read,
@@ -452,14 +452,14 @@ class BuildMasterTestCase(unittest.TestCase):
                       started=42)
         build.insert()
 
-        inbody = StringIO("""<result status="failure"
+        inbody = StringIO("""<result step="foo" status="failure"
                                      time="2007-04-01T15:30:00.0000"
                                      duration="3.45">
 </result>""")
         outheaders = {}
         outbody = StringIO()
-        req = Mock(method='PUT', base_path='',
-                   path_info='/builds/%d/steps/foo' % build.id,
+        req = Mock(method='POST', base_path='',
+                   path_info='/builds/%d/steps/' % build.id,
                    href=Href('/trac'), remote_addr='127.0.0.1', args={},
                    perm=PermissionCache(self.env, 'hal'),
                    read=inbody.read,
@@ -499,8 +499,8 @@ class BuildMasterTestCase(unittest.TestCase):
         build.insert()
 
         inbody = StringIO("""<result></rsleut>""")
-        req = Mock(method='PUT', base_path='',
-                   path_info='/builds/%d/steps/foo' % build.id,
+        req = Mock(method='POST', base_path='',
+                   path_info='/builds/%d/steps/' % build.id,
                    href=Href('/trac'), remote_addr='127.0.0.1', args={},
                    perm=PermissionCache(self.env, 'hal'),
                    read=inbody.read)
@@ -524,12 +524,12 @@ class BuildMasterTestCase(unittest.TestCase):
                       started=42)
         build.insert()
 
-        inbody = StringIO("""<result status="success"
+        inbody = StringIO("""<result step="foo" status="success"
                                      time="sometime tomorrow maybe"
                                      duration="3.45">
 </result>""")
-        req = Mock(method='PUT', base_path='',
-                   path_info='/builds/%d/steps/foo' % build.id,
+        req = Mock(method='POST', base_path='',
+                   path_info='/builds/%d/steps/' % build.id,
                    href=Href('/trac'), remote_addr='127.0.0.1', args={},
                    perm=PermissionCache(self.env, 'hal'),
                    read=inbody.read)
@@ -543,15 +543,15 @@ class BuildMasterTestCase(unittest.TestCase):
             self.assertEqual("Invalid ISO date/time 'sometime tomorrow maybe'",
                              e.detail)
 
-    def test_process_build_step_no_put(self):
+    def test_process_build_step_no_post(self):
         BuildConfig(self.env, 'test', path='somepath', active=True,
                     recipe='<build></build>').insert()
         build = Build(self.env, 'test', '123', 1, slave='hal', rev_time=42,
                       started=42)
         build.insert()
 
-        req = Mock(method='POST', base_path='',
-                   path_info='/builds/%d/steps/foo' % build.id,
+        req = Mock(method='GET', base_path='',
+                   path_info='/builds/%d/steps/' % build.id,
                    href=Href('/trac'), remote_addr='127.0.0.1', args={},
                    perm=PermissionCache(self.env, 'hal'))
 
