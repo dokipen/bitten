@@ -82,6 +82,7 @@ You probably also want to grant permissions to someone (such as yourself)
 to manage build configurations, and allow anonymous users to view the
 status and results of builds:
 
+  $ trac-admin /path/to/projenv permission add anonymous BUILD_EXEC
   $ trac-admin /path/to/projenv permission add anonymous BUILD_VIEW
   $ trac-admin /path/to/projenv permission add [yourname] BUILD_ADMIN
 
@@ -117,19 +118,19 @@ Running the Build Slave
 -----------------------
 
 The build slave can be run on any machine that can connect to the machine
-on which the build master is running. Just as with the build master, you
-should find the build slave executable on your path after the installation.
-The executable file is called `bitten-slave`.
+on which the build master is running. The installation of Bitten should have put
+a `bitten-slave` executable on your path. If the script is not on your path,
+look for it in the `bin` or `scripts` subdirectory of your Python installation.
 
 To get a list of options for the build slave, execute it with the `--help`
 option:
 
   $ bitten-slave --help
 
-To run the build slave against a master installed on myproject.example.org,
-you'd run:
+To run the build slave against a Bitten-enabled Trac site installed at 
+http://myproject.example.org/trac, you'd run:
 
-  $ bitten-slave myproject.example.org
+  $ bitten-slave http://myproject.example.org/trac/builds
 
 
 More Information

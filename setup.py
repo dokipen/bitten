@@ -29,7 +29,6 @@ setup(
     },
     entry_points = {
         'console_scripts': [
-            'bitten-master = bitten.master:main',
             'bitten-slave = bitten.slave:main'
         ],
         'distutils.commands': [
