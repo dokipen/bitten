@@ -9,9 +9,17 @@
 # you should have received as part of this distribution. The terms
 # are also available at http://bitten.edgewall.org/wiki/License.
 
+import os
 from setuptools import setup, find_packages
+import sys
 
 from bitten.util.testrunner import unittest
+
+sys.path.append(os.path.join('doc', 'common'))
+try:
+    from doctools import build_doc, test_doc
+except ImportError:
+    build_doc = test_doc = None
 
 NS = 'http://bitten.cmlenz.net/tools/'
 
@@ -71,5 +79,6 @@ setup(
         ]
     },
 
-    cmdclass = {'unittest': unittest}
+    cmdclass = {'build_doc': build_doc, 'test_doc': test_doc,
+                'unittest': unittest}
 )
