@@ -10,11 +10,12 @@
 
 import unittest
 
-from bitten.trac_ext.tests import web_ui
+from bitten.report.tests import coverage, testing
 
 def suite():
     suite = unittest.TestSuite()
-    suite.addTest(web_ui.suite())
+    suite.addTest(coverage.suite())
+    suite.addTest(testing.suite())
     return suite
 
 if __name__ == '__main__':

@@ -35,8 +35,8 @@ from bitten.model import BuildConfig, TargetPlatform, Build, BuildStep, \
                          BuildLog, Report
 from bitten.queue import collect_changes
 from bitten.recipe import Recipe, InvalidRecipeError
-from bitten.trac_ext.api import ILogFormatter, IReportSummarizer
-from bitten.trac_ext.charts import ReportChartController
+from bitten.trac_ext.api import ILogFormatter, IReportChartGenerator, \
+                                IReportSummarizer
 from bitten.util import xmlio
 
 _status_label = {Build.PENDING: 'pending',
@@ -794,6 +794,35 @@ class BuildController(Component):
             reports.append({'category': report.category,
                             'summary': Markup(summary)})
         return reports
+
+
+class ReportChartController(Component):
+    implements(IRequestHandler)
+
+    generators = ExtensionPoint(IReportChartGenerator)
+
+    # IRequestHandler methods
+
+    def match_request(self, req):
+        match = re.match(r'/build/([\w.-]+)/chart/(\w+)', req.path_info)
+        if match:
+            req.args['config'] = match.group(1)
+            req.args['category'] = match.group(2)
+            return True
+
+    def process_request(self, req):
+        category = req.args.get('category')
+        config = BuildConfig.fetch(self.env, name=req.args.get('config'))
+
+        for generator in self.generators:
+            if category in generator.get_supported_categories():
+                template = generator.generate_chart_data(req, config,
+                                                         category)
+                break
+        else:
+            raise TracError('Unknown report category "%s"' % category)
+
+        return template, 'text/xml'
 
 
 class SourceFileLinkFormatter(Component):

@@ -46,8 +46,8 @@ setup(
             'bitten.main = bitten.trac_ext.main',
             'bitten.master = bitten.master',
             'bitten.web_ui = bitten.trac_ext.web_ui',
-            'bitten.summarizers = bitten.trac_ext.summarizers',
-            'bitten.charts = bitten.trac_ext.charts'
+            'bitten.testing = bitten.report.testing',
+            'bitten.coverage = bitten.report.coverage'
         ],
         'bitten.recipe_commands': [
             NS + 'sh#exec = bitten.build.shtools:exec_',

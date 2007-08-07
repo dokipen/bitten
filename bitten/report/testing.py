@@ -11,11 +11,63 @@
 from trac.core import *
 from trac.web.chrome import Chrome
 from trac.web.clearsilver import HDFWrapper
-from bitten.trac_ext.api import IReportSummarizer
+from bitten.trac_ext.api import IReportChartGenerator, IReportSummarizer
+
+
+class TestResultsChartGenerator(Component):
+    implements(IReportChartGenerator)
+
+    # IReportChartGenerator methods
+
+    def get_supported_categories(self):
+        return ['test']
+
+    def generate_chart_data(self, req, config, category):
+        assert category == 'test'
+
+        db = self.env.get_db_cnx()
+        cursor = db.cursor()
+        cursor.execute("""
+SELECT build.rev, build.platform, item_status.value AS status, COUNT(*) AS num
+FROM bitten_build AS build
+ LEFT OUTER JOIN bitten_report AS report ON (report.build=build.id)
+ LEFT OUTER JOIN bitten_report_item AS item_status
+  ON (item_status.report=report.id AND item_status.name='status')
+WHERE build.config=%s AND report.category='test'
+GROUP BY build.rev_time, build.rev, build.platform, item_status.value
+ORDER BY build.rev_time, build.platform""", (config.name,))
+
+        prev_rev = None
+        prev_platform, platform_total = None, 0
+        tests = []
+        for rev, platform, status, num in cursor:
+            if rev != prev_rev:
+                tests.append([rev, 0, 0])
+                prev_rev = rev
+                platform_total = 0
+            if platform != prev_platform:
+                prev_platform = platform
+                platform_total = 0
+
+            platform_total += num
+            tests[-1][1] = max(platform_total, tests[-1][1])
+            if status != 'success':
+                tests[-1][2] = max(num, tests[-1][2])
+
+        req.hdf['chart.title'] = 'Unit Tests'
+        req.hdf['chart.data'] = [
+            [''] + ['[%s]' % item[0] for item in tests],
+            ['Total'] + [item[1] for item in tests],
+            ['Failures'] + [item[2] for item in tests]
+        ]
+
+        return 'bitten_chart_tests.cs'
 
 
 class TestResultsSummarizer(Component):
     implements(IReportSummarizer)
+
+    # IReportSummarizer methods
 
     def get_supported_categories(self):
         return ['test']
@@ -65,59 +117,3 @@ ORDER BY fixture""", (build.id, step.name))
         hdf['totals'] = {'success': total_success, 'failure': total_failure,
                          'error': total_error}
         return hdf.render('bitten_summary_tests.cs')
-
-
-class TestCoverageSummarizer(Component):
-    implements(IReportSummarizer)
-
-    def get_supported_categories(self):
-        return ['coverage']
-
-    def render_summary(self, req, config, build, step, category):
-        assert category == 'coverage'
-
-        db = self.env.get_db_cnx()
-        cursor = db.cursor()
-        cursor.execute("""
-SELECT item_name.value AS unit, item_file.value AS file,
-       max(item_lines.value) AS loc, max(item_percentage.value) AS cov
-FROM bitten_report AS report
- LEFT OUTER JOIN bitten_report_item AS item_name
-  ON (item_name.report=report.id AND item_name.name='name')
- LEFT OUTER JOIN bitten_report_item AS item_file
-  ON (item_file.report=report.id AND item_file.item=item_name.item AND
-      item_file.name='file')
- LEFT OUTER JOIN bitten_report_item AS item_lines
-  ON (item_lines.report=report.id AND item_lines.item=item_name.item AND
-      item_lines.name='lines')
- LEFT OUTER JOIN bitten_report_item AS item_percentage
-  ON (item_percentage.report=report.id AND
-      item_percentage.item=item_name.item AND
-      item_percentage.name='percentage')
-WHERE category='coverage' AND build=%s AND step=%s
-GROUP BY file, item_name.value
-ORDER BY item_name.value""", (build.id, step.name))
-
-        data = []
-        total_loc, total_cov = 0, 0
-        for unit, file, loc, cov in cursor:
-            try:
-                loc, cov = int(loc), float(cov)
-            except TypeError:
-                continue # no rows
-            if loc:
-                d = {'name': unit, 'loc': loc, 'cov': int(cov)}
-                if file:
-                    d['href'] = req.href.browser(config.path, file)
-                data.append(d)
-                total_loc += loc
-                total_cov += loc * cov
-
-        coverage = 0
-        if total_loc != 0:
-            coverage = total_cov // total_loc
-
-        hdf = HDFWrapper(loadpaths=Chrome(self.env).get_all_templates_dirs())
-        hdf['data'] = data
-        hdf['totals'] = {'loc': total_loc, 'cov': int(coverage)}
-        return hdf.render('bitten_summary_coverage.cs')
