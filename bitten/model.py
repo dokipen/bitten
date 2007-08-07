@@ -17,6 +17,8 @@ except NameError:
 
 from trac.db import Table, Column, Index
 
+__docformat__ = 'restructuredtext en'
+
 
 class BuildConfig(object):
     """Representation of a build configuration."""

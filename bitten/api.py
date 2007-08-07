@@ -12,6 +12,10 @@
 
 from trac.core import *
 
+__all__ = ['IBuildListener', 'ILogFormatter', 'IReportChartGenerator',
+           'IReportSummarizer']
+__docformat__ = 'restructuredtext en'
+
 
 class IBuildListener(Interface):
     """Extension point interface for components that need to be notified of
@@ -24,23 +28,23 @@ class IBuildListener(Interface):
     def build_started(build):
         """Called when a build slave has accepted a build initiation.
         
-        @param build: the build that was started
-        @type build: an instance of L{bitten.model.Build}
+        :param build: the build that was started
+        :type build: `Build`
         """
 
     def build_aborted(build):
         """Called when a build slave cancels a build or disconnects.
         
-        @param build: the build that was aborted
-        @type build: an instance of L{bitten.model.Build}
+        :param build: the build that was aborted
+        :type build: `Build`
         """
 
     def build_completed(build):
         """Called when a build slave has completed a build, regardless of the
         outcome.
         
-        @param build: the build that was aborted
-        @type build: an instance of L{bitten.model.Build}
+        :param build: the build that was aborted
+        :type build: `Build`
         """
 
 
@@ -51,14 +55,16 @@ class ILogFormatter(Interface):
     def get_formatter(req, build):
         """Return a function that gets called for every log message.
         
-        The function must take four positional arguments, C{step},
-        C{generator}, C{level} and C{message}, and return the formatted
+        The function must take four positional arguments, ``step``,
+        ``generator``, ``level`` and ``message``, and return the formatted
         message as a string.
 
-        @param req: the request object
-        @param build: the build to which the logs belong that should be
-            formatted
-        @type build: an instance of L{bitten.model.Build}
+        :param req: the request object
+        :param build: the build to which the logs belong that should be
+                      formatted
+        :type build: `Build`
+        :return: the formatted log message
+        :rtype: `basestring`
         """
 
 
@@ -68,20 +74,22 @@ class IReportSummarizer(Interface):
 
     def get_supported_categories():
         """Return a list of strings identifying the types of reports this 
-        component supports."""
+        component supports.
+        """
 
     def render_summary(req, config, build, step, category):
         """Render a summary for the given report and return the resulting HTML
         as string.
         
-        @param req: the request object
-        @param config: the build configuration
-        @type config: an instance of L{bitten.model.BuildConfig}
-        @param build: the build
-        @type build: an instance of L{bitten.model.Build}
-        @param step: the build step
-        @type step: an instance of L{bitten.model.BuildStep}
-        @param category: the category of the report that should be summarized
+        :param req: the request object
+        :param config: the build configuration
+        :type config: `BuildConfig`
+        :param build: the build
+        :type build: `Build`
+        :param step: the build step
+        :type step: `BuildStep`
+        :param category: the category of the report that should be summarized
+        :type category: `basestring`
         """
 
 
@@ -91,7 +99,8 @@ class IReportChartGenerator(Interface):
 
     def get_supported_categories():
         """Return a list of strings identifying the types of reports this 
-        component supports."""
+        component supports.
+        """
 
     def generate_chart_data(req, config, category):
         """Generate the data for a report chart.
@@ -99,8 +108,9 @@ class IReportChartGenerator(Interface):
         This method should store the data in the HDF of the request and return
         the name of the template that should process the data.
         
-        @param req: the request object
-        @param config: the build configuration
-        @type config: an instance of L{bitten.model.BuildConfig}
-        @param category: the category of reports to include in the chart
+        :param req: the request object
+        :param config: the build configuration
+        :type config: `BuildConfig`
+        :param category: the category of reports to include in the chart
+        :type category: `basestring`
         """

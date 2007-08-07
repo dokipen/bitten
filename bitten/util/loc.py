@@ -22,6 +22,9 @@
 
 import re
 
+__all__ = ['BLANK', 'CODE', 'COMMENT', 'DOC', 'count']
+__docformat__ = 'restructuredtext en'
+
 # Reg. exps. to find the end of a triple quote, given that
 # we know we're in one; use the "match" method; .span()[1]
 # will be the index of the character following the final
@@ -64,11 +67,12 @@ BLANK, CODE, COMMENT, DOC  = 0, 1, 2, 3
 def count(source):
     """Parse the given file-like object as Python source code.
     
-    For every line, return a C{(lineno, type, line)} tuple, where C{lineno}
-    is the line number (starting at 0), C{type} is one of C{BLANK}, C{CODE},
-    C{COMMENT} or C{DOC}, and C{line} is the actual content of the line.
-
-    @param source: a file-like object containing Python code
+    For every line in the code, this function yields a ``(lineno, type, line)``
+    tuple, where ``lineno`` is the line number (starting at 0), ``type`` is
+    one of `BLANK`, `CODE`, `COMMENT` or `DOC`, and ``line`` is the actual
+    content of the line.
+    
+    :param source: a file-like object containing Python code
     """
 
     quote3_finder = {'"': _dquote3_finder, "'": _squote3_finder}

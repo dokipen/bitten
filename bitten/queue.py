@@ -14,7 +14,7 @@ This module provides the functionality for scheduling builds for a specific
 Trac environment. It is used by both the build master and the web interface to
 get the list of required builds (revisions not built yet).
 
-Furthermore, the C{BuildQueue} class is used by the build master to determine
+Furthermore, the `BuildQueue` class is used by the build master to determine
 the next pending build, and to match build slaves against configured target
 platforms.
 """
@@ -26,6 +26,8 @@ import re
 from trac.versioncontrol import NoSuchNode
 from bitten.model import BuildConfig, TargetPlatform, Build, BuildStep
 
+__docformat__ = 'restructuredtext en'
+
 log = logging.getLogger('bitten.queue')
 
 
@@ -33,14 +35,13 @@ def collect_changes(repos, config, db=None):
     """Collect all changes for a build configuration that either have already
     been built, or still need to be built.
     
-    This function is a generator that yields C{(platform, rev, build)} tuples,
-    where C{platform} is a L{bitten.model.TargetPlatform} object, C{rev} is the
-    identifier of the changeset, and C{build} is a L{bitten.model.Build} object
-    or C{None}.
+    This function is a generator that yields ``(platform, rev, build)`` tuples,
+    where ``platform`` is a `TargetPlatform` object, ``rev`` is the identifier
+    of the changeset, and ``build`` is a `Build` object or `None`.
 
-    @param repos: the version control repository
-    @param config: the build configuration
-    @param db: a database connection (optional)
+    :param repos: the version control repository
+    :param config: the build configuration
+    :param db: a database connection (optional)
     """
     env = config.env
     if not db:
@@ -97,8 +98,8 @@ class BuildQueue(object):
     def __init__(self, env, build_all=False):
         """Create the build queue.
         
-        @param env: the Trac environment
-        @param build_all: whether older revisions should be built
+        :param env: the Trac environment
+        :param build_all: whether older revisions should be built
         """
         self.env = env
         self.log = env.log
@@ -110,11 +111,12 @@ class BuildQueue(object):
         """Check whether one of the pending builds can be built by the build
         slave.
         
-        If such a build is found, this method returns a C{(build, slave)}
-        tuple, where C{build} is the L{bitten.model.Build} object and C{slave}
-        is the name of the build slave that should handle the build.
-
-        Otherwise, this function will return C{(None, None)}
+        :param name: the name of the slave
+        :type name: `basestring`
+        :param properties: the slave configuration
+        :type properties: `dict`
+        :return: the allocated build, or `None` if no build was found
+        :rtype: `Build`
         """
         log.debug('Checking for pending builds...')
 
@@ -155,9 +157,11 @@ class BuildQueue(object):
     def match_slave(self, name, properties):
         """Match a build slave against available target platforms.
         
-        @param name: The name of the slave
-        @param properties: A dict containing the properties of the slave
-        @return: the list of platforms the slave matched
+        :param name: the name of the slave
+        :type name: `basestring`
+        :param properties: the slave configuration
+        :type properties: `dict`
+        :return: the list of platforms the slave matched
         """
         platforms = []
 
@@ -221,7 +225,7 @@ class BuildQueue(object):
         db.commit()
 
     def reset_orphaned_builds(self):
-        """Reset all in-progress builds to PENDING state.
+        """Reset all in-progress builds to ``PENDING`` state.
         
         This is used to cleanup after a crash of the build master process,
         which would leave in-progress builds in the database that aren't

@@ -19,17 +19,19 @@ from bitten.util import xmlio
 
 log = logging.getLogger('bitten.build.shtools')
 
+__docformat__ = 'restructuredtext en'
+
 def exec_(ctxt, executable=None, file_=None, output=None, args=None):
     """Execute a program or shell script.
     
-    @param ctxt: the build context
-    @type ctxt: an instance of L{bitten.recipe.Context}
-    @param executable: name of the executable to run
-    @param file_: name of the script file, relative to the project directory,
-        that should be run
-    @param output: name of the file to which the output of the script should be
-        written
-    @param args: command-line arguments to pass to the script
+    :param ctxt: the build context
+    :type ctxt: `Context`
+    :param executable: name of the executable to run
+    :param file\_: name of the script file, relative to the project directory,
+                  that should be run
+    :param output: name of the file to which the output of the script should be
+                   written
+    :param args: command-line arguments to pass to the script
     """
     assert executable or file_, \
         'Either "executable" or "file" attribute required'
@@ -44,16 +46,16 @@ def pipe(ctxt, executable=None, file_=None, input_=None, output=None,
          args=None):
     """Pipe the contents of a file through a program or shell script.
     
-    @param ctxt: the build context
-    @type ctxt: an instance of L{bitten.recipe.Context}
-    @param executable: name of the executable to run
-    @param file_: name of the script file, relative to the project directory,
-        that should be run
-    @param input_: name of the file containing the data that should be passed
-        to the shell script on its standard input stream
-    @param output: name of the file to which the output of the script should be
-        written
-    @param args: command-line arguments to pass to the script
+    :param ctxt: the build context
+    :type ctxt: `Context`
+    :param executable: name of the executable to run
+    :param file\_: name of the script file, relative to the project directory,
+                  that should be run
+    :param input\_: name of the file containing the data that should be passed
+                   to the shell script on its standard input stream
+    :param output: name of the file to which the output of the script should be
+                   written
+    :param args: command-line arguments to pass to the script
     """
     assert executable or file_, \
         'Either "executable" or "file" attribute required'
@@ -72,16 +74,16 @@ def execute(ctxt, executable=None, file_=None, input_=None, output=None,
     This function is not itself bound to a recipe command, but rather used from
     other commands.
     
-    @param ctxt: the build context
-    @type ctxt: an instance of L{bitten.recipe.Context}
-    @param executable: name of the executable to run
-    @param file_: name of the script file, relative to the project directory,
-        that should be run
-    @param input_: name of the file containing the data that should be passed
-        to the shell script on its standard input stream
-    @param output: name of the file to which the output of the script should be
-        written
-    @param args: command-line arguments to pass to the script
+    :param ctxt: the build context
+    :type ctxt: `Context`
+    :param executable: name of the executable to run
+    :param file\_: name of the script file, relative to the project directory,
+                  that should be run
+    :param input\_: name of the file containing the data that should be passed
+                   to the shell script on its standard input stream
+    :param output: name of the file to which the output of the script should be
+                   written
+    :param args: command-line arguments to pass to the script
     """
     if args:
         if isinstance(args, basestring):

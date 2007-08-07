@@ -23,6 +23,8 @@ from unittest import _TextTestResult, TextTestRunner
 from bitten import __version__ as VERSION
 from bitten.util import xmlio
 
+__docformat__ = 'restructuredtext en'
+
 
 class XMLTestResult(_TextTestResult):
 

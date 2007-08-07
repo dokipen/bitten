@@ -20,6 +20,9 @@ from trac.wiki import IWikiSyntaxProvider
 from bitten.api import IBuildListener
 from bitten.model import schema, schema_version, Build, BuildConfig
 
+__all__ = ['BuildSystem']
+__docformat__ = 'restructuredtext en'
+
 
 class BuildSystem(Component):
 

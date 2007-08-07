@@ -25,11 +25,13 @@ from bitten.util import loc, xmlio
 
 log = logging.getLogger('bitten.build.pythontools')
 
+__docformat__ = 'restructuredtext en'
+
 def _python_path(ctxt):
     """Return the path to the Python interpreter.
     
-    If the configuration has a `python.path` property, the value of that option
-    is returned; otherwise the path to the current Python interpreter is
+    If the configuration has a ``python.path`` property, the value of that
+    option is returned; otherwise the path to the current Python interpreter is
     returned.
     """
     python_path = ctxt.config.get_filepath('python.path')
@@ -38,13 +40,13 @@ def _python_path(ctxt):
     return sys.executable
 
 def distutils(ctxt, file_='setup.py', command='build', options=None):
-    """Execute a C{distutils} command.
+    """Execute a ``distutils`` command.
     
-    @param ctxt: the build context
-    @type ctxt: an instance of L{bitten.recipe.Context}
-    @param file_: name of the file defining the distutils setup
-    @param command: the setup command to execute
-    @param options: additional options to pass to the command
+    :param ctxt: the build context
+    :type ctxt: `Context`
+    :param file\_: name of the file defining the distutils setup
+    :param command: the setup command to execute
+    :param options: additional options to pass to the command
     """
     if options:
         if isinstance(options, basestring):
@@ -81,18 +83,18 @@ def distutils(ctxt, file_='setup.py', command='build', options=None):
 def exec_(ctxt, file_=None, module=None, function=None, output=None, args=None):
     """Execute a Python script.
     
-    Either the C{file_} or the C{module} parameter must be provided. If
-    specified using the C{file_} parameter, the file must be inside the project
+    Either the `file_` or the `module` parameter must be provided. If
+    specified using the `file_` parameter, the file must be inside the project
     directory. If specified as a module, the module must either be resolvable
-    to a file, or the C{function} parameter must be provided
+    to a file, or the `function` parameter must be provided
     
-    @param ctxt: the build context
-    @type ctxt: an instance of L{bitten.recipe.Context}
-    @param file_: name of the script file to execute
-    @param module: name of the Python module to execute
-    @param function: name of the Python function to run
-    @param output: name of the file to which output should be written
-    @param args: extra arguments to pass to the script
+    :param ctxt: the build context
+    :type ctxt: `Context`
+    :param file\_: name of the script file to execute
+    :param module: name of the Python module to execute
+    :param function: name of the Python function to run
+    :param output: name of the file to which output should be written
+    :param args: extra arguments to pass to the script
     """
     assert file_ or module, 'Either "file" or "module" attribute required'
     if function:
@@ -121,11 +123,11 @@ def exec_(ctxt, file_=None, module=None, function=None, output=None, args=None):
                     output=output, args=args)
 
 def pylint(ctxt, file_=None):
-    """Extract data from a C{pylint} run written to a file.
+    """Extract data from a ``pylint`` run written to a file.
     
-    @param ctxt: the build context
-    @type ctxt: an instance of L{bitten.recipe.Context}
-    @param file_: name of the file containing the Pylint output
+    :param ctxt: the build context
+    :type ctxt: `Context`
+    :param file\_: name of the file containing the Pylint output
     """
     assert file_, 'Missing required attribute "file"'
     msg_re = re.compile(r'^(?P<file>.+):(?P<line>\d+): '
@@ -162,15 +164,15 @@ def pylint(ctxt, file_=None):
         log.warning('Error opening pylint results file (%s)', e)
 
 def trace(ctxt, summary=None, coverdir=None, include=None, exclude=None):
-    """Extract data from a C{trace.py} run.
+    """Extract data from a ``trace.py`` run.
     
-    @param ctxt: the build context
-    @type ctxt: an instance of L{bitten.recipe.Context}
-    @param summary: path to the file containing the coverage summary
-    @param coverdir: name of the directory containing the per-module coverage
-        details
-    @param include: patterns of files or directories to include in the report
-    @param exclude: patterns of files or directories to exclude from the report
+    :param ctxt: the build context
+    :type ctxt: `Context`
+    :param summary: path to the file containing the coverage summary
+    :param coverdir: name of the directory containing the per-module coverage
+                     details
+    :param include: patterns of files or directories to include in the report
+    :param exclude: patterns of files or directories to exclude from the report
     """
     assert summary, 'Missing required attribute "summary"'
     assert coverdir, 'Missing required attribute "coverdir"'
@@ -294,9 +296,9 @@ def trace(ctxt, summary=None, coverdir=None, include=None, exclude=None):
 def unittest(ctxt, file_=None):
     """Extract data from a unittest results file in XML format.
     
-    @param ctxt: the build context
-    @type ctxt: an instance of L{bitten.recipe.Context}
-    @param file_: name of the file containing the test results
+    :param ctxt: the build context
+    :type ctxt: `Context`
+    :param file\_: name of the file containing the test results
     """
     assert file_, 'Missing required attribute "file"'
 

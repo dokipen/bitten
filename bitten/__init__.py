@@ -8,4 +8,7 @@
 # you should have received as part of this distribution. The terms
 # are also available at http://bitten.edgewall.org/wiki/License.
 
+from bitten.api import *
+
+__docformat__ = 'restructuredtext en'
 __version__ = '0.6'

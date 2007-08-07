@@ -13,3 +13,5 @@
 Functionality in these modules have no dependencies on modules outside of this
 package, so that they could theoretically be used in other projects.
 """
+
+__docformat__ = 'restructuredtext en'

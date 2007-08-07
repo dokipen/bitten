@@ -23,15 +23,17 @@ from bitten.util import xmlio
 
 log = logging.getLogger('bitten.build.javatools')
 
+__docformat__ = 'restructuredtext en'
+
 def ant(ctxt, file_=None, target=None, keep_going=False, args=None):
     """Run an Ant build.
     
-    @param ctxt: the build context
-    @type ctxt: an instance of L{bitten.recipe.Context}
-    @param file_: name of the Ant build file
-    @param target: name of the target that should be executed (optional)
-    @param keep_going: whether Ant should keep going when errors are encountered
-    @param args: additional arguments to pass to Ant
+    :param ctxt: the build context
+    :type ctxt: `Context`
+    :param file\_: name of the Ant build file
+    :param target: name of the target that should be executed (optional)
+    :param keep_going: whether Ant should keep going when errors are encountered
+    :param args: additional arguments to pass to Ant
     """
     executable = 'ant'
     ant_home = ctxt.config.get_dirpath('ant.home')
@@ -97,12 +99,12 @@ def ant(ctxt, file_=None, target=None, keep_going=False, args=None):
 def junit(ctxt, file_=None, srcdir=None):
     """Extract test results from a JUnit XML report.
     
-    @param ctxt: the build context
-    @type ctxt: an instance of L{bitten.recipe.Context}
-    @param file_: path to the JUnit XML test results; may contain globbing
-        wildcards for matching multiple results files
-    @param srcdir: name of the directory containing the test sources, used to
-        link test results to the corresponding source files
+    :param ctxt: the build context
+    :type ctxt: `Context`
+    :param file\_: path to the JUnit XML test results; may contain globbing
+                  wildcards for matching multiple results files
+    :param srcdir: name of the directory containing the test sources, used to
+                   link test results to the corresponding source files
     """
     assert file_, 'Missing required attribute "file"'
     try:
@@ -143,6 +145,7 @@ def junit(ctxt, file_=None, srcdir=None):
         log.warning('Error opening JUnit results file (%s)', e)
     except xmlio.ParseError, e:
         log.warning('Error parsing JUnit results file (%s)', e)
+
 
 class _LineCounter(object):
     def __init__(self):

@@ -18,6 +18,8 @@ import time
 
 log = logging.getLogger('bitten.build.api')
 
+__docformat__ = 'restructuredtext en'
+
 
 class BuildError(Exception):
     """Exception raised when a build fails."""
@@ -50,12 +52,12 @@ class CommandLine(object):
     def __init__(self, executable, args, input=None, cwd=None):
         """Initialize the CommandLine object.
         
-        @param executable: the name of the program to execute
-        @param args: a list of arguments to pass to the executable
-        @param input: string or file-like object containing any input data for
-            the program
-        @param cwd: The working directory to change to before executing the
-            command
+        :param executable: the name of the program to execute
+        :param args: a list of arguments to pass to the executable
+        :param input: string or file-like object containing any input data for
+                      the program
+        :param cwd: the working directory to change to before executing the
+                    command
         """
         self.executable = executable
         self.arguments = [str(arg) for arg in args]
@@ -71,8 +73,8 @@ class CommandLine(object):
             """Execute the command, and return a generator for iterating over
             the output written to the standard output and error streams.
             
-            @param timeout: number of seconds before the external process
-                should be aborted (not supported on Windows)
+            :param timeout: number of seconds before the external process
+                            should be aborted (not supported on Windows)
             """
             args = [self.executable] + self.arguments
             for idx, arg in enumerate(args):
@@ -137,8 +139,8 @@ class CommandLine(object):
             """Execute the command, and return a generator for iterating over
             the output written to the standard output and error streams.
             
-            @param timeout: number of seconds before the external process
-                should be aborted (not supported on Windows)
+            :param timeout: number of seconds before the external process
+                            should be aborted (not supported on Windows)
             """
             import popen2, select
             if self.cwd:
@@ -229,13 +231,13 @@ class FileSet(object):
                         '.DS_Store', 'Thumbs.db']
 
     def __init__(self, basedir, include=None, exclude=None):
-        """Create the file set.
+        """Create a file set.
         
-        @param basedir: the base directory for all files in the set
-        @param include: a list of patterns that define which files should be
-            included in the set
-        @param exclude: a list of patterns that define which files should be
-            excluded from the set
+        :param basedir: the base directory for all files in the set
+        :param include: a list of patterns that define which files should be
+                        included in the set
+        :param exclude: a list of patterns that define which files should be
+                        excluded from the set
         """
         self.files = []
         self.basedir = basedir
@@ -283,6 +285,6 @@ class FileSet(object):
     def __contains__(self, filename):
         """Return whether the given file name is in the set.
         
-        @param filename: the name of the file to check
+        :param filename: the name of the file to check
         """
         return filename in self.files

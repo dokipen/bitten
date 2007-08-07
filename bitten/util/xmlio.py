@@ -20,7 +20,8 @@ except ImportError:
     from StringIO import StringIO
 from UserDict import DictMixin
 
-__all__ = ['Element', 'parse']
+__all__ = ['Fragment', 'Element', 'ParsedElement', 'parse']
+__docformat__ = 'restructuredtext en'
 
 def _escape_text(text):
     """Escape special characters in the provided text so that it can be safely
@@ -202,7 +203,8 @@ class ParsedElement(object):
     <root/>
     
     For convenience, this is also done when coercing the object to a string
-    using the builtin `str()` function, which is used when `print`ing an object:
+    using the builtin ``str()`` function, which is used when printing an
+    object:
     
     >>> print parse('<root></root>')
     <root/>

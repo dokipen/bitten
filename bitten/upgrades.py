@@ -16,6 +16,8 @@ import sys
 
 from trac.db import DatabaseManager
 
+__docformat__ = 'restructuredtext en'
+
 def add_log_table(env, db):
     """Add a table for storing the builds logs."""
     from bitten.model import BuildLog, BuildStep

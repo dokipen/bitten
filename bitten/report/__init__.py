@@ -6,3 +6,5 @@
 # This software is licensed as described in the file COPYING, which
 # you should have received as part of this distribution. The terms
 # are also available at http://bitten.edgewall.org/wiki/License.
+
+__docformat__ = 'restructuredtext en'

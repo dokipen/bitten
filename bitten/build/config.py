@@ -18,6 +18,8 @@ import re
 
 log = logging.getLogger('bitten.config')
 
+__docformat__ = 'restructuredtext en'
+
 
 class Configuration(object):
     """Encapsulates the configuration of a build machine.
@@ -33,8 +35,8 @@ class Configuration(object):
     def __init__(self, filename=None, properties=None):
         """Create the configuration object.
         
-        @param filename: The path to the configuration file, if any
-        @param properties: A dictionary of the configuration properties
+        :param filename: the path to the configuration file, if any
+        :param properties: a dictionary of the configuration properties
                            provided on the command-line
         """
         self.properties = {}
@@ -94,8 +96,8 @@ class Configuration(object):
         """Return whether the configuration contains a value for the specified
         key.
         
-        @param key: name of the configuration option using dotted notation
-            (for example, "python.path")
+        :param key: name of the configuration option using dotted notation
+                    (for example, "python.path")
         """
         if '.' in key:
             package, propname = key.split('.', 1)
@@ -105,8 +107,8 @@ class Configuration(object):
     def __getitem__(self, key):
         """Return the value for the specified configuration key.
         
-        @param key: name of the configuration option using dotted notation
-            (for example, "python.path")
+        :param key: name of the configuration option using dotted notation
+                    (for example, "python.path")
         """
         if '.' in key:
             package, propname = key.split('.', 1)
@@ -120,10 +122,10 @@ class Configuration(object):
         """Return the value of the specified configuration key, but verify that
         the value refers to the path of an existing directory.
         
-        If the value does not exist, or is not a directory path, return C{None}.
+        If the value does not exist, or is not a directory path, return `None`.
 
-        @param key: name of the configuration option using dotted notation
-            (for example, "ant.home")
+        :param key: name of the configuration option using dotted notation
+                    (for example, "ant.home")
         """
         dirpath = self[key]
         if dirpath:
@@ -136,10 +138,10 @@ class Configuration(object):
         """Return the value of the specified configuration key, but verify that
         the value refers to the path of an existing file.
         
-        If the value does not exist, or is not a file path, return C{None}.
+        If the value does not exist, or is not a file path, return `None`.
 
-        @param key: name of the configuration option using dotted notation
-            (for example, "python.path")
+        :param key: name of the configuration option using dotted notation
+                    (for example, "python.path")
         """
         filepath = self[key]
         if filepath:
@@ -154,14 +156,14 @@ class Configuration(object):
         """Interpolate configuration properties into a string.
         
         Properties can be referenced in the text using the notation
-        C{${property.name}}. A default value can be provided by appending it to
+        ``${property.name}``. A default value can be provided by appending it to
         the property name separated by a colon, for example
-        C{${property.name:defaultvalue}}. This value will be used when there's
+        ``${property.name:defaultvalue}``. This value will be used when there's
         no such property in the configuration. Otherwise, if no default is
         provided, the reference is not replaced at all.
 
-        @param text: the string containing variable references
-        @param vars: extra variables to use for the interpolation
+        :param text: the string containing variable references
+        :param vars: extra variables to use for the interpolation
         """
         def _replace(m):
             refname = m.group('ref')

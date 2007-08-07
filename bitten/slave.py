@@ -29,6 +29,9 @@ from bitten.build.config import Configuration
 from bitten.recipe import Recipe, InvalidRecipeError
 from bitten.util import xmlio
 
+__all__ = ['BuildSlave', 'ExitSlave']
+__docformat__ = 'restructuredtext en'
+
 log = logging.getLogger('bitten.slave')
 
 
@@ -51,20 +54,19 @@ class BuildSlave(object):
                  username=None, password=None):
         """Create the build slave instance.
         
-        @param url: The URL of the build master
-        @param port: TCP port number of the build master to connect to
-        @param name: The name with which this slave should identify itself
-        @param config: The slave configuration
-        @param dry_run: Whether the build outcome should not be reported back
-            to the master
-        @param work_dir: The working directory to use for build execution
-        @param keep_files: Whether files and directories created for build
-            execution should be kept when done
-        @param single_build: Whether this slave should exit after completing a 
-            single build, or continue processing builds forever
-        @param username: the username to use when authentication against the
-            build master is requested
-        @param password: the password to use when authentication is needed
+        :param url: The URL of the build master
+        :param name: The name with which this slave should identify itself
+        :param config: The slave configuration
+        :param dry_run: Whether the build outcome should not be reported back
+                        to the master
+        :param work_dir: The working directory to use for build execution
+        :param keep_files: Whether files and directories created for build
+                           execution should be kept when done
+        :param single_build: Whether this slave should exit after completing a 
+                             single build, or continue processing builds forever
+        :param username: the username to use when authentication against the
+                         build master is requested
+        :param password: the password to use when authentication is needed
         """
         self.url = url
         if name is None:
@@ -214,7 +216,8 @@ class BuildSlave(object):
 
 class ExitSlave(Exception):
     """Exception used internally by the slave to signal that the slave process
-    should be stopped."""
+    should be stopped.
+    """
 
 
 def main():

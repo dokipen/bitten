@@ -13,6 +13,8 @@ from trac.web.chrome import Chrome
 from trac.web.clearsilver import HDFWrapper
 from bitten.api import IReportChartGenerator, IReportSummarizer
 
+__docformat__ = 'restructuredtext en'
+
 
 class TestCoverageChartGenerator(Component):
     implements(IReportChartGenerator)

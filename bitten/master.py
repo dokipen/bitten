@@ -35,6 +35,9 @@ from bitten.queue import BuildQueue
 from bitten.recipe import Recipe
 from bitten.util import xmlio
 
+__all__ = ['BuildMaster']
+__docformat__ = 'restructuredtext en'
+
 
 class BuildMaster(Component):
     """BEEP listener implementation for the build master."""

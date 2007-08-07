@@ -9,3 +9,5 @@
 # are also available at http://bitten.edgewall.org/wiki/License.
 
 from bitten.build.api import *
+
+__docformat__ = 'restructuredtext en'

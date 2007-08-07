@@ -80,7 +80,7 @@ class BittenChrome(Component):
         """Called by Trac to determine which navigation item should be marked
         as active.
         
-        @param req: the request object
+        :param req: the request object
         """
         return 'build'
 

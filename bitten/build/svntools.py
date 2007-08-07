@@ -15,14 +15,16 @@ import posixpath
 
 log = logging.getLogger('bitten.build.svntools')
 
+__docformat__ = 'restructuredtext en'
+
 def checkout(ctxt, url, path=None, revision=None):
     """Perform a checkout from a Subversion repository.
     
-    @param ctxt: the build context
-    @type ctxt: an instance of L{bitten.recipe.Context}
-    @param url: the URL of the repository
-    @param path: the path inside the repository
-    @param revision: the revision to check out
+    :param ctxt: the build context
+    :type ctxt: `Context`
+    :param url: the URL of the repository
+    :param path: the path inside the repository
+    :param revision: the revision to check out
     """
     args = ['checkout']
     if revision:
@@ -39,11 +41,11 @@ def checkout(ctxt, url, path=None, revision=None):
 def export(ctxt, url, path=None, revision=None):
     """Perform an export from a Subversion repository.
     
-    @param ctxt: the build context
-    @type ctxt: an instance of L{bitten.recipe.Context}
-    @param url: the URL of the repository
-    @param path: the path inside the repository
-    @param revision: the revision to check out
+    :param ctxt: the build context
+    :type ctxt: `Context`
+    :param url: the URL of the repository
+    :param path: the path inside the repository
+    :param revision: the revision to check out
     """
     args = ['export', '--force']
     if revision:
@@ -60,9 +62,9 @@ def export(ctxt, url, path=None, revision=None):
 def update(ctxt, revision=None):
     """Update the local working copy from the Subversion repository.
     
-    @param ctxt: the build context
-    @type ctxt: an instance of L{bitten.recipe.Context}
-    @param revision: the revision to check out
+    :param ctxt: the build context
+    :type ctxt: `Context`
+    :param revision: the revision to check out
     """
     args = ['update']
     if revision:
