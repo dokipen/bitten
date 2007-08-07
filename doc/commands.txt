@@ -31,14 +31,14 @@ commands to send custom reports to the build master.
 Parameters
 ----------
 
-  +--------------+-------------------------------------------------------------+
-  | Name         | Description                                                 |
-  +==============+=============================================================+
-  | ``category`` | Category of the report (for example "test" or "coverage").  |
-  +--------------+-------------------------------------------------------------+
-  | ``file``     | Path to the XML file containing the report data, relative   |
-  |              | to the project directory.                                   |
-  +--------------+-------------------------------------------------------------+
++--------------+-------------------------------------------------------------+
+| Name         | Description                                                 |
++==============+=============================================================+
+| ``category`` | Category of the report (for example "test" or "coverage").  |
++--------------+-------------------------------------------------------------+
+| ``file``     | Path to the XML file containing the report data, relative   |
+|              | to the project directory.                                   |
++--------------+-------------------------------------------------------------+
 
 Both parameters must be specified.
 
@@ -49,8 +49,8 @@ Shell Tools
 A bundle of generic tools that are not specific to any programming language or
 tool-chain.
 
-  :Namespace: ``http://bitten.cmlenz.net/tools/sh``
-  :Common prefix: ``sh``
+:Namespace: ``http://bitten.cmlenz.net/tools/sh``
+:Common prefix: ``sh``
 
 
 -------------
@@ -62,18 +62,18 @@ Executes a program or script.
 Parameters
 ----------
 
-  +----------------+-----------------------------------------------------------+
-  | Name           | Description                                               |
-  +================+===========================================================+
-  | ``executable`` | The name of the executable program.                       |
-  +----------------+-----------------------------------------------------------+
-  | ``file``       | Path to the script to execute, relative to the project    |
-  |                | directory                                                 |
-  +----------------+-----------------------------------------------------------+
-  | ``output``     | Path to the output file                                   |
-  +----------------+-----------------------------------------------------------+
-  | ``args``       | Any arguments to pass to the executable or script         |
-  +----------------+-----------------------------------------------------------+
++----------------+-----------------------------------------------------------+
+| Name           | Description                                               |
++================+===========================================================+
+| ``executable`` | The name of the executable program.                       |
++----------------+-----------------------------------------------------------+
+| ``file``       | Path to the script to execute, relative to the project    |
+|                | directory                                                 |
++----------------+-----------------------------------------------------------+
+| ``output``     | Path to the output file                                   |
++----------------+-----------------------------------------------------------+
+| ``args``       | Any arguments to pass to the executable or script         |
++----------------+-----------------------------------------------------------+
 
 Either ``executable`` or ``file`` must be specified.
 
@@ -92,20 +92,20 @@ Pipes the content of a file through a program or script.
 Parameters
 ----------
 
-  +----------------+-----------------------------------------------------------+
-  | Name           | Description                                               |
-  +================+===========================================================+
-  | ``executable`` | The name of the executable program.                       |
-  +----------------+-----------------------------------------------------------+
-  | ``file``       | Path to the script to execute, relative to the project    |
-  |                | directory                                                 |
-  +----------------+-----------------------------------------------------------+
-  | ``input``      | Path to the input file                                    |
-  +----------------+-----------------------------------------------------------+
-  | ``output``     | Path to the output file                                   |
-  +----------------+-----------------------------------------------------------+
-  | ``args``       | Any arguments to pass to the executable or script         |
-  +----------------+-----------------------------------------------------------+
++----------------+-----------------------------------------------------------+
+| Name           | Description                                               |
++================+===========================================================+
+| ``executable`` | The name of the executable program.                       |
++----------------+-----------------------------------------------------------+
+| ``file``       | Path to the script to execute, relative to the project    |
+|                | directory                                                 |
++----------------+-----------------------------------------------------------+
+| ``input``      | Path to the input file                                    |
++----------------+-----------------------------------------------------------+
+| ``output``     | Path to the output file                                   |
++----------------+-----------------------------------------------------------+
+| ``args``       | Any arguments to pass to the executable or script         |
++----------------+-----------------------------------------------------------+
 
 Either ``executable`` or ``file`` must be specified.
 
@@ -121,8 +121,8 @@ C/Unix Tools
 These commands provide support for tools commonly used for development of C/C++
 applications on Unix platforms, such as ``make``.
 
-  :Namespace: ``http://bitten.cmlenz.net/tools/c``
-  :Common prefix: ``c``
+:Namespace: ``http://bitten.cmlenz.net/tools/c``
+:Common prefix: ``c``
 
 
 -----------------
@@ -134,23 +134,23 @@ Executes a configure script as generated by Autoconf.
 Parameters
 ----------
 
-  +--------------+-------------------------------------------------------------+
-  | Name         | Description                                                 |
-  +==============+=============================================================+
-  | ``file``     | Name of the configure script (defaults to "configure")      |
-  +--------------+-------------------------------------------------------------+
-  | ``enable``   | List of features to enable, separated by spaces.            |
-  +--------------+-------------------------------------------------------------+
-  | ``disable``  | List of features to disable, separated by spaces.           |
-  +--------------+-------------------------------------------------------------+
-  | ``with``     | List of packages to include, separated by spaces.           |
-  +--------------+-------------------------------------------------------------+
-  | ``without``  | List of packages to exclude, separated by spaces.           |
-  +--------------+-------------------------------------------------------------+
-  | ``cflags``   | Value of the `CFLAGS` variable to pass to the script.       |
-  +--------------+-------------------------------------------------------------+
-  | ``cxxflags`` | Value of the `CXXFLAGS` variable to pass to the script.     |
-  +--------------+-------------------------------------------------------------+
++--------------+-------------------------------------------------------------+
+| Name         | Description                                                 |
++==============+=============================================================+
+| ``file``     | Name of the configure script (defaults to "configure")      |
++--------------+-------------------------------------------------------------+
+| ``enable``   | List of features to enable, separated by spaces.            |
++--------------+-------------------------------------------------------------+
+| ``disable``  | List of features to disable, separated by spaces.           |
++--------------+-------------------------------------------------------------+
+| ``with``     | List of packages to include, separated by spaces.           |
++--------------+-------------------------------------------------------------+
+| ``without``  | List of packages to exclude, separated by spaces.           |
++--------------+-------------------------------------------------------------+
+| ``cflags``   | Value of the `CFLAGS` variable to pass to the script.       |
++--------------+-------------------------------------------------------------+
+| ``cxxflags`` | Value of the `CXXFLAGS` variable to pass to the script.     |
++--------------+-------------------------------------------------------------+
 
 Examples
 --------
@@ -174,16 +174,16 @@ Executes a Makefile.
 Parameters
 ----------
 
-  +----------------+-----------------------------------------------------------+
-  | Name           | Description                                               |
-  +================+===========================================================+
-  | ``target``     | Name of the target to execute (defaults to "all")         |
-  +----------------+-----------------------------------------------------------+
-  | ``file``       | Path to the Makefile that should be used.                 |
-  +----------------+-----------------------------------------------------------+
-  | ``keep-going`` | Whether `make` should try to continue even after          |
-  |                | encountering errors.                                      |
-  +----------------+-----------------------------------------------------------+
++----------------+-----------------------------------------------------------+
+| Name           | Description                                               |
++================+===========================================================+
+| ``target``     | Name of the target to execute (defaults to "all")         |
++----------------+-----------------------------------------------------------+
+| ``file``       | Path to the Makefile that should be used.                 |
++----------------+-----------------------------------------------------------+
+| ``keep-going`` | Whether `make` should try to continue even after          |
+|                | encountering errors.                                      |
++----------------+-----------------------------------------------------------+
 
 Examples
 --------
@@ -209,11 +209,11 @@ output from CppUnit must be in XML format and in already, specified by the
 Parameters
 ----------
 
-  +----------------+-----------------------------------------------------------+
-  | Name           | Description                                               |
-  +================+===========================================================+
-  | ``file``       | Path to the cppunit XML output file.                      |
-  +----------------+-----------------------------------------------------------+
++----------------+-----------------------------------------------------------+
+| Name           | Description                                               |
++================+===========================================================+
+| ``file``       | Path to the cppunit XML output file.                      |
++----------------+-----------------------------------------------------------+
 
 Examples
 --------
@@ -232,8 +232,8 @@ Java Tools
 
 A bundle of recipe commands that support tools commonly used by Java projects.
 
-  :Namespace: ``http://bitten.cmlenz.net/tools/java``
-  :Common prefix: ``java``
+:Namespace: ``http://bitten.cmlenz.net/tools/java``
+:Common prefix: ``java``
 
 
 --------------
@@ -247,20 +247,20 @@ Runs an Ant_ build.
 Parameters
 ----------
 
-  +----------------+-----------------------------------------------------------+
-  | Name           | Description                                               |
-  +================+===========================================================+
-  | ``file``       | Path of the build file, relative to the project source    |
-  |                | directory (default is ``build.xml``).                     |
-  +----------------+-----------------------------------------------------------+
-  | ``target``     | Name of the build target(s) to execute.                   |
-  +----------------+-----------------------------------------------------------+
-  | ``args``       | Additional arguments to pass to Ant, separated by         |
-  |                | whitespace.                                               |
-  +----------------+-----------------------------------------------------------+
-  | ``keep_going`` | Tell Ant to continue even when errors are in encountered  |
-  |                | in the build.                                             |
-  +----------------+-----------------------------------------------------------+
++----------------+-----------------------------------------------------------+
+| Name           | Description                                               |
++================+===========================================================+
+| ``file``       | Path of the build file, relative to the project source    |
+|                | directory (default is ``build.xml``).                     |
++----------------+-----------------------------------------------------------+
+| ``target``     | Name of the build target(s) to execute.                   |
++----------------+-----------------------------------------------------------+
+| ``args``       | Additional arguments to pass to Ant, separated by         |
+|                | whitespace.                                               |
++----------------+-----------------------------------------------------------+
+| ``keep_going`` | Tell Ant to continue even when errors are in encountered  |
+|                | in the build.                                             |
++----------------+-----------------------------------------------------------+
 
 Examples
 --------
@@ -284,16 +284,16 @@ Extracts information about unit test results from a file in JUnit_ XML format.
 Parameters
 ----------
 
-  +----------------+-----------------------------------------------------------+
-  | Name           | Description                                               |
-  +================+===========================================================+
-  | ``file``       | Path to the JUnit XML test results file. This can include |
-  |                | wildcards, in which case all the file matching the        |
-  |                | pattern will be included.                                 |
-  +----------------+-----------------------------------------------------------+
-  | ``srcdir``     | Path of the directory unit test sources. Used to link the |
-  |                | test cases to files.                                      |
-  +----------------+-----------------------------------------------------------+
++----------------+-----------------------------------------------------------+
+| Name           | Description                                               |
++================+===========================================================+
+| ``file``       | Path to the JUnit XML test results file. This can include |
+|                | wildcards, in which case all the file matching the        |
+|                | pattern will be included.                                 |
++----------------+-----------------------------------------------------------+
+| ``srcdir``     | Path of the directory unit test sources. Used to link the |
+|                | test cases to files.                                      |
++----------------+-----------------------------------------------------------+
 
 The ``file`` attribute is required.
 
@@ -315,8 +315,8 @@ Python Tools
 A bundle of recipe commands that support tools commonly used by Python_
 projects.
 
-  :Namespace: ``http://bitten.cmlenz.net/tools/python``
-  :Common prefix: ``python``
+:Namespace: ``http://bitten.cmlenz.net/tools/python``
+:Common prefix: ``python``
 
 .. _python: http://www.python.org/
 
@@ -330,22 +330,22 @@ Executes a Python script.
 Parameters
 ----------
 
-  +----------------+-----------------------------------------------------------+
-  | Name           | Description                                               |
-  +================+===========================================================+
-  | ``file``       | Path of the script to execute, relative to the project    |
-  |                | source directory.                                         |
-  +----------------+-----------------------------------------------------------+
-  | ``module``     | Name of the Python module to execute.                     |
-  +----------------+-----------------------------------------------------------+
-  | ``function``   | Name of the function in the Python module to run. Only    |
-  |                | works when also specifying the `module` attribute.        |
-  +----------------+-----------------------------------------------------------+
-  | ``args``       | Any arguments that should be passed to the script.        |
-  +----------------+-----------------------------------------------------------+
-  | ``output``     | Path to a file where any output by the script should be   |
-  |                | recorded.                                                 |
-  +----------------+-----------------------------------------------------------+
++----------------+-----------------------------------------------------------+
+| Name           | Description                                               |
++================+===========================================================+
+| ``file``       | Path of the script to execute, relative to the project    |
+|                | source directory.                                         |
++----------------+-----------------------------------------------------------+
+| ``module``     | Name of the Python module to execute.                     |
++----------------+-----------------------------------------------------------+
+| ``function``   | Name of the function in the Python module to run. Only    |
+|                | works when also specifying the `module` attribute.        |
++----------------+-----------------------------------------------------------+
+| ``args``       | Any arguments that should be passed to the script.        |
++----------------+-----------------------------------------------------------+
+| ``output``     | Path to a file where any output by the script should be   |
+|                | recorded.                                                 |
++----------------+-----------------------------------------------------------+
 
 Either `file` or `module` must be specified.
 
@@ -371,14 +371,14 @@ Executes a distutils_ script.
 Parameters
 ----------
 
-  +----------------+-----------------------------------------------------------+
-  | Name           | Description                                               |
-  +================+===========================================================+
-  | `command`      | The name of the `distutils` command that should be run    |
-  +----------------+-----------------------------------------------------------+
-  | `options`      | Additional options to pass to the command, separated by   |
-  |                | spaces                                                    |
-  +----------------+-----------------------------------------------------------+
++----------------+-----------------------------------------------------------+
+| Name           | Description                                               |
++================+===========================================================+
+| `command`      | The name of the `distutils` command that should be run    |
++----------------+-----------------------------------------------------------+
+| `options`      | Additional options to pass to the command, separated by   |
+|                | spaces                                                    |
++----------------+-----------------------------------------------------------+
 
 Examples
 --------
@@ -403,12 +403,12 @@ Extracts information from unittest_ results recorded in an XML file.
 Parameters
 ----------
 
-  +----------------+-----------------------------------------------------------+
-  | Name           | Description                                               |
-  +================+===========================================================+
-  | ``file``       | Path to the XML results file, relative to the project     |
-  |                | source directory.                                         |
-  +----------------+-----------------------------------------------------------+
++----------------+-----------------------------------------------------------+
+| Name           | Description                                               |
++================+===========================================================+
+| ``file``       | Path to the XML results file, relative to the project     |
+|                | source directory.                                         |
++----------------+-----------------------------------------------------------+
 
 Examples
 --------
@@ -431,22 +431,22 @@ Extracts coverage information recorded by the built-in Python module
 Parameters
 ----------
 
-  +--------------+-------------------------------------------------------------+
-  | Name         | Description                                                 |
-  +==============+=============================================================+
-  | ``summary``  | Path to the summary file written by ``trace.py``,           |
-  |              | relative to the project source directory.                   |
-  +--------------+-------------------------------------------------------------+
-  | ``coverdir`` | Path to the directory containing the coverage files written |
-  |              | by ``trace.py``, relative to the project source directory.  |
-  +--------------+-------------------------------------------------------------+
-  | ``include``  | List of glob patterns (separated by space) that specify     |
-  |              | which Python file should be included in the coverage report |
-  +--------------+-------------------------------------------------------------+
-  | ``exclude``  | List of glob patterns (separated by space) that specify     |
-  |              | which Python file should be excluded from the coverage      |
-  |              | report                                                      |
-  +--------------+-------------------------------------------------------------+
++--------------+-------------------------------------------------------------+
+| Name         | Description                                                 |
++==============+=============================================================+
+| ``summary``  | Path to the summary file written by ``trace.py``,           |
+|              | relative to the project source directory.                   |
++--------------+-------------------------------------------------------------+
+| ``coverdir`` | Path to the directory containing the coverage files written |
+|              | by ``trace.py``, relative to the project source directory.  |
++--------------+-------------------------------------------------------------+
+| ``include``  | List of glob patterns (separated by space) that specify     |
+|              | which Python file should be included in the coverage report |
++--------------+-------------------------------------------------------------+
+| ``exclude``  | List of glob patterns (separated by space) that specify     |
+|              | which Python file should be excluded from the coverage      |
+|              | report                                                      |
++--------------+-------------------------------------------------------------+
 
 Examples
 --------
@@ -466,12 +466,12 @@ Extracts information from Pylint_ reports.
 Parameters
 ----------
 
-  +--------------+-------------------------------------------------------------+
-  | Name         | Description                                                 |
-  +==============+=============================================================+
-  | ``file``     | Path to the file containing the Pylint output, relative to  |
-  |              | the project source directory.                               |
-  +--------------+-------------------------------------------------------------+
++--------------+-------------------------------------------------------------+
+| Name         | Description                                                 |
++==============+=============================================================+
+| ``file``     | Path to the file containing the Pylint output, relative to  |
+|              | the project source directory.                               |
++--------------+-------------------------------------------------------------+
 
 Examples
 --------
@@ -486,8 +486,8 @@ XML Tools
 
 A collection of recipe commands for XML processing.
 
-  :Namespace: ``http://bitten.cmlenz.net/tools/xml``
-  :Common prefix: ``x``
+:Namespace: ``http://bitten.cmlenz.net/tools/xml``
+:Common prefix: ``x``
 
 
 -----------------
@@ -506,15 +506,15 @@ Apply an XSLT stylesheet .
 Parameters
 ----------
 
-  +----------------+-----------------------------------------------------------+
-  | Name           | Description                                               |
-  +================+===========================================================+
-  | ``src``        | Path of the source XML file.                              |
-  +----------------+-----------------------------------------------------------+
-  | ``dest``       | Path of the destition XML file.                           |
-  +----------------+-----------------------------------------------------------+
-  | ``stylesheet`` | Path to the XSLT stylesheet file.                         |
-  +----------------+-----------------------------------------------------------+
++----------------+-----------------------------------------------------------+
+| Name           | Description                                               |
++================+===========================================================+
+| ``src``        | Path of the source XML file.                              |
++----------------+-----------------------------------------------------------+
+| ``dest``       | Path of the destition XML file.                           |
++----------------+-----------------------------------------------------------+
+| ``stylesheet`` | Path to the XSLT stylesheet file.                         |
++----------------+-----------------------------------------------------------+
 
 All these are interpreted relative to the project source directory.
 
