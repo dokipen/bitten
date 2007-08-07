@@ -1,6 +1,6 @@
 Version 0.6
 (?, from 0.6.x branch)
-http://bitten.cmlenz.net/repos/bitten/tags/0.6.0
+http://svn.edgewall.org/repos/bitten/tags/0.6.0
 
  * Switch to using HTTP for communication between the build master and build
    slaves. This means the `build-master` executable is no longer needed or
@@ -14,7 +14,7 @@ http://bitten.cmlenz.net/repos/bitten/tags/0.6.0
 
 Version 0.5.3
 (18 April 2006, from 0.5.x branch)
-http://bitten.cmlenz.net/repos/bitten/tags/0.5.3
+http://svn.edgewall.org/repos/bitten/tags/0.5.3
 
  * Fix double-escaping of report summaries.
  * Fix build master error when build log contains no messages.
@@ -22,14 +22,14 @@ http://bitten.cmlenz.net/repos/bitten/tags/0.5.3
 
 Version 0.5.2
 (17 January 2006, from 0.5.x branch)
-http://bitten.cmlenz.net/repos/bitten/tags/0.5.2
+http://svn.edgewall.org/repos/bitten/tags/0.5.2
 
  * Fixes the main navigation tab that was broken in 0.5.1.
 
 
 Version 0.5.1
 (10 January 2006, from 0.5.x branch)
-http://bitten.cmlenz.net/repos/bitten/tags/0.5.1
+http://svn.edgewall.org/repos/bitten/tags/0.5.1
 
  * Fixes compatibility with Trac 0.9.3 release, as well as the current trunk.
    This also means that Bitten now longer works with versions of Trac earlier
@@ -41,7 +41,7 @@ http://bitten.cmlenz.net/repos/bitten/tags/0.5.1
 
 Version 0.5
 (6 October 2005, from 0.5.x branch)
-http://bitten.cmlenz.net/repos/bitten/tags/0.5
+http://svn.edgewall.org/repos/bitten/tags/0.5
 
  * BDB XML is no longer being used for report storage. Instead,
    collected metrics data is stored in the Trac database.

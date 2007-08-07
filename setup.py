@@ -1,32 +1,40 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright (C) 2005 Christopher Lenz <cmlenz@gmx.de>
+# Copyright (C) 2007 Edgewall Software
+# Copyright (C) 2005-2007 Christopher Lenz <cmlenz@gmx.de>
 # All rights reserved.
 #
 # This software is licensed as described in the file COPYING, which
 # you should have received as part of this distribution. The terms
-# are also available at http://bitten.cmlenz.net/wiki/License.
+# are also available at http://bitten.edgewall.org/wiki/License.
 
 from setuptools import setup, find_packages
 
-from bitten import __version__ as VERSION
 from bitten.util.testrunner import unittest
 
 NS = 'http://bitten.cmlenz.net/tools/'
 
 setup(
-    name='Bitten', version=VERSION, author='Christopher Lenz',
-    author_email='cmlenz@gmx.de', url='http://bitten.cmlenz.net/',
-    description='Framework for collecting software metrics via continuous '
-                'integration',
-    license='BSD',
+    name = 'Bitten',
+    version = '0.6',
+    description = 'Continuous integration for Trac',
+    long_description = \
+"""A Trac plugin for collecting software metrics via continuous integration.""",
+    author = 'Edgewall Software',
+    author_email = 'info@edgewall.org',
+    license = 'BSD',
+    url = 'http://bitten.edgewall.org/',
+    download_url = 'http://bitten.edgewall.org/wiki/Download',
+    zip_safe = False,
+
     packages=find_packages(exclude=['*.tests*']),
     package_data={
         'bitten.trac_ext': ['htdocs/*.*',
                             'htdocs/charts_library/*.swf',
                             'templates/*.cs']
     },
+    test_suite='bitten.tests.suite',
     entry_points = {
         'console_scripts': [
             'bitten-slave = bitten.slave:main'
@@ -62,7 +70,6 @@ setup(
             NS + 'xml#transform = bitten.build.xmltools:transform'
         ]
     },
-    test_suite='bitten.tests.suite',
-    zip_safe=True,
+
     cmdclass = {'unittest': unittest}
 )

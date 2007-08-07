@@ -1,12 +1,13 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright (C) 2005 Christopher Lenz <cmlenz@gmx.de>
+# Copyright (C) 2005-2007 Christopher Lenz <cmlenz@gmx.de>
 # Copyright (C) 2006 Matthew Good <matt@matt-good.net>
+# Copyright (C) 2007 Edgewall Software
 # All rights reserved.
 #
 # This software is licensed as described in the file COPYING, which
 # you should have received as part of this distribution. The terms
-# are also available at http://bitten.cmlenz.net/wiki/License.
+# are also available at http://bitten.edgewall.org/wiki/License.
 
 """Recipe commands for tools commonly used in Java projects."""
 

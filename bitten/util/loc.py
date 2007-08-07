@@ -1,11 +1,12 @@
 # -*- coding: utf-8 -*-
 #
 # Copyright (C) 1998 Dinu C. Gherman <gherman@europemail.com>
-# Copyright (C) 2005 Christopher Lenz <cmlenz@gmx.de>
+# Copyright (C) 2005-2007 Christopher Lenz <cmlenz@gmx.de>
+# Copyright (C) 2007 Edgewall Software
 # 
 # This software is licensed as described in the file COPYING, which
 # you should have received as part of this distribution. The terms
-# are also available at http://bitten.cmlenz.net/wiki/License.
+# are also available at http://bitten.edgewall.org/wiki/License.
 # 
 # This module is based on the pycount.py script written by Dinu C.
 # Gherman, and is used here under the following license:
