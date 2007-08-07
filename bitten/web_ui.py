@@ -31,12 +31,11 @@ from trac.web import IRequestHandler
 from trac.web.chrome import INavigationContributor, ITemplateProvider, \
                             add_link, add_stylesheet
 from trac.wiki import wiki_to_html, wiki_to_oneliner
+from bitten.api import ILogFormatter, IReportChartGenerator, IReportSummarizer
 from bitten.model import BuildConfig, TargetPlatform, Build, BuildStep, \
                          BuildLog, Report
 from bitten.queue import collect_changes
 from bitten.recipe import Recipe, InvalidRecipeError
-from bitten.trac_ext.api import ILogFormatter, IReportChartGenerator, \
-                                IReportSummarizer
 from bitten.util import xmlio
 
 _status_label = {Build.PENDING: 'pending',

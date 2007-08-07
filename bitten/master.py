@@ -30,9 +30,9 @@ from trac.web import IRequestHandler, HTTPBadRequest, HTTPConflict, \
                      RequestDone
 
 from bitten.model import BuildConfig, Build, BuildStep, BuildLog, Report
+from bitten.main import BuildSystem
 from bitten.queue import BuildQueue
 from bitten.recipe import Recipe
-from bitten.trac_ext.main import BuildSystem
 from bitten.util import xmlio
 
 

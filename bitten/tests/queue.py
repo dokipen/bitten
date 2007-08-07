@@ -13,10 +13,10 @@ import shutil
 import tempfile
 import unittest
 
+from trac.db import DatabaseManager
 from trac.test import EnvironmentStub, Mock
 from bitten.model import BuildConfig, TargetPlatform, Build, BuildStep, schema
 from bitten.queue import BuildQueue, collect_changes
-from bitten.trac_ext.compat import schema_to_sql
 
 
 class CollectChangesTestCase(unittest.TestCase):
@@ -27,11 +27,14 @@ class CollectChangesTestCase(unittest.TestCase):
     def setUp(self):
         self.env = EnvironmentStub()
         self.env.path = tempfile.mkdtemp()
+
         db = self.env.get_db_cnx()
         cursor = db.cursor()
+        connector, _ = DatabaseManager(self.env)._get_connector()
         for table in schema:
-            for stmt in schema_to_sql(self.env, db, table):
+            for stmt in connector.to_sql(table):
                 cursor.execute(stmt)
+
         self.config = BuildConfig(self.env, name='test', path='somepath')
         self.config.insert(db=db)
         self.platform = TargetPlatform(self.env, config='test', name='Foo')
@@ -123,10 +126,12 @@ class BuildQueueTestCase(unittest.TestCase):
         self.env = EnvironmentStub()
         self.env.path = tempfile.mkdtemp()
         os.mkdir(os.path.join(self.env.path, 'snapshots'))
+
         db = self.env.get_db_cnx()
         cursor = db.cursor()
+        connector, _ = DatabaseManager(self.env)._get_connector()
         for table in schema:
-            for stmt in schema_to_sql(self.env, db, table):
+            for stmt in connector.to_sql(table):
                 cursor.execute(stmt)
         db.commit()
 

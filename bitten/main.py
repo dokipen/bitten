@@ -13,11 +13,11 @@ import os
 import textwrap
 
 from trac.core import *
+from trac.db import DatabaseManager
 from trac.env import IEnvironmentSetupParticipant
 from trac.perm import IPermissionRequestor
 from trac.wiki import IWikiSyntaxProvider
-from bitten.trac_ext.api import IBuildListener
-from bitten.trac_ext.compat import schema_to_sql
+from bitten.api import IBuildListener
 from bitten.model import schema, schema_version, Build, BuildConfig
 
 
@@ -33,9 +33,10 @@ class BuildSystem(Component):
     def environment_created(self):
         # Create the required tables
         db = self.env.get_db_cnx()
+        connector, _ = DatabaseManager(self.env)._get_connector()
         cursor = db.cursor()
         for table in schema:
-            for stmt in schema_to_sql(self.env, db, table):
+            for stmt in connector.to_sql(table):
                 cursor.execute(stmt)
 
         # Insert a global version flag

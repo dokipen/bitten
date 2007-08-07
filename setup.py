@@ -30,9 +30,9 @@ setup(
 
     packages=find_packages(exclude=['*.tests*']),
     package_data={
-        'bitten.trac_ext': ['htdocs/*.*',
-                            'htdocs/charts_library/*.swf',
-                            'templates/*.cs']
+        'bitten': ['htdocs/*.*',
+                   'htdocs/charts_library/*.swf',
+                   'templates/*.cs']
     },
     test_suite='bitten.tests.suite',
     entry_points = {
@@ -43,9 +43,9 @@ setup(
             'unittest = bitten.util.testrunner:unittest'
         ],
         'trac.plugins': [
-            'bitten.main = bitten.trac_ext.main',
+            'bitten.main = bitten.main',
             'bitten.master = bitten.master',
-            'bitten.web_ui = bitten.trac_ext.web_ui',
+            'bitten.web_ui = bitten.web_ui',
             'bitten.testing = bitten.report.testing',
             'bitten.coverage = bitten.report.coverage'
         ],

@@ -10,10 +10,10 @@
 
 import unittest
 
+from trac.db import DatabaseManager
 from trac.test import EnvironmentStub
 from bitten.model import BuildConfig, TargetPlatform, Build, BuildStep, \
                          BuildLog, Report, schema
-from bitten.trac_ext.compat import schema_to_sql
 
 
 class BuildConfigTestCase(unittest.TestCase):
@@ -21,10 +21,12 @@ class BuildConfigTestCase(unittest.TestCase):
     def setUp(self):
         self.env = EnvironmentStub()
         self.env.path = ''
+
         db = self.env.get_db_cnx()
         cursor = db.cursor()
+        connector, _ = DatabaseManager(self.env)._get_connector()
         for table in schema:
-            for stmt in schema_to_sql(self.env, db, table):
+            for stmt in connector.to_sql(table):
                 cursor.execute(stmt)
         db.commit()
 
@@ -157,10 +159,12 @@ class TargetPlatformTestCase(unittest.TestCase):
     def setUp(self):
         self.env = EnvironmentStub()
         self.env.path = ''
+
         db = self.env.get_db_cnx()
         cursor = db.cursor()
+        connector, _ = DatabaseManager(self.env)._get_connector()
         for table in TargetPlatform._schema:
-            for stmt in schema_to_sql(self.env, db, table):
+            for stmt in connector.to_sql(table):
                 cursor.execute(stmt)
         db.commit()
 
@@ -212,10 +216,12 @@ class BuildTestCase(unittest.TestCase):
     def setUp(self):
         self.env = EnvironmentStub()
         self.env.path = ''
+
         db = self.env.get_db_cnx()
         cursor = db.cursor()
+        connector, _ = DatabaseManager(self.env)._get_connector()
         for table in Build._schema:
-            for stmt in schema_to_sql(self.env, db, table):
+            for stmt in connector.to_sql(table):
                 cursor.execute(stmt)
         db.commit()
 
@@ -319,10 +325,12 @@ class BuildStepTestCase(unittest.TestCase):
     def setUp(self):
         self.env = EnvironmentStub()
         self.env.path = ''
+
         db = self.env.get_db_cnx()
         cursor = db.cursor()
+        connector, _ = DatabaseManager(self.env)._get_connector()
         for table in BuildStep._schema:
-            for stmt in schema_to_sql(self.env, db, table):
+            for stmt in connector.to_sql(table):
                 cursor.execute(stmt)
         db.commit()
 
@@ -419,10 +427,12 @@ class BuildLogTestCase(unittest.TestCase):
     def setUp(self):
         self.env = EnvironmentStub()
         self.env.path = ''
+
         db = self.env.get_db_cnx()
         cursor = db.cursor()
+        connector, _ = DatabaseManager(self.env)._get_connector()
         for table in BuildLog._schema:
-            for stmt in schema_to_sql(self.env, db, table):
+            for stmt in connector.to_sql(table):
                 cursor.execute(stmt)
         db.commit()
 
@@ -549,10 +559,12 @@ class ReportTestCase(unittest.TestCase):
     def setUp(self):
         self.env = EnvironmentStub()
         self.env.path = ''
+
         db = self.env.get_db_cnx()
         cursor = db.cursor()
+        connector, _ = DatabaseManager(self.env)._get_connector()
         for table in Report._schema:
-            for stmt in schema_to_sql(self.env, db, table):
+            for stmt in connector.to_sql(table):
                 cursor.execute(stmt)
         db.commit()
 

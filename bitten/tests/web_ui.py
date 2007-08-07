@@ -13,16 +13,16 @@ import tempfile
 import unittest
 
 from trac.core import TracError
+from trac.db import DatabaseManager
 from trac.perm import PermissionCache, PermissionSystem
 from trac.test import EnvironmentStub, Mock
 from trac.versioncontrol import Repository
 from trac.web.clearsilver import HDFWrapper
 from trac.web.href import Href
 from trac.web.main import Request, RequestDone
+from bitten.main import BuildSystem
 from bitten.model import BuildConfig, TargetPlatform, Build, schema
-from bitten.trac_ext.compat import schema_to_sql
-from bitten.trac_ext.main import BuildSystem
-from bitten.trac_ext.web_ui import BuildConfigController
+from bitten.web_ui import BuildConfigController
 
 
 class BuildConfigControllerTestCase(unittest.TestCase):
@@ -34,8 +34,9 @@ class BuildConfigControllerTestCase(unittest.TestCase):
         # Create tables
         db = self.env.get_db_cnx()
         cursor = db.cursor()
+        connector, _ = DatabaseManager(self.env)._get_connector()
         for table in schema:
-            for stmt in schema_to_sql(self.env, db, table):
+            for stmt in connector.to_sql(table):
                 cursor.execute(stmt)
 
         # Set up permissions

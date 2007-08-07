@@ -15,17 +15,17 @@ from StringIO import StringIO
 import tempfile
 import unittest
 
+from trac.db import DatabaseManager
 from trac.perm import PermissionCache, PermissionSystem
 from trac.test import EnvironmentStub, Mock
 from trac.web.api import HTTPBadRequest, HTTPMethodNotAllowed, HTTPNotFound, \
                          RequestDone
 from trac.web.href import Href
 
+from bitten.main import BuildSystem
 from bitten.master import BuildMaster
 from bitten.model import BuildConfig, TargetPlatform, Build, BuildStep, \
                          BuildLog, Report, schema
-from bitten.trac_ext.compat import schema_to_sql
-from bitten.trac_ext.main import BuildSystem
 
 
 class BuildMasterTestCase(unittest.TestCase):
@@ -39,8 +39,9 @@ class BuildMasterTestCase(unittest.TestCase):
         # Create tables
         db = self.env.get_db_cnx()
         cursor = db.cursor()
+        connector, _ = DatabaseManager(self.env)._get_connector()
         for table in schema:
-            for stmt in schema_to_sql(self.env, db, table):
+            for stmt in connector.to_sql(table):
                 cursor.execute(stmt)
 
         self.repos = Mock()

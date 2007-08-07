@@ -10,11 +10,11 @@
 
 import unittest
 
+from trac.db import DatabaseManager
 from trac.test import EnvironmentStub, Mock
 from trac.web.clearsilver import HDFWrapper
 from bitten.model import *
 from bitten.report.coverage import TestCoverageChartGenerator
-from bitten.trac_ext.compat import schema_to_sql
 
 
 class TestCoverageChartGeneratorTestCase(unittest.TestCase):
@@ -24,8 +24,10 @@ class TestCoverageChartGeneratorTestCase(unittest.TestCase):
         self.env.path = ''
         db = self.env.get_db_cnx()
         cursor = db.cursor()
+
+        connector, _ = DatabaseManager(self.env)._get_connector()
         for table in schema:
-            for stmt in schema_to_sql(self.env, db, table):
+            for stmt in connector.to_sql(table):
                 cursor.execute(stmt)
 
     def test_supported_categories(self):

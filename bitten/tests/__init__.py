@@ -10,10 +10,9 @@
 
 import unittest
 
-from bitten.tests import master, model, recipe, queue, slave
+from bitten.tests import master, model, recipe, queue, slave, web_ui
 from bitten.build import tests as build
 from bitten.report import tests as report
-from bitten.trac_ext import tests as trac_ext
 from bitten.util import tests as util
 
 def suite():
@@ -23,9 +22,9 @@ def suite():
     suite.addTest(recipe.suite())
     suite.addTest(queue.suite())
     suite.addTest(slave.suite())
+    suite.addTest(web_ui.suite())
     suite.addTest(build.suite())
     suite.addTest(report.suite())
-    suite.addTest(trac_ext.suite())
     suite.addTest(util.suite())
     return suite
 

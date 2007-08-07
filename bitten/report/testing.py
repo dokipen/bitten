@@ -11,7 +11,7 @@
 from trac.core import *
 from trac.web.chrome import Chrome
 from trac.web.clearsilver import HDFWrapper
-from bitten.trac_ext.api import IReportChartGenerator, IReportSummarizer
+from bitten.api import IReportChartGenerator, IReportSummarizer
 
 
 class TestResultsChartGenerator(Component):
