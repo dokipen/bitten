@@ -84,7 +84,10 @@ class BuildMaster(Component):
         config = BuildConfig.fetch(self.env, build.config)
 
         if not req.args['collection']:
-            return self._process_build_initiation(req, config, build)
+            if req.method == 'DELETE':
+                return self._process_build_cancellation(req, config, build)
+            else:
+                return self._process_build_initiation(req, config, build)
 
         if req.method != 'POST':
             raise HTTPMethodNotAllowed('Method not allowed')
@@ -125,8 +128,7 @@ class BuildMaster(Component):
         build = queue.get_build_for_slave(name, properties)
         if not build:
             req.send_response(204)
-            req.send_header('Content-Type', 'text/plain')
-            req.write('No pending builds')
+            req.write('')
             raise RequestDone
 
         req.send_response(201)
@@ -135,7 +137,26 @@ class BuildMaster(Component):
         req.write('Build pending')
         raise RequestDone
 
+    def _process_build_cancellation(self, req, config, build):
+        self.log.info('Build slave %r cancelled build %d', build.slave,
+                      build.id)
+        build.status = Build.PENDING
+        build.slave = None
+        build.slave_info = {}
+        build.started = 0
+        db = self.env.get_db_cnx()
+        for step in list(BuildStep.select(self.env, build=build.id, db=db)):
+            step.delete(db=db)
+        build.update(db=db)
+        db.commit()
+
+        req.send_response(204)
+        req.write('')
+        raise RequestDone
+
     def _process_build_initiation(self, req, config, build):
+        self.log.info('Build slave %r initiated build %d', build.slave,
+                      build.id)
         build.started = int(time.time())
         build.update()
 

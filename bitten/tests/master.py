@@ -151,8 +151,39 @@ class BuildMasterTestCase(unittest.TestCase):
             self.fail('Expected RequestDone')
         except RequestDone:
             self.assertEqual(204, outheaders['Status'])
-            self.assertEqual('text/plain', outheaders['Content-Type'])
-            self.assertEqual('No pending builds', outbody.getvalue())
+            self.assertEqual('', outbody.getvalue())
+
+    def test_cancel_build(self):
+        config = BuildConfig(self.env, 'test', path='somepath', active=True,
+                             recipe='<build></build>')
+        config.insert()
+        build = Build(self.env, 'test', '123', 1, slave='hal', rev_time=42,
+                      status=Build.IN_PROGRESS, started=42)
+        build.insert()
+
+        outheaders = {}
+        outbody = StringIO()
+        req = Mock(method='DELETE', base_path='',
+                   path_info='/builds/%d' % build.id,
+                   href=Href('/trac'), remote_addr='127.0.0.1', args={},
+                   perm=PermissionCache(self.env, 'hal'),
+                   send_response=lambda x: outheaders.setdefault('Status', x),
+                   send_header=lambda x, y: outheaders.setdefault(x, y),
+                   write=outbody.write)
+
+        module = BuildMaster(self.env)
+        assert module.match_request(req)
+        try:
+            module.process_request(req)
+            self.fail('Expected RequestDone')
+        except RequestDone:
+            self.assertEqual(204, outheaders['Status'])
+            self.assertEqual('', outbody.getvalue())
+
+            # Make sure the started timestamp has been set
+            build = Build.fetch(self.env, build.id)
+            self.assertEqual(Build.PENDING, build.status)
+            assert not build.started
 
     def test_initiate_build(self):
         config = BuildConfig(self.env, 'test', path='somepath', active=True,

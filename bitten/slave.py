@@ -46,6 +46,18 @@ class SaneHTTPErrorProcessor(urllib2.HTTPErrorProcessor):
         return response
 
 
+class SaneHTTPRequest(urllib2.Request):
+
+    def __init__(self, method, url, data=None, headers={}):
+        urllib2.Request.__init__(self, url, data, headers)
+        self.method = method
+
+    def get_method(self):
+        if self.method is None:
+            self.method = self.has_data() and 'POST' or 'GET'
+        return self.method
+
+
 class BuildSlave(object):
     """BEEP initiator implementation for the build slave."""
 
@@ -93,8 +105,8 @@ class BuildSlave(object):
             self.opener.add_handler(urllib2.HTTPDigestAuthHandler(password_mgr))
 
     def request(self, method, url, body=None, headers=None):
-        log.debug('Sending %s request to %r', body and 'POST' or 'GET', url)
-        req = urllib2.Request(url, body, headers or {})
+        log.debug('Sending %s request to %r', method, url)
+        req = SaneHTTPRequest(method, url, body, headers or {})
         try:
             return self.opener.open(req)
         except urllib2.HTTPError, e:
@@ -152,19 +164,23 @@ class BuildSlave(object):
         if resp.code == 201:
             self._initiate_build(resp.info().get('location'))
         elif resp.code == 204:
-            log.info(resp.read())
+            log.info('No pending builds')
         else:
             log.error('Unexpected response (%d %s)', resp.code, resp.msg)
             raise ExitSlave()
 
     def _initiate_build(self, build_url):
         log.info('Build pending at %s', build_url)
-        resp = self.request('GET', build_url)
-        if resp.code == 200:
-            self._execute_build(build_url, resp)
-        else:
-            log.error('Unexpected response (%d): %s', resp.code, resp.msg)
-            raise ExitSlave()
+        try:
+            resp = self.request('GET', build_url)
+            if resp.code == 200:
+                self._execute_build(build_url, resp)
+            else:
+                log.error('Unexpected response (%d): %s', resp.code, resp.msg)
+                self._cancel_build(build_url)
+        except KeyboardInterrupt:
+            log.warning('Build interrupted')
+            self._cancel_build(build_url)
 
     def _execute_build(self, build_url, fileobj):
         build_id = build_url and int(build_url.split('/')[-1]) or 0
@@ -204,7 +220,7 @@ class BuildSlave(object):
                 ])
         except KeyboardInterrupt:
             log.warning('Build interrupted')
-            raise ExitSlave()
+            self._cancel_build(build_url)
         except BuildError, e:
             log.error('Build step %r failed (%s)', step.id, e)
             failed = True
@@ -220,13 +236,26 @@ class BuildSlave(object):
             log.info('Build step %s completed successfully', step.id)
 
         if not self.local:
-            resp = self.request('POST', build_url + '/steps/', str(xml), {
-                'Content-Type': 'application/x-bitten+xml'
-            })
-            if resp.code != 201:
-                log.error('Unexpected response (%d): %s', resp.code, resp.msg)
+            try:
+                resp = self.request('POST', build_url + '/steps/', str(xml), {
+                    'Content-Type': 'application/x-bitten+xml'
+                })
+                if resp.code != 201:
+                    log.error('Unexpected response (%d): %s', resp.code,
+                              resp.msg)
+            except KeyboardInterrupt:
+                log.warning('Build interrupted')
+                self._cancel_build(build_url)
 
         return not failed or step.onerror != 'fail'
+
+    def _cancel_build(self, build_url):
+        log.info('Cancelling build at %s', build_url)
+        if not self.local:
+            resp = self.request('DELETE', build_url)
+            if resp.code not in (200, 204):
+                log.error('Unexpected response (%d): %s', resp.code, resp.msg)
+        raise ExitSlave()
 
 
 class ExitSlave(Exception):
