@@ -366,6 +366,107 @@ that match the pattern `TEST-*.xml`. Also, maps the class names in the results
 files to Java source files in the directory `src/tests`.
 
 
+PHP Tools
+=========
+
+A bundle of recipe commands for PHP_ projects.
+
+:Namespace: ``http://bitten.cmlenz.net/tools/php``
+:Common prefix: ``php``
+
+.. _php: http://php.net/
+
+------------------
+``<python:phing>``
+------------------
+
+Runs a Phing_ build.
+
+.. _phing: http://phing.info/
+
+Parameters
+----------
+
++-------------------+-------------------------------------------------------+
+| Name              | Description                                           |
++===================+=======================================================+
+| ``file``          | Path of the build file, relative to the project       |
+|                   | source directory (default is ``build.xml``).          |
++-------------------+-------------------------------------------------------+
+| ``target``        | Name of the build target(s) to execute.               |
++-------------------+-------------------------------------------------------+
+| ``args``          | Additional arguments to pass to Phing, separated by   |
+|                   | whitespace.                                           |
++-------------------+-------------------------------------------------------+
+| ``executable``    | Phing executable program (default is ``phing``).      |
++-------------------+-------------------------------------------------------+
+
+
+Examples
+--------
+
+.. code-block:: xml
+
+  <php:phing target="compile" />
+
+Executes the target ``compile`` of the ``build.xml`` buildfile at the top of the
+project source directory.
+
+
+-----------------
+``<php:phpunit>``
+-----------------
+
+Extracts information from PHPUnit_ test results recorded in an XML file.
+
+.. _phpunit: http://www.phpunit.de/
+
+Parameters
+----------
+
++----------------+-----------------------------------------------------------+
+| Name           | Description                                               |
++================+===========================================================+
+| ``file``       | Path to the XML results file, relative to the project     |
+|                | source directory.                                         |
++----------------+-----------------------------------------------------------+
+
+Examples
+--------
+
+.. code-block:: xml
+
+  <php:phpunit file="build/test-results.xml"/>
+
+Extracts the test results from the XML file located at
+``build/test-results.xml``.
+
+
+------------------
+``<php:coverage>``
+------------------
+
+Extracts coverage information Phing_'s code coverage task recorded in an XML
+file.
+
+Parameters
+----------
+
++---------------+-----------------------------------------------------------+
+| Name          | Description                                               |
++===============+===========================================================+
+| ``file``      | Path to the XML coverage file, relative to the project    |
+|               | source directory.                                         |
++---------------+-----------------------------------------------------------+
+
+Examples
+--------
+
+.. code-block:: xml
+
+  <php:coverage file="build/coverage.xml" />
+
+
 Python Tools
 ============
 
