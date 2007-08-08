@@ -95,7 +95,8 @@ class BuildMaster(Component):
             raise HTTPNotFound('No such collection')
 
     def _process_build_creation(self, req):
-        queue = BuildQueue(self.env, build_all=self.build_all)
+        queue = BuildQueue(self.env, build_all=self.build_all,
+                           timeout=self.slave_timeout)
         queue.populate()
 
         try:

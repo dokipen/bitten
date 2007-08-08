@@ -22,6 +22,7 @@ platforms.
 from itertools import ifilter
 import logging
 import re
+import time
 
 from trac.versioncontrol import NoSuchNode
 from bitten.model import BuildConfig, TargetPlatform, Build, BuildStep
@@ -95,15 +96,19 @@ class BuildQueue(object):
     repository revisions that need to be built.
     """
 
-    def __init__(self, env, build_all=False):
+    def __init__(self, env, build_all=False, timeout=0):
         """Create the build queue.
         
         :param env: the Trac environment
         :param build_all: whether older revisions should be built
+        :param timeout: the time in seconds after which an in-progress build
+                        should be considered orphaned, and reset to pending
+                        state
         """
         self.env = env
         self.log = env.log
         self.build_all = build_all
+        self.timeout = timeout
 
     # Build scheduling
 
@@ -225,14 +230,27 @@ class BuildQueue(object):
         db.commit()
 
     def reset_orphaned_builds(self):
-        """Reset all in-progress builds to ``PENDING`` state.
+        """Reset all in-progress builds to ``PENDING`` state if they've been
+        running so long that the configured timeout has been reached.
         
-        This is used to cleanup after a crash of the build master process,
-        which would leave in-progress builds in the database that aren't
-        actually being built because the slaves have disconnected.
+        This is used to cleanup after slaves that have unexpectedly cancelled
+        a build without notifying the master, or are for some other reason not
+        reporting back status updates.
         """
+        if not self.timeout:
+            # If no timeout is set, none of the in-progress builds can be
+            # considered orphaned
+            return
+
         db = self.env.get_db_cnx()
+        now = int(time.time())
         for build in Build.select(self.env, status=Build.IN_PROGRESS, db=db):
+            if now - build.started < self.timeout:
+                # This build has not reached the timeout yet, assume it's still
+                # being executed
+                # FIXME: ideally, we'd base this check on the last activity on
+                #        the build, not the start time
+                continue
             build.status = Build.PENDING
             build.slave = None
             build.slave_info = {}

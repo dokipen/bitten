@@ -11,6 +11,7 @@
 import os
 import shutil
 import tempfile
+import time
 import unittest
 
 from trac.db import DatabaseManager
@@ -188,6 +189,26 @@ class BuildQueueTestCase(unittest.TestCase):
         queue = BuildQueue(self.env)
         build = queue.get_build_for_slave('foobar', {})
         self.assertEqual(None, build)
+
+    def test_reset_orphaned_builds(self):
+        BuildConfig(self.env, 'test').insert()
+        platform = TargetPlatform(self.env, config='test', name='Foo')
+        platform.insert()
+        build1 = Build(self.env, config='test', platform=platform.id, rev=123,
+                      rev_time=42, status=Build.IN_PROGRESS, slave='heinz',
+                      started=time.time() - 600) # Started ten minutes ago
+        build1.insert()
+
+        build2 = Build(self.env, config='test', platform=platform.id, rev=124,
+                       rev_time=42, status=Build.IN_PROGRESS, slave='heinz',
+                       started=time.time() - 60) # Started a minute ago
+        build2.insert()
+
+        queue = BuildQueue(self.env, timeout=300) # 5 minutes timeout
+        build = queue.reset_orphaned_builds()
+        self.assertEqual(Build.PENDING, Build.fetch(self.env, build1.id).status)
+        self.assertEqual(Build.IN_PROGRESS,
+                         Build.fetch(self.env, build2.id).status)
 
     def test_match_slave_match(self):
         BuildConfig(self.env, 'test', active=True).insert()
