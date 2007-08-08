@@ -99,7 +99,7 @@ class BuildSlave(object):
             return self.opener.open(req)
         except urllib2.HTTPError, e:
             if e.code >= 300:
-                log.warn('Server returned error %d: %s', e.code, e.msg)
+                log.warning('Server returned error %d: %s', e.code, e.msg)
                 raise
             return e
 
@@ -180,7 +180,7 @@ class BuildSlave(object):
                     log.warning('Stopping build due to failure')
                     break
             else:
-                log.warning('Build completed')
+                log.info('Build completed')
         finally:
             if not self.keep_files:
                 log.debug('Removing build directory %s' % basedir)
@@ -203,7 +203,7 @@ class BuildSlave(object):
                     output
                 ])
         except KeyboardInterrupt:
-            log.warn('Build interrupted')
+            log.warning('Build interrupted')
             raise ExitSlave()
         except BuildError, e:
             log.error('Build step %r failed (%s)', step.id, e)
@@ -255,12 +255,10 @@ def main():
                       help='write log messages to FILENAME')
     parser.add_option('-n', '--dry-run', action='store_true', dest='dry_run',
                       help='don\'t report results back to master')
-    parser.add_option('--debug', action='store_const', dest='loglevel',
-                      const=logging.DEBUG, help='enable debugging output')
     parser.add_option('-v', '--verbose', action='store_const', dest='loglevel',
-                      const=logging.INFO, help='print as much as possible')
+                      const=logging.DEBUG, help='print as much as possible')
     parser.add_option('-q', '--quiet', action='store_const', dest='loglevel',
-                      const=logging.ERROR, help='print as little as possible')
+                      const=logging.WARN, help='print as little as possible')
     parser.add_option('-s', '--single', action='store_true',
                       dest='single_build',
                       help='exit after completing a single build')
@@ -269,7 +267,7 @@ def main():
     parser.add_option('-p', '--password', dest='password',
                       help='the password to use when authenticating')
     parser.set_defaults(dry_run=False, keep_files=False,
-                        loglevel=logging.WARNING, single_build=False)
+                        loglevel=logging.INFO, single_build=False)
     options, args = parser.parse_args()
 
     if len(args) < 1:
