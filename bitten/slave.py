@@ -158,7 +158,7 @@ class BuildSlave(object):
             raise ExitSlave()
 
     def _initiate_build(self, build_url):
-        log.info('Build pending at %s', build_id, build_url)
+        log.info('Build pending at %s', build_url)
         resp = self.request('GET', build_url)
         if resp.code == 200:
             self._execute_build(build_url, resp)
