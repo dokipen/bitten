@@ -54,21 +54,23 @@ class BuildSlave(object):
                  username=None, password=None):
         """Create the build slave instance.
         
-        :param url: The URL of the build master
-        :param name: The name with which this slave should identify itself
-        :param config: The slave configuration
-        :param dry_run: Whether the build outcome should not be reported back
+        :param url: the URL of the build master, or the path to a build recipe
+                    file
+        :param name: the name with which this slave should identify itself
+        :param config: the path to the slave configuration file
+        :param dry_run: wether the build outcome should not be reported back
                         to the master
-        :param work_dir: The working directory to use for build execution
-        :param keep_files: Whether files and directories created for build
+        :param work_dir: the working directory to use for build execution
+        :param keep_files: whether files and directories created for build
                            execution should be kept when done
-        :param single_build: Whether this slave should exit after completing a 
+        :param single_build: whether this slave should exit after completing a 
                              single build, or continue processing builds forever
         :param username: the username to use when authentication against the
                          build master is requested
         :param password: the password to use when authentication is needed
         """
         self.url = url
+        self.local = not url.startswith('http') and not url.startswith('https')
         if name is None:
             name = platform.node().split('.', 1)[0].lower()
         self.name = name
@@ -82,12 +84,13 @@ class BuildSlave(object):
         self.keep_files = keep_files
         self.single_build = single_build
 
-        self.opener = urllib2.build_opener(SaneHTTPErrorProcessor)
-        password_mgr = urllib2.HTTPPasswordMgrWithDefaultRealm()
-        if username and password:
-            password_mgr.add_password(None, url, username, password)
-        self.opener.add_handler(urllib2.HTTPBasicAuthHandler(password_mgr))
-        self.opener.add_handler(urllib2.HTTPDigestAuthHandler(password_mgr))
+        if not self.local:
+            self.opener = urllib2.build_opener(SaneHTTPErrorProcessor)
+            password_mgr = urllib2.HTTPPasswordMgrWithDefaultRealm()
+            if username and password:
+                password_mgr.add_password(None, url, username, password)
+            self.opener.add_handler(urllib2.HTTPBasicAuthHandler(password_mgr))
+            self.opener.add_handler(urllib2.HTTPDigestAuthHandler(password_mgr))
 
     def request(self, method, url, body=None, headers=None):
         log.debug('Sending %s request to %r', body and 'POST' or 'GET', url)
@@ -101,6 +104,14 @@ class BuildSlave(object):
             return e
 
     def run(self):
+        if self.local:
+            fileobj = open(self.url)
+            try:
+                self._execute_build(None, fileobj)
+            finally:
+                fileobj.close()
+            return
+
         while True:
             try:
                 try:
@@ -147,36 +158,36 @@ class BuildSlave(object):
             raise ExitSlave()
 
     def _initiate_build(self, build_url):
-        build_id = int(build_url.split('/')[-1])
-        log.info('Build %s pending at %s', build_id, build_url)
+        log.info('Build pending at %s', build_id, build_url)
         resp = self.request('GET', build_url)
         if resp.code == 200:
-            xml = xmlio.parse(resp)
-            basedir = os.path.join(self.work_dir, 'build_%d' % build_id)
-            if not os.path.exists(basedir):
-                os.mkdir(basedir)
-            try:
-                recipe = Recipe(xml, basedir, self.config)
-                self._execute_build(build_url, recipe)
-            finally:
-                if not self.keep_files:
-                    log.debug('Removing build directory %s' % basedir)
-                    shutil.rmtree(basedir)
-                if self.single_build:
-                    log.info('Exiting after single build completed.')
-                    raise ExitSlave()
+            self._execute_build(build_url, resp)
         else:
             log.error('Unexpected response (%d): %s', resp.code, resp.msg)
             raise ExitSlave()
 
-    def _execute_build(self, build_url, recipe):
-        for step in recipe:
-            log.info('Executing build step %r', step.id)
-            if not self._execute_step(build_url, recipe, step):
-                log.warning('Stopping build due to failure')
-                break
-        else:
-            log.warning('Build completed')
+    def _execute_build(self, build_url, fileobj):
+        build_id = build_url and int(build_url.split('/')[-1]) or 0
+        xml = xmlio.parse(fileobj)
+        basedir = os.path.join(self.work_dir, 'build_%d' % build_id)
+        if not os.path.exists(basedir):
+            os.mkdir(basedir)
+        try:
+            recipe = Recipe(xml, basedir, self.config)
+            for step in recipe:
+                log.info('Executing build step %r', step.id)
+                if not self._execute_step(build_url, recipe, step):
+                    log.warning('Stopping build due to failure')
+                    break
+            else:
+                log.warning('Build completed')
+        finally:
+            if not self.keep_files:
+                log.debug('Removing build directory %s' % basedir)
+                shutil.rmtree(basedir)
+            if self.single_build:
+                log.info('Exiting after single build completed.')
+                raise ExitSlave()
 
     def _execute_step(self, build_url, recipe, step):
         failed = False
@@ -191,6 +202,9 @@ class BuildSlave(object):
                                          generator=generator)[
                     output
                 ])
+        except KeyboardInterrupt:
+            log.warn('Build interrupted')
+            raise ExitSlave()
         except BuildError, e:
             log.error('Build step %r failed (%s)', step.id, e)
             failed = True
@@ -205,11 +219,12 @@ class BuildSlave(object):
             xml.attr['status'] = 'success'
             log.info('Build step %s completed successfully', step.id)
 
-        resp = self.request('POST', build_url + '/steps/', str(xml), {
-            'Content-Type': 'application/x-bitten+xml'
-        })
-        if resp.code != 201:
-            log.error('Unexpected response (%d): %s', resp.code, resp.msg)
+        if not self.local:
+            resp = self.request('POST', build_url + '/steps/', str(xml), {
+                'Content-Type': 'application/x-bitten+xml'
+            })
+            if resp.code != 201:
+                log.error('Unexpected response (%d): %s', resp.code, resp.msg)
 
         return not failed or step.onerror != 'fail'
 
