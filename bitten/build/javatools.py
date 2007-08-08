@@ -180,6 +180,12 @@ class _LineCounter(object):
 
 
 def cobertura(ctxt, file_=None):
+    """Extract test coverage information from a Cobertura XML report.
+    
+    :param ctxt: the build context
+    :type ctxt: `Context`
+    :param file\_: path to the Cobertura XML output
+    """
     assert file_, 'Missing required attribute "file"'
 
     coverage = xmlio.Fragment()
