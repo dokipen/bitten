@@ -376,9 +376,9 @@ A bundle of recipe commands for PHP_ projects.
 
 .. _php: http://php.net/
 
-------------------
-``<python:phing>``
-------------------
+---------------
+``<php:phing>``
+---------------
 
 Runs a Phing_ build.
 
