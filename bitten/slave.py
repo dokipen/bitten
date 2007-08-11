@@ -197,6 +197,8 @@ class BuildSlave(object):
                     break
             else:
                 log.info('Build completed')
+                if self.dry_run:
+                    self._cancel_build(build_url)
         finally:
             if not self.keep_files:
                 log.debug('Removing build directory %s' % basedir)
@@ -235,7 +237,7 @@ class BuildSlave(object):
             xml.attr['status'] = 'success'
             log.info('Build step %s completed successfully', step.id)
 
-        if not self.local:
+        if not self.local and not self.dry_run:
             try:
                 resp = self.request('POST', build_url + '/steps/', str(xml), {
                     'Content-Type': 'application/x-bitten+xml'
