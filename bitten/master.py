@@ -107,9 +107,10 @@ class BuildMaster(Component):
         except xmlio.ParseError, e:
             raise HTTPBadRequest('XML parser error')
 
-        name = elem.attr['name']
+        slavename = elem.attr['name']
         properties = {Build.IP_ADDRESS: req.remote_addr}
-        self.log.info('Build slave %r connected from %s', name, req.remote_addr)
+        self.log.info('Build slave %r connected from %s', slavename,
+                      req.remote_addr)
 
         for child in elem.children():
             if child.name == 'platform':
@@ -125,7 +126,7 @@ class BuildMaster(Component):
                         continue
                     properties[child.attr['name'] + '.' + name] = value
 
-        build = queue.get_build_for_slave(name, properties)
+        build = queue.get_build_for_slave(slavename, properties)
         if not build:
             req.send_response(204)
             req.write('')

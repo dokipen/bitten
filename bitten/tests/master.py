@@ -72,6 +72,7 @@ class BuildMasterTestCase(unittest.TestCase):
         inbody = StringIO("""<slave name="hal">
   <platform>Power Macintosh</platform>
   <os family="posix" version="8.1.0">Darwin</os>
+  <package name="java" version="2.4.3"/>
 </slave>""")
         outheaders = {}
         outbody = StringIO()
