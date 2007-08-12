@@ -13,8 +13,6 @@ import os
 from setuptools import setup, find_packages
 import sys
 
-from bitten.util.testrunner import unittest
-
 sys.path.append(os.path.join('doc', 'common'))
 try:
     from doctools import build_doc, test_doc
@@ -36,13 +34,13 @@ setup(
     download_url = 'http://bitten.edgewall.org/wiki/Download',
     zip_safe = False,
 
-    packages=find_packages(exclude=['*.tests*']),
-    package_data={
+    packages = find_packages(exclude=['*.tests*']),
+    package_data = {
         'bitten': ['htdocs/*.*',
                    'htdocs/charts_library/*.swf',
                    'templates/*.cs']
     },
-    test_suite='bitten.tests.suite',
+    test_suite = 'bitten.tests.suite',
     entry_points = {
         'console_scripts': [
             'bitten-slave = bitten.slave:main'
@@ -82,6 +80,5 @@ setup(
         ]
     },
 
-    cmdclass = {'build_doc': build_doc, 'test_doc': test_doc,
-                'unittest': unittest}
+    cmdclass = {'build_doc': build_doc, 'test_doc': test_doc}
 )
