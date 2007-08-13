@@ -1,1 +1,2 @@
-include COPYING
+include doc/api/*.*
+include doc/*.html
