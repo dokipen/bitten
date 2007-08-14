@@ -49,6 +49,7 @@ setup(
             'unittest = bitten.util.testrunner:unittest'
         ],
         'trac.plugins': [
+            'bitten.admin = bitten.admin',
             'bitten.main = bitten.main',
             'bitten.master = bitten.master',
             'bitten.web_ui = bitten.web_ui',

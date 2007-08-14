@@ -8,15 +8,15 @@
 # you should have received as part of this distribution. The terms
 # are also available at http://bitten.edgewall.org/wiki/License.
 
+from distutils import log
+from distutils.errors import DistutilsOptionError
 import os
 import re
-try:
-    from cStringIO import StringIO
-except:
-    from StringIO import StringIO
+from StringIO import StringIO
 import sys
 import time
-from pkg_resources import *
+from pkg_resources import Distribution, EntryPoint, PathMetadata, \
+                          normalize_path, require, working_set
 from setuptools.command.test import test
 from unittest import _TextTestResult, TextTestRunner
 
@@ -120,7 +120,10 @@ class unittest(test):
         ('coverage-dir=', None,
             "Directory where coverage files are to be stored"),
         ('coverage-summary=', None,
-            "Path to the file where the coverage summary should be stored")
+            "Path to the file where the coverage summary should be stored"),
+        ('coverage-method=', None,
+            "Whether to use trace.py or coverage.py to collect code coverage. "
+            "Valid options are 'trace' (the default) or 'coverage'.")
     ]
 
     def initialize_options(self):
@@ -129,31 +132,50 @@ class unittest(test):
         self.xml_output_file = None
         self.coverage_summary = None
         self.coverage_dir = None
+        self.coverage_method = 'trace'
 
     def finalize_options(self):
         test.finalize_options(self)
+
         if self.xml_output is not None:
             if not os.path.exists(os.path.dirname(self.xml_output)):
                 os.makedirs(os.path.dirname(self.xml_output))
             self.xml_output_file = open(self.xml_output, 'w')
 
+        if self.coverage_method not in ('trace', 'coverage'):
+            raise DistutilsOptionError('Unknown coverage method %r' %
+                                       self.coverage_method)
+
     def run_tests(self):
         if self.coverage_dir:
-            from trace import Trace
-            trace = Trace(ignoredirs=[sys.prefix, sys.exec_prefix],
-                          trace=False, count=True)
-            try:
-                trace.runfunc(self._run_tests)
-            finally:
-                results = trace.results()
-                real_stdout = sys.stdout
-                sys.stdout = open(self.coverage_summary, 'w')
+
+            if self.coverage_method == 'coverage':
+                import coverage
+                coverage.erase()
+                coverage.start()
+                log.info('running tests under coverage.py')
                 try:
-                    results.write_results(show_missing=True, summary=True,
-                                          coverdir=self.coverage_dir)
+                    self._run_tests()
                 finally:
-                    sys.stdout.close()
-                    sys.stdout = real_stdout
+                    coverage.stop()
+
+            else:
+                from trace import Trace
+                trace = Trace(ignoredirs=[sys.prefix, sys.exec_prefix],
+                              trace=False, count=True)
+                try:
+                    trace.runfunc(self._run_tests)
+                finally:
+                    results = trace.results()
+                    real_stdout = sys.stdout
+                    sys.stdout = open(self.coverage_summary, 'w')
+                    try:
+                        results.write_results(show_missing=True, summary=True,
+                                              coverdir=self.coverage_dir)
+                    finally:
+                        sys.stdout.close()
+                        sys.stdout = real_stdout
+
         else:
             self._run_tests()
 
