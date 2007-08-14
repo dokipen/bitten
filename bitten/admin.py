@@ -9,10 +9,15 @@
 
 """Implementation of the web administration interface."""
 
+from pkg_resources import require
 import re
 
 from trac.core import *
-from webadmin.web_ui import IAdminPageProvider
+try:
+    require("TracWebAdmin")
+    from webadmin.web_ui import IAdminPageProvider
+except ImportError:
+    IAdminPageProvider = None
 
 from bitten.model import BuildConfig, TargetPlatform
 from bitten.recipe import Recipe
