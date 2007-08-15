@@ -9,14 +9,14 @@
 
 """Implementation of the web administration interface."""
 
-from pkg_resources import require
+from pkg_resources import require, DistributionNotFound
 import re
 
 from trac.core import *
 try:
     require("TracWebAdmin")
     from webadmin.web_ui import IAdminPageProvider
-except ImportError:
+except DistributionNotFound, ImportError:
     IAdminPageProvider = None
 
 from bitten.model import BuildConfig, TargetPlatform
@@ -33,7 +33,7 @@ class BuildMasterAdminPageProvider(Component):
 
     def get_admin_pages(self, req):
         if req.perm.has_permission('BUILD_ADMIN'):
-            yield ('bitten', 'Bitten', 'master', 'Build Master')
+            yield ('bitten', 'Builds', 'master', 'Master Settings')
 
     def process_admin_request(self, req, cat, page, path_info):
         from bitten.master import BuildMaster
@@ -75,7 +75,7 @@ class BuildConfigurationsAdminPageProvider(Component):
 
     def get_admin_pages(self, req):
         if req.perm.has_permission('BUILD_MODIFY'):
-            yield ('bitten', 'Bitten', 'configs', 'Configurations')
+            yield ('bitten', 'Builds', 'configs', 'Configurations')
 
     def process_admin_request(self, req, cat, page, config_name):
         data = {}

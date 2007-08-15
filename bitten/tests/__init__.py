@@ -10,13 +10,14 @@
 
 import unittest
 
-from bitten.tests import master, model, recipe, queue, slave, web_ui
+from bitten.tests import admin, master, model, recipe, queue, slave, web_ui
 from bitten.build import tests as build
 from bitten.report import tests as report
 from bitten.util import tests as util
 
 def suite():
     suite = unittest.TestSuite()
+    suite.addTest(admin.suite())
     suite.addTest(master.suite())
     suite.addTest(model.suite())
     suite.addTest(recipe.suite())

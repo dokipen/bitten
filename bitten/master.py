@@ -47,7 +47,7 @@ class BuildMaster(Component):
     # Configuration options
 
     adjust_timestamps = BoolOption('bitten', 'adjust_timestamps', False, doc=
-        """Whether the timestamps of builds should be adjusted to be close '
+        """Whether the timestamps of builds should be adjusted to be close
         to the timestamps of the corresponding changesets.""")
 
     build_all = BoolOption('bitten', 'build_all', False, doc=

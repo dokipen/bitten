@@ -159,10 +159,10 @@ Examples
 
 .. code-block:: xml
 
-  <c:configure enable="threadsafe" cflags="O"/>
+  <c:configure enable="threadsafe" cflags="-O"/>
 
-Runs the `configure` script in the base directory, enable the `threadsafe`
-feature, and passing `-O` as `CFLAGS`. This is equivalent to::
+Runs the ``configure`` script in the base directory, enable the ``threadsafe``
+feature, and passing ``-O`` as ``CFLAGS``. This is equivalent to::
 
   ./configure --enable-threadsafe CFLAGS="-O"
 
@@ -298,7 +298,7 @@ Examples
 
   <java:ant target="compile" />
 
-Executes the target `compile` of the `build.xml` buildfile at the top of the
+Executes the target ``compile`` of the ``build.xml`` buildfile at the top of the
 project source directory.
 
 
