@@ -141,10 +141,10 @@ class BuildConfig(object):
         config = BuildConfig(env)
         config.name = config._old_name = name
         config.path = row[0] or ''
-        config.active = row[1] and True or False
+        config.active = bool(row[1])
         config.recipe = row[2] or ''
-        config.min_rev = row[3] or ''
-        config.max_rev = row[4] or ''
+        config.min_rev = row[3] or None
+        config.max_rev = row[4] or None
         config.label = row[5] or ''
         config.description = row[6] or ''
         return config
