@@ -247,6 +247,18 @@ class BuildConfigurationsAdminPageProviderTestCase(unittest.TestCase):
             config = BuildConfig.fetch(self.env, name='bar')
             self.assertEqual('Bar', config.label)
 
+    def test_process_add_config_no_name(self):
+        req = Mock(method='POST', perm=PermissionCache(self.env, 'joe'),
+                   args={'add': '', 'name': ''})
+
+        provider = BuildConfigurationsAdminPageProvider(self.env)
+        try:
+            provider.process_admin_request(req, 'bitten', 'configs', '')
+            self.fail('Expected TracError')
+
+        except TracError, e:
+            self.assertEqual('Missing required field "name"', e.message)
+
     def test_process_add_config_no_perms(self):
         BuildConfig(self.env, name='foo', label='Foo', path='branches/foo',
                     active=True).insert()
@@ -257,12 +269,8 @@ class BuildConfigurationsAdminPageProviderTestCase(unittest.TestCase):
                    args={'add': '', 'name': 'bar', 'label': 'Bar'})
 
         provider = BuildConfigurationsAdminPageProvider(self.env)
-        try:
-            provider.process_admin_request(req, 'bitten', 'configs', '')
-            self.fail('Expected PermissionError')
-
-        except PermissionError:
-            pass
+        self.assertRaises(PermissionError, provider.process_admin_request, req,
+                          'bitten', 'configs', '')
 
     def test_process_remove_config(self):
         BuildConfig(self.env, name='foo', label='Foo', path='branches/foo',
@@ -328,12 +336,23 @@ class BuildConfigurationsAdminPageProviderTestCase(unittest.TestCase):
                    args={'remove': '', 'sel': 'bar'})
 
         provider = BuildConfigurationsAdminPageProvider(self.env)
-        try:
-            provider.process_admin_request(req, 'bitten', 'configs', '')
-            self.fail('Expected PermissionError')
+        self.assertRaises(PermissionError, provider.process_admin_request, req,
+                          'bitten', 'configs', '')
 
-        except PermissionError:
-            pass
+    def test_process_update_config_no_name(self):
+        BuildConfig(self.env, name='foo', label='Foo', path='branches/foo',
+                    active=True).insert()
+
+        req = Mock(method='POST', perm=PermissionCache(self.env, 'joe'),
+                   args={'save': ''})
+
+        provider = BuildConfigurationsAdminPageProvider(self.env)
+        try:
+            provider.process_admin_request(req, 'bitten', 'configs', 'foo')
+            self.fail('Expected TracError')
+
+        except TracError, e:
+            self.assertEqual('Missing required field "name"', e.message)
 
 
 def suite():

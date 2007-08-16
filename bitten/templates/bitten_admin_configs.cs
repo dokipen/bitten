@@ -61,12 +61,18 @@ else ?>
  <form class="addnew" id="addcomp" method="post">
   <fieldset>
    <legend>Add Configuration:</legend>
-   <div class="field">
-    <label>Name:<br /><input type="text" name="name" /></label>
-   </div>
-   <div class="field">
-    <label>Label:<br /><input type="text" name="label" /></label>
-   </div>
+   <table summary=""><tr>
+    <td class="name"><div class="field"><label>Name:<br />
+     <input type="text" name="name" size="12" />
+    </label></div></td>
+    <td class="label"><div class="field"><label>Label:<br />
+     <input type="text" name="label" size="22" />
+    </label></div></td>
+   </tr><tr>
+     <td class="path" colspan="2"><div class="field">
+      <label>Path:<br /><input type="text" name="path" size="32" /></label>
+     </div>
+   </tr></table>
    <div class="buttons">
     <input type="submit" name="add" value="Add">
    </div>

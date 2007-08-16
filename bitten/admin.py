@@ -98,7 +98,7 @@ class BuildConfigurationsAdminPageProvider(Component):
 
             if req.method == 'POST':
                 if 'save' in req.args:
-                    self._save_config(req, config)
+                    self._update_config(req, config)
                 req.redirect(req.abs_href.admin(cat, page))
 
             data['config'] = {
@@ -142,7 +142,12 @@ class BuildConfigurationsAdminPageProvider(Component):
     # Internal methods
 
     def _activate_configs(self, req):
+        req.perm.assert_permission('BUILD_MODIFY')
+
         active = req.args.get('active')
+        if not active:
+            return
+
         active = isinstance(active, list) and active or [active]
         db = self.env.get_db_cnx()
         for config in BuildConfig.select(self.env, db=db,
@@ -153,6 +158,14 @@ class BuildConfigurationsAdminPageProvider(Component):
 
     def _create_config(self, req):
         req.perm.assert_permission('BUILD_CREATE')
+
+        name = req.args.get('name')
+        if not name:
+            raise TracError('Missing required field "name"', 'Missing field')
+        if not re.match(r'^[\w.-]+$', name):
+            raise TracError('The field "name" may only contain letters, '
+                            'digits, periods, or dashes.', 'Invalid field')
+
         config = BuildConfig(self.env)
         config.name = req.args.get('name')
         config.label = req.args.get('label', config.name)
@@ -175,6 +188,8 @@ class BuildConfigurationsAdminPageProvider(Component):
         db.commit()
 
     def _update_config(self, req, config):
+        req.perm.assert_permission('BUILD_MODIFY')
+
         name = req.args.get('name')
         if not name:
             raise TracError('Missing required field "name"', 'Missing field')
@@ -194,8 +209,7 @@ class BuildConfigurationsAdminPageProvider(Component):
             try:
                 repos.get_node(path, req.args.get('min_rev'))
             except TracError, e:
-                raise TracError(e,
-                                'Invalid value for oldest revision')
+                raise TracError(e, 'Invalid value for oldest revision')
 
         recipe_xml = req.args.get('recipe', '')
         if recipe_xml:
