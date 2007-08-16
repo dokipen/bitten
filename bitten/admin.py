@@ -93,27 +93,50 @@ class BuildConfigurationsAdminPageProvider(Component):
         data = {}
 
         if config_name:
-            config = BuildConfig.fetch(self.env, config_name)
-            platforms = list(TargetPlatform.select(self.env, config=config.name))
+            if '/' in config_name:
+                config_name, platform_id = config_name.split('/', 1)
+                platform_id = int(platform_id)
 
-            if req.method == 'POST':
-                if 'save' in req.args:
-                    self._update_config(req, config)
-                req.redirect(req.abs_href.admin(cat, page))
+                platform = TargetPlatform.fetch(self.env, platform_id)
 
-            data['config'] = {
-                'name': config.name, 'label': config.label or config.name,
-                'active': config.active, 'path': config.path,
-                'min_rev': config.min_rev, 'max_rev': config.max_rev,
-                'description': config.description,
-                'recipe': config.recipe,
-                'platforms': [{
-                    'name': platform.name,
-                    'id': platform.id,
-                    'href': req.href.admin('bitten', 'configs', config.name,
-                                           platform.id)
-                } for platform in platforms]
-            }
+                if req.method == 'POST':
+                    if 'cancel' in req.args:
+                        req.redirect(req.abs_href.admin(cat, page, config_name))
+                    elif self._process_platform(req, platform):
+                        req.redirect(req.abs_href.admin(cat, page, config_name))
+
+                data['platform'] = {
+                    'id': platform.id, 'name': platform.name,
+                    'exists': platform.exists,
+                    'rules': [
+                        {'property': propname, 'pattern': pattern}
+                        for propname, pattern in platform.rules
+                    ] or [('', '')]
+                }
+
+            else:
+                config = BuildConfig.fetch(self.env, config_name)
+                platforms = list(TargetPlatform.select(self.env,
+                                                       config=config.name))
+
+                if req.method == 'POST':
+                    if 'save' in req.args:
+                        self._update_config(req, config)
+                    req.redirect(req.abs_href.admin(cat, page))
+
+                data['config'] = {
+                    'name': config.name, 'label': config.label or config.name,
+                    'active': config.active, 'path': config.path,
+                    'min_rev': config.min_rev, 'max_rev': config.max_rev,
+                    'description': config.description,
+                    'recipe': config.recipe,
+                    'platforms': [{
+                        'name': platform.name,
+                        'id': platform.id,
+                        'href': req.href.admin('bitten', 'configs', config.name,
+                                               platform.id)
+                    } for platform in platforms]
+                }
 
         else:
             if req.method == 'POST':
@@ -175,10 +198,12 @@ class BuildConfigurationsAdminPageProvider(Component):
 
     def _remove_configs(self, req):
         req.perm.assert_permission('BUILD_DELETE')
+
         sel = req.args.get('sel')
         if not sel:
             raise TracError('No configuration selected')
         sel = isinstance(sel, list) and sel or [sel]
+
         db = self.env.get_db_cnx()
         for name in sel:
             config = BuildConfig.fetch(self.env, name, db=db)
@@ -226,6 +251,33 @@ class BuildConfigurationsAdminPageProvider(Component):
         config.recipe = recipe_xml
         config.min_rev = req.args.get('min_rev')
         config.max_rev = req.args.get('max_rev')
-        config.label = req.args.get('label', '')
+        config.label = req.args.get('label', config.name)
         config.description = req.args.get('description', '')
         config.update()
+
+    def _process_platform(self, req, platform):
+        platform.name = req.args.get('name')
+
+        properties = [int(key[9:]) for key in req.args.keys()
+                      if key.startswith('property_')]
+        properties.sort()
+        patterns = [int(key[8:]) for key in req.args.keys()
+                    if key.startswith('pattern_')]
+        patterns.sort()
+        platform.rules = [(req.args.get('property_%d' % property),
+                           req.args.get('pattern_%d' % pattern))
+                          for property, pattern in zip(properties, patterns)
+                          if req.args.get('property_%d' % property)]
+
+        add_rules = [int(key[9:]) for key in req.args.keys()
+                     if key.startswith('add_rule_')]
+        if add_rules:
+            platform.rules.insert(add_rules[0] + 1, ('', ''))
+            return False
+        rm_rules = [int(key[8:]) for key in req.args.keys()
+                    if key.startswith('rm_rule_')]
+        if rm_rules:
+            del platform.rules[rm_rules[0]]
+            return False
+
+        return True

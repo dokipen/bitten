@@ -50,11 +50,51 @@ if admin.config.name ?>
       </li><?cs
      /each ?></ul><?cs
     /if ?>
+    <div class="buttons">
+     <input type="submit" name="new" value="Add target platform" />
+     <input type="submit" name="delete" value="Delete selected platforms" />
+    </div>
   </fieldset>
   <div class="buttons">
    <input type="submit" name="cancel" value="Cancel" />
    <input type="submit" name="save" value="Save" />
   </div>
+ </form><?cs
+
+elif admin.platform.name ?>
+ <form class="mod" id="modplatform" method="post">
+    <div class="field"><label>Target Platform:
+     <input type="text" name="name" value="<?cs var:admin.platform.name ?>" />
+    </label></div>
+    <fieldset>
+     <legend>Rules</legend>
+     <table><thead><tr>
+      <th>Property name</th><th>Match pattern</th>
+     </tr></thead><tbody><?cs
+      each:rule = admin.platform.rules ?><tr>
+       <td><input type="text" name="property_<?cs var:name(rule) ?>" value="<?cs
+        var:rule.property ?>" /></td>
+       <td><input type="text" name="pattern_<?cs var:name(rule) ?>" value="<?cs
+        var:rule.pattern ?>" /></td>
+       <td><input type="submit" name="add_rule_<?cs
+         var:name(rule) ?>" value="+" /><input type="submit" name="rm_rule_<?cs
+         var:name(rule) ?>" value="-" />
+       </td>
+      </tr><?cs /each ?>
+     </tbody></table>
+    </fieldset>
+    <div class="buttons">
+     <form method="get" action=""><div>
+      <input type="hidden" name="action" value="<?cs
+       if:admin.platform.exists ?>edit<?cs else ?>new<?cs /if ?>" />
+      <input type="hidden" name="platform" value="<?cs
+       var:admin.platform.id ?>" />
+      <input type="submit" name="cancel" value="Cancel" />
+      <input type="submit" name="save" value="<?cs
+       if:admin.platform.exists ?>Save<?cs else ?>Add<?cs
+       /if ?>" />
+     </div></form>
+    </div>
  </form><?cs
 
 else ?>

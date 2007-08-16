@@ -247,9 +247,29 @@ class BuildConfigurationsAdminPageProviderTestCase(unittest.TestCase):
             config = BuildConfig.fetch(self.env, name='bar')
             self.assertEqual('Bar', config.label)
 
+    def test_process_add_config_cancel(self):
+        redirected_to = []
+        def redirect(url):
+            redirected_to.append(url)
+            raise RequestDone
+        req = Mock(method='POST', perm=PermissionCache(self.env, 'joe'),
+                   abs_href=Href('http://example.org/'), redirect=redirect,
+                   args={'cancel': '', 'name': 'bar', 'label': 'Bar'})
+
+        provider = BuildConfigurationsAdminPageProvider(self.env)
+        try:
+            provider.process_admin_request(req, 'bitten', 'configs', '')
+            self.fail('Expected RequestDone')
+
+        except RequestDone:
+            self.assertEqual('http://example.org/admin/bitten/configs',
+                             redirected_to[0])
+            configs = list(BuildConfig.select(self.env, include_inactive=True))
+            self.assertEqual(0, len(configs))
+
     def test_process_add_config_no_name(self):
         req = Mock(method='POST', perm=PermissionCache(self.env, 'joe'),
-                   args={'add': '', 'name': ''})
+                   args={'add': ''})
 
         provider = BuildConfigurationsAdminPageProvider(self.env)
         try:
@@ -258,6 +278,19 @@ class BuildConfigurationsAdminPageProviderTestCase(unittest.TestCase):
 
         except TracError, e:
             self.assertEqual('Missing required field "name"', e.message)
+
+    def test_process_add_config_no_name(self):
+        req = Mock(method='POST', perm=PermissionCache(self.env, 'joe'),
+                   args={'add': '', 'name': 'no spaces allowed'})
+
+        provider = BuildConfigurationsAdminPageProvider(self.env)
+        try:
+            provider.process_admin_request(req, 'bitten', 'configs', '')
+            self.fail('Expected TracError')
+
+        except TracError, e:
+            self.assertEqual('The field "name" may only contain letters, '
+                             'digits, periods, or dashes.', e.message)
 
     def test_process_add_config_no_perms(self):
         BuildConfig(self.env, name='foo', label='Foo', path='branches/foo',
@@ -295,6 +328,31 @@ class BuildConfigurationsAdminPageProviderTestCase(unittest.TestCase):
             self.assertEqual('http://example.org/admin/bitten/configs',
                              redirected_to[0])
             assert not BuildConfig.fetch(self.env, name='bar')
+
+    def test_process_remove_config_cancel(self):
+        BuildConfig(self.env, name='foo', label='Foo', path='branches/foo',
+                    active=True).insert()
+        BuildConfig(self.env, name='bar', label='Bar', path='branches/bar',
+                    min_rev='123', max_rev='456').insert()
+
+        redirected_to = []
+        def redirect(url):
+            redirected_to.append(url)
+            raise RequestDone
+        req = Mock(method='POST', perm=PermissionCache(self.env, 'joe'),
+                   abs_href=Href('http://example.org/'), redirect=redirect,
+                   args={'cancel': '', 'sel': 'bar'})
+
+        provider = BuildConfigurationsAdminPageProvider(self.env)
+        try:
+            provider.process_admin_request(req, 'bitten', 'configs', '')
+            self.fail('Expected RequestDone')
+
+        except RequestDone:
+            self.assertEqual('http://example.org/admin/bitten/configs',
+                             redirected_to[0])
+            configs = list(BuildConfig.select(self.env, include_inactive=True))
+            self.assertEqual(2, len(configs))
 
     def test_process_remove_config_no_selection(self):
         BuildConfig(self.env, name='foo', label='Foo', path='branches/foo',
@@ -353,6 +411,49 @@ class BuildConfigurationsAdminPageProviderTestCase(unittest.TestCase):
 
         except TracError, e:
             self.assertEqual('Missing required field "name"', e.message)
+
+    def test_process_update_config_invalid_name(self):
+        BuildConfig(self.env, name='foo', label='Foo', path='branches/foo',
+                    active=True).insert()
+
+        req = Mock(method='POST', perm=PermissionCache(self.env, 'joe'),
+                   args={'save': '', 'name': 'no spaces allowed'})
+
+        provider = BuildConfigurationsAdminPageProvider(self.env)
+        try:
+            provider.process_admin_request(req, 'bitten', 'configs', 'foo')
+            self.fail('Expected TracError')
+
+        except TracError, e:
+            self.assertEqual('The field "name" may only contain letters, '
+                             'digits, periods, or dashes.', e.message)
+
+    def test_process_update_config_valid(self):
+        BuildConfig(self.env, name='foo', label='Foo', path='branches/foo',
+                    active=True).insert()
+
+        redirected_to = []
+        def redirect(url):
+            redirected_to.append(url)
+            raise RequestDone
+        req = Mock(method='POST', perm=PermissionCache(self.env, 'joe'),
+                   abs_href=Href('http://example.org/'), redirect=redirect,
+                   authname='joe', args={
+            'save': '', 'name': 'foo', 'label': 'Foobar',
+            'description': 'Thanks for all the fish!'
+        })
+
+        provider = BuildConfigurationsAdminPageProvider(self.env)
+        try:
+            provider.process_admin_request(req, 'bitten', 'configs', 'foo')
+            self.fail('Expected RequestDone')
+
+        except RequestDone:
+            self.assertEqual('http://example.org/admin/bitten/configs',
+                             redirected_to[0])
+            config = BuildConfig.fetch(self.env, name='foo')
+            self.assertEqual('Foobar', config.label)
+            self.assertEqual('Thanks for all the fish!', config.description)
 
 
 def suite():
