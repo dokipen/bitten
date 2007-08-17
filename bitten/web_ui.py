@@ -197,7 +197,7 @@ class BuildConfigController(Component):
 
             in_progress_builds = Build.select(self.env, config=config.name,
                                               status=Build.IN_PROGRESS, db=db)
-            
+
             # sort correctly by revision.
             builds = list(in_progress_builds)
             builds.sort(lambda x, y: int(y.rev) - int(x.rev))
@@ -212,7 +212,7 @@ class BuildConfigController(Component):
                 req.hdf[prefix2 + '.rev_href'] = self.env.href.changeset(rev)
                 platform = TargetPlatform.fetch(self.env, build.platform)
                 req.hdf[prefix2 + '.platform'] = platform.name
-                
+
                 for step in BuildStep.select(self.env, build=build.id, db=db):
                     req.hdf['%s.steps.%s' % (prefix2, step.name)] = {
                          'description': step.description,
@@ -220,7 +220,8 @@ class BuildConfigController(Component):
                                      datetime.fromtimestamp(step.started),
                          'failed': not step.successful,
                          'errors': step.errors,
-                         'href': req.hdf[prefix2 + '.href'] + '#step_' + step.name }
+                         'href': req.hdf[prefix2 + '.href'] + '#step_' + step.name
+                    }
 
                 current_builds = current_builds + 1
 

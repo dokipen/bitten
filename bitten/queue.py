@@ -19,6 +19,7 @@ the next pending build, and to match build slaves against configured target
 platforms.
 """
 
+from datetime import datetime
 from itertools import ifilter
 import logging
 import re
@@ -214,11 +215,18 @@ class BuildQueue(object):
                     self.log.info('Enqueuing build of configuration "%s" at '
                                   'revision [%s] on %s', config.name, rev,
                                   platform.name)
+
+                    rev_time = repos.get_changeset(rev).date
+                    if isinstance(rev_time, datetime): # Trac>=0.11
+                        from trac.util.datefmt import to_timestamp
+                        rev_time = to_timestamp(rev_time)
+
                     build = Build(self.env, config=config.name,
                                   platform=platform.id, rev=str(rev),
-                                  rev_time=repos.get_changeset(rev).date)
+                                  rev_time=rev_time)
                     builds.append(build)
                     break
+
                 if not self.build_all:
                     self.log.debug('Ignoring older revisions for configuration '
                                    '%r', config.name)

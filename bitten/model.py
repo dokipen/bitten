@@ -408,9 +408,9 @@ class Build(object):
         cursor.execute("INSERT INTO bitten_build (config,rev,rev_time,platform,"
                        "slave,started,stopped,status) "
                        "VALUES (%s,%s,%s,%s,%s,%s,%s,%s)",
-                       (self.config, self.rev, self.rev_time, self.platform,
-                        self.slave or '', self.started or 0, self.stopped or 0,
-                        self.status))
+                       (self.config, self.rev, int(self.rev_time),
+                        self.platform, self.slave or '', self.started or 0,
+                        self.stopped or 0, self.status))
         self.id = db.get_last_id(cursor, 'bitten_build')
         if self.slave_info:
             cursor.executemany("INSERT INTO bitten_slave VALUES (%s,%s,%s)",
