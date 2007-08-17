@@ -13,10 +13,6 @@
 from datetime import datetime
 import posixpath
 import re
-try:
-    set
-except NameError:
-    from sets import Set as set
 from StringIO import StringIO
 
 import pkg_resources
@@ -35,8 +31,6 @@ from bitten.api import ILogFormatter, IReportChartGenerator, IReportSummarizer
 from bitten.model import BuildConfig, TargetPlatform, Build, BuildStep, \
                          BuildLog, Report
 from bitten.queue import collect_changes
-from bitten.recipe import Recipe, InvalidRecipeError
-from bitten.util import xmlio
 
 _status_label = {Build.PENDING: 'pending',
                  Build.IN_PROGRESS: 'in progress',
@@ -125,229 +119,17 @@ class BuildConfigController(Component):
         view = req.args.get('view')
         config = req.args.get('config')
 
-        if req.method == 'POST':
-            if config:
-                if action == 'new':
-                    self._do_create_platform(req, config)
-                elif action == 'delete':
-                    self._do_delete_config(req, config)
-                else:
-                    platform_id = req.args.get('platform')
-                    if platform_id:
-                        if action == 'edit':
-                            self._do_save_platform(req, config, platform_id)
-                    elif 'delete' in req.args:
-                        self._do_delete_platforms(req)
-                        self._render_config_form(req, config)
-                    elif 'new' in req.args:
-                        platform = TargetPlatform(self.env, config=config)
-                        self._render_platform_form(req, platform)
-                    else:
-                        self._do_save_config(req, config)
-            else:
-                if action == 'new':
-                    self._do_create_config(req)
+        if config:
+            self._render_config(req, config)
+        elif view == 'inprogress':
+            self._render_inprogress(req)
         else:
-            if config:
-                if action == 'delete':
-                    self._render_config_confirm(req, config)
-                elif action == 'edit':
-                    platform_id = req.args.get('platform')
-                    if platform_id:
-                        platform = TargetPlatform.fetch(self.env,
-                                                        int(platform_id))
-                        self._render_platform_form(req, platform)
-                    elif 'new' in req.args:
-                        platform = TargetPlatform(self.env, config=config)
-                        self._render_platform_form(req, platform)
-                    else:
-                        self._render_config_form(req, config)
-                else:
-                    self._render_config(req, config)
-            else:
-                if action == 'new':
-                    self._render_config_form(req)
-                elif view == 'inprogress':
-                    self._render_inprogress(req)
-                else:
-                    self._render_overview(req)
+            self._render_overview(req)
 
         add_stylesheet(req, 'bitten/bitten.css')
         return 'bitten_config.cs', None
 
     # Internal methods
-
-    def _do_create_config(self, req):
-        """Create a new build configuration."""
-        req.perm.assert_permission('BUILD_CREATE')
-
-        if 'cancel' in req.args:
-            req.redirect(req.href.build())
-
-        config_name = req.args.get('name')
-
-        if BuildConfig.fetch(self.env, config_name):
-            raise TracError('A build configuration with the name "%s" already '
-                            'exists' % config_name, 'Duplicate name')
-
-        config = BuildConfig(self.env)
-        self._process_config(req, config)
-        config.insert()
-
-        req.redirect(req.href.build(config.name))
-
-    def _do_delete_config(self, req, config_name):
-        """Save changes to a build configuration."""
-        req.perm.assert_permission('BUILD_DELETE')
-
-        if 'cancel' in req.args:
-            req.redirect(req.href.build(config_name))
-
-        db = self.env.get_db_cnx()
-
-        config = BuildConfig.fetch(self.env, config_name, db=db)
-        assert config, 'Build configuration "%s" does not exist' % config_name
-
-        config.delete(db=db)
-
-        db.commit()
-
-        req.redirect(req.href.build())
-
-    def _do_save_config(self, req, config_name):
-        """Save changes to a build configuration."""
-        req.perm.assert_permission('BUILD_MODIFY')
-
-        if 'cancel' in req.args:
-            req.redirect(req.href.build(config_name))
-
-        config = BuildConfig.fetch(self.env, config_name)
-        if not config:
-            # FIXME: 404
-            raise TracError('Build configuration "%s" does not exist'
-                            % config_name, 'Object not found')
-
-        if 'activate' in req.args:
-            config.active = True
-
-        elif 'deactivate' in req.args:
-            config.active = False
-
-        else:
-            self._process_config(req, config)
-
-        config.update()
-        req.redirect(req.href.build(config.name))
-
-    def _process_config(self, req, config):
-        name = req.args.get('name')
-        if not name:
-            raise TracError('Missing required field "name"', 'Missing field')
-        if not re.match(r'^[\w.-]+$', name):
-            raise TracError('The field "name" may only contain letters, '
-                            'digits, periods, or dashes.', 'Invalid field')
-
-        path = req.args.get('path', '')
-        repos = self.env.get_repository(req.authname)
-        max_rev = req.args.get('max_rev') or None
-        try:
-            node = repos.get_node(path, max_rev)
-            assert node.isdir, '%s is not a directory' % node.path
-        except (AssertionError, TracError), e:
-            raise TracError(e, 'Invalid repository path')
-        if req.args.get('min_rev'):
-            try:
-                repos.get_node(path, req.args.get('min_rev'))
-            except TracError, e:
-                raise TracError(e, 'Invalid value for oldest revision')
-
-        recipe_xml = req.args.get('recipe', '')
-        if recipe_xml:
-            try:
-                Recipe(xmlio.parse(recipe_xml)).validate()
-            except xmlio.ParseError, e:
-                raise TracError('Failure parsing recipe: %s' % e,
-                                'Invalid recipe')
-            except InvalidRecipeError, e:
-                raise TracError(e, 'Invalid recipe')
-
-        config.name = name
-        config.path = repos.normalize_path(path)
-        config.recipe = recipe_xml
-        config.min_rev = req.args.get('min_rev')
-        config.max_rev = req.args.get('max_rev')
-        config.label = req.args.get('label', '')
-        config.description = req.args.get('description', '')
-
-    def _do_create_platform(self, req, config_name):
-        """Create a new target platform."""
-        req.perm.assert_permission('BUILD_MODIFY')
-
-        if 'cancel' in req.args:
-            req.redirect(req.href.build(config_name, action='edit'))
-
-        platform = TargetPlatform(self.env, config=config_name)
-        if self._process_platform(req, platform):
-            platform.insert()
-            req.redirect(req.href.build(config_name, action='edit'))
-
-    def _do_delete_platforms(self, req):
-        """Delete selected target platforms."""
-        req.perm.assert_permission('BUILD_MODIFY')
-        self.log.debug('_do_delete_platforms')
-
-        db = self.env.get_db_cnx()
-        for platform_id in [int(id) for id in req.args.get('delete_platform')]:
-            platform = TargetPlatform.fetch(self.env, platform_id, db=db)
-            self.log.info('Deleting target platform %s of configuration %s',
-                          platform.name, platform.config)
-            platform.delete(db=db)
-
-            # FIXME: this should probably also delete all builds done for this
-            # platform, and all the associated reports
-
-        db.commit()
-
-    def _do_save_platform(self, req, config_name, platform_id):
-        """Save changes to a target platform."""
-        req.perm.assert_permission('BUILD_MODIFY')
-
-        if 'cancel' in req.args:
-            req.redirect(req.href.build(config_name, action='edit'))
-
-        platform = TargetPlatform.fetch(self.env, platform_id)
-        if self._process_platform(req, platform):
-            platform.update()
-            req.redirect(req.href.build(config_name, action='edit'))
-
-    def _process_platform(self, req, platform):
-        platform.name = req.args.get('name')
-
-        properties = [int(key[9:]) for key in req.args.keys()
-                      if key.startswith('property_')]
-        properties.sort()
-        patterns = [int(key[8:]) for key in req.args.keys()
-                    if key.startswith('pattern_')]
-        patterns.sort()
-        platform.rules = [(req.args.get('property_%d' % property),
-                           req.args.get('pattern_%d' % pattern))
-                          for property, pattern in zip(properties, patterns)
-                          if req.args.get('property_%d' % property)]
-
-        add_rules = [int(key[9:]) for key in req.args.keys()
-                     if key.startswith('add_rule_')]
-        if add_rules:
-            platform.rules.insert(add_rules[0] + 1, ('', ''))
-            self._render_platform_form(req, platform)
-            return False
-        rm_rules = [int(key[8:]) for key in req.args.keys()
-                    if key.startswith('rm_rule_')]
-        if rm_rules:
-            del platform.rules[rm_rules[0]]
-            self._render_platform_form(req, platform)
-            return False
-
-        return True
 
     def _render_overview(self, req):
         req.hdf['title'] = 'Build Status'
@@ -355,8 +137,6 @@ class BuildConfigController(Component):
         if req.args.get('show') == 'all':
             show_all = True
         req.hdf['config.show_all'] = show_all
-
-        add_link(req, 'views', req.href.build(view='inprogress'), 'In Progress Builds')
 
         configs = BuildConfig.select(self.env, include_inactive=show_all)
         for idx, config in enumerate(configs):
@@ -402,7 +182,8 @@ class BuildConfigController(Component):
                     }
 
         req.hdf['page.mode'] = 'overview'
-        req.hdf['config.can_create'] = req.perm.has_permission('BUILD_CREATE')
+        add_link(req, 'views', req.href.build(view='inprogress'),
+                 'In Progress Builds')
 
     def _render_inprogress(self, req):
         req.hdf['title'] = 'In Progress Builds'
@@ -475,9 +256,7 @@ class BuildConfigController(Component):
             'max_rev': config.max_rev,
             'max_rev_href': req.href.changeset(config.max_rev),
             'active': config.active, 'description': description,
-            'browser_href': req.href.browser(config.path),
-            'can_modify': req.perm.has_permission('BUILD_MODIFY'),
-            'can_delete': req.perm.has_permission('BUILD_DELETE')
+            'browser_href': req.href.browser(config.path)
         }
         req.hdf['page.mode'] = 'view_config'
 
@@ -546,53 +325,6 @@ class BuildConfigController(Component):
         if more:
             next_href = req.href.build(config.name, page=page + 1)
             add_link(req, 'next', next_href, 'Next Page')
-
-    def _render_config_confirm(self, req, config_name):
-        req.perm.assert_permission('BUILD_DELETE')
-        config = BuildConfig.fetch(self.env, config_name)
-        req.hdf['title'] = 'Delete Build Configuration "%s"' \
-                           % config.label or config.name
-        req.hdf['config'] = {'name': config.name}
-        req.hdf['page.mode'] = 'delete_config'
-
-    def _render_config_form(self, req, config_name=None):
-        config = BuildConfig.fetch(self.env, config_name)
-        if config:
-            req.perm.assert_permission('BUILD_MODIFY')
-            req.hdf['config'] = {
-                'name': config.name, 'exists': config.exists,
-                'path': config.path, 'active': config.active,
-                'recipe': config.recipe, 'min_rev': config.min_rev,
-                'max_rev': config.max_rev, 'label': config.label,
-                'description': config.description
-            }
-
-            req.hdf['title'] = 'Edit Build Configuration "%s"' \
-                               % config.label or config.name
-            for idx, platform in enumerate(TargetPlatform.select(self.env,
-                                                                 config_name)):
-                req.hdf['config.platforms.%d' % idx] = {
-                    'id': platform.id, 'name': platform.name,
-                    'href': req.href.build(config_name, action='edit',
-                                           platform=platform.id)
-                }
-        else:
-            req.perm.assert_permission('BUILD_CREATE')
-            req.hdf['title'] = 'Create Build Configuration'
-        req.hdf['page.mode'] = 'edit_config'
-
-    def _render_platform_form(self, req, platform):
-        req.perm.assert_permission('BUILD_MODIFY')
-        if platform.exists:
-            req.hdf['title'] = 'Edit Target Platform "%s"' % platform.name
-        else:
-            req.hdf['title'] = 'Add Target Platform'
-        req.hdf['platform'] = {
-            'name': platform.name, 'id': platform.id, 'exists': platform.exists,
-            'rules': [{'property': propname, 'pattern': pattern}
-                      for propname, pattern in platform.rules] or [('', '')]
-        }
-        req.hdf['page.mode'] = 'edit_platform'
 
 
 class BuildController(Component):

@@ -15,18 +15,13 @@ import urllib2
 import logging
 import os
 import platform
-try:
-    set
-except NameError:
-    from sets import Set as set
 import shutil
 import tempfile
 import time
-import urlparse
 
 from bitten.build import BuildError
 from bitten.build.config import Configuration
-from bitten.recipe import Recipe, InvalidRecipeError
+from bitten.recipe import Recipe
 from bitten.util import xmlio
 
 __all__ = ['BuildSlave', 'ExitSlave']

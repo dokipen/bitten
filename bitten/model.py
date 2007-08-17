@@ -10,11 +10,6 @@
 
 """Model classes for objects persisted in the database."""
 
-try:
-    set
-except NameError:
-    from sets import Set as set
-
 from trac.db import Table, Column, Index
 
 __docformat__ = 'restructuredtext en'

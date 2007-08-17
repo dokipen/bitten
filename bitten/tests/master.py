@@ -8,7 +8,6 @@
 # you should have received as part of this distribution. The terms
 # are also available at http://bitten.edgewall.org/wiki/License.
 
-from datetime import datetime
 import re
 import shutil
 from StringIO import StringIO
@@ -22,7 +21,6 @@ from trac.web.api import HTTPBadRequest, HTTPMethodNotAllowed, HTTPNotFound, \
                          RequestDone
 from trac.web.href import Href
 
-from bitten.main import BuildSystem
 from bitten.master import BuildMaster
 from bitten.model import BuildConfig, TargetPlatform, Build, BuildStep, \
                          BuildLog, Report, schema

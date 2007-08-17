@@ -39,9 +39,12 @@ web interface, or just the build slave. In the latter case, you're already
 done. You might need to install software that the build of your project
 requires, but the Bitten build slave itself doesn't require anything extra.
 
-For the build master and web interface, you'll need to install Trac 0.10 or
-later. Please refer to the Trac documentation for information on how it is
-installed.
+For the build master and web interface, you'll need to install Trac_ 0.10 or
+later and the TracWebAdmin_ plugin. Please refer to the Trac documentation for
+information on how it is installed.
+
+.. _trac: http://trac.edgewall.org/
+.. _tracwebadmin: http://trac.edgewall.org/wiki/WebAdmin
 
 
 Build Master Configuration
@@ -53,7 +56,7 @@ set up yet, you'll need to do so in order to use Bitten.
 
 If you already have a Trac project environment, the Bitten plugin needs to be
 explicitly enabled in the Trac configuration. This is done by adding it to the
-[components] section in /path/to/projenv/conf/trac.ini:
+``[components]`` section in ``/path/to/projenv/conf/trac.ini``:
 
 .. code-block:: ini
 
@@ -76,11 +79,27 @@ status and results of builds::
 
 You should now see an additional tab labeled "Build Status" in the Trac
 navigation bar. This link will take you to the list of build configurations,
-which at this point is of course empty. If you've set up permissions
-correctly as described previously, you should see a button for adding new
-build configurations. Click that button and fill out the form. Also, add
-at least one target platform after saving the configuration. Last but not
-least, you'll have to "activate" the build configuration.
+which at this point is of course empty.
+
+To add build configurations, you need to have the TracWebAdmin_ plugin
+installed.
+
+.. warning:: The TracWebAdmin needs to be installed even if you're using Trac
+             0.11 or later, which basically provides a builtin web
+             administration interface. Make sure that you disable the plugin in
+             that case, though (``webadmin.* = disabled``). While somewhat
+             counterintuitive, this process allows the Bitten administration UI
+             to neatly integrate into the new web administration interface added
+             in Trac 0.11.
+
+If both TracWebAdmin_ and Bitten are installed, and you are logged in as a user
+with the required permissions, you should see additional administration pages
+inside the “Admin” area, under a group named “Builds”. These pages allow you to
+set options of the build master, and manage build configurations.
+
+Add a new build configuration and fill out the form. Also, add at least one
+target platform after saving the configuration. Last but not least, you'll have
+to "activate" your new build configuration.
 
 
 Running the Build Slave

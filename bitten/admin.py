@@ -13,6 +13,7 @@ from pkg_resources import require, DistributionNotFound
 import re
 
 from trac.core import *
+from trac.web.chrome import add_stylesheet
 try:
     require("TracWebAdmin")
     from webadmin.web_ui import IAdminPageProvider
@@ -20,7 +21,7 @@ except DistributionNotFound, ImportError:
     IAdminPageProvider = None
 
 from bitten.model import BuildConfig, TargetPlatform
-from bitten.recipe import Recipe
+from bitten.recipe import Recipe, InvalidRecipeError
 from bitten.util import xmlio
 
 
@@ -48,6 +49,7 @@ class BuildMasterAdminPageProvider(Component):
             'adjust_timestamps': master.adjust_timestamps,
             'slave_timeout': master.slave_timeout,
         }
+        add_stylesheet(req, 'bitten/admin.css')
         return 'bitten_admin_master.cs', None
 
     # Internal methods
@@ -93,17 +95,29 @@ class BuildConfigurationsAdminPageProvider(Component):
         data = {}
 
         if config_name:
-            if '/' in config_name:
-                config_name, platform_id = config_name.split('/', 1)
-                platform_id = int(platform_id)
+            if '/' in config_name or (
+                    req.method == 'POST' and 'new' in req.args):
+                if '/' in config_name:
+                    config_name, platform_id = config_name.split('/', 1)
+                    platform_id = int(platform_id)
+                    platform = TargetPlatform.fetch(self.env, platform_id)
 
-                platform = TargetPlatform.fetch(self.env, platform_id)
+                    if req.method == 'POST':
+                        if 'cancel' in req.args or \
+                                self._update_platform(req, platform):
+                            req.redirect(req.abs_href.admin(cat, page,
+                                                            config_name))
+                else:
+                    if req.method == 'POST':
+                        if 'add' in req.args:
+                            self._create_platform(req, config_name)
+                            req.redirect(req.abs_href.admin(cat, page,
+                                                            config_name))
+                        elif 'cancel' in req.args:
+                            req.redirect(req.abs_href.admin(cat, page,
+                                                            config_name))
 
-                if req.method == 'POST':
-                    if 'cancel' in req.args:
-                        req.redirect(req.abs_href.admin(cat, page, config_name))
-                    elif self._process_platform(req, platform):
-                        req.redirect(req.abs_href.admin(cat, page, config_name))
+                    platform = TargetPlatform(self.env, config=config_name)
 
                 data['platform'] = {
                     'id': platform.id, 'name': platform.name,
@@ -120,7 +134,13 @@ class BuildConfigurationsAdminPageProvider(Component):
                                                        config=config.name))
 
                 if req.method == 'POST':
-                    if 'save' in req.args:
+                    if 'add' in req.args: # Add target platform
+                        platform = self._create_platform(req, config)
+                        req.redirect(req.abs_href.admin(cat, page, config.name))
+                    elif 'remove' in req.args: # Remove selected platforms
+                        self._remove_platforms(req)
+                        req.redirect(req.abs_href.admin(cat, page, config.name))
+                    elif 'save' in req.args:
                         self._update_config(req, config)
                     req.redirect(req.abs_href.admin(cat, page))
 
@@ -134,7 +154,9 @@ class BuildConfigurationsAdminPageProvider(Component):
                         'name': platform.name,
                         'id': platform.id,
                         'href': req.href.admin('bitten', 'configs', config.name,
-                                               platform.id)
+                                               platform.id),
+                        'rules': [{'property': propname, 'pattern': pattern}
+                                   for propname, pattern in platform.rules]
                     } for platform in platforms]
                 }
 
@@ -160,6 +182,7 @@ class BuildConfigurationsAdminPageProvider(Component):
             data['configs'] = configs
 
         req.hdf['admin'] = data
+        add_stylesheet(req, 'bitten/admin.css')
         return 'bitten_admin_configs.cs', None
 
     # Internal methods
@@ -173,8 +196,8 @@ class BuildConfigurationsAdminPageProvider(Component):
 
         active = isinstance(active, list) and active or [active]
         db = self.env.get_db_cnx()
-        for config in BuildConfig.select(self.env, db=db,
-                                         include_inactive=True):
+        for config in list(BuildConfig.select(self.env, db=db,
+                                              include_inactive=True)):
             config.active = config.name in active
             config.update(db=db)
         db.commit()
@@ -182,18 +205,8 @@ class BuildConfigurationsAdminPageProvider(Component):
     def _create_config(self, req):
         req.perm.assert_permission('BUILD_CREATE')
 
-        name = req.args.get('name')
-        if not name:
-            raise TracError('Missing required field "name"', 'Missing field')
-        if not re.match(r'^[\w.-]+$', name):
-            raise TracError('The field "name" may only contain letters, '
-                            'digits, periods, or dashes.', 'Invalid field')
-
         config = BuildConfig(self.env)
-        config.name = req.args.get('name')
-        config.label = req.args.get('label', config.name)
-        config.path = req.args.get('path')
-        config.insert()
+        self._update_config(req, config)
         return config
 
     def _remove_configs(self, req):
@@ -217,10 +230,10 @@ class BuildConfigurationsAdminPageProvider(Component):
 
         name = req.args.get('name')
         if not name:
-            raise TracError('Missing required field "name"', 'Missing field')
+            raise TracError('Missing required field "name"', 'Missing Field')
         if not re.match(r'^[\w.-]+$', name):
             raise TracError('The field "name" may only contain letters, '
-                            'digits, periods, or dashes.', 'Invalid field')
+                            'digits, periods, or dashes.', 'Invalid Field')
 
         path = req.args.get('path', '')
         repos = self.env.get_repository(req.authname)
@@ -229,12 +242,12 @@ class BuildConfigurationsAdminPageProvider(Component):
             node = repos.get_node(path, max_rev)
             assert node.isdir, '%s is not a directory' % node.path
         except (AssertionError, TracError), e:
-            raise TracError(e, 'Invalid repository path')
+            raise TracError(unicode(e), 'Invalid Repository Path')
         if req.args.get('min_rev'):
             try:
                 repos.get_node(path, req.args.get('min_rev'))
             except TracError, e:
-                raise TracError(e, 'Invalid value for oldest revision')
+                raise TracError(unicode(e), 'Invalid Oldest Revision')
 
         recipe_xml = req.args.get('recipe', '')
         if recipe_xml:
@@ -242,9 +255,9 @@ class BuildConfigurationsAdminPageProvider(Component):
                 Recipe(xmlio.parse(recipe_xml)).validate()
             except xmlio.ParseError, e:
                 raise TracError('Failure parsing recipe: %s' % e,
-                                'Invalid recipe')
+                                'Invalid Recipe')
             except InvalidRecipeError, e:
-                raise TracError(e, 'Invalid recipe')
+                raise TracError(unicode(e), 'Invalid Recipe')
 
         config.name = name
         config.path = repos.normalize_path(path)
@@ -253,9 +266,40 @@ class BuildConfigurationsAdminPageProvider(Component):
         config.max_rev = req.args.get('max_rev')
         config.label = req.args.get('label', config.name)
         config.description = req.args.get('description', '')
-        config.update()
 
-    def _process_platform(self, req, platform):
+        if config.exists:
+            config.update()
+        else:
+            config.insert()
+
+    def _create_platform(self, req, config_name):
+        req.perm.assert_permission('BUILD_MODIFY')
+
+        name = req.args.get('name')
+        if not name:
+            raise TracError('Missing required field "name"', 'Missing field')
+
+        platform = TargetPlatform(self.env, config=config_name, name=name)
+        self._update_platform(req, platform)
+        return platform
+
+    def _remove_platforms(self, req):
+        req.perm.assert_permission('BUILD_MODIFY')
+
+        sel = req.args.get('sel')
+        if not sel:
+            raise TracError('No platform selected')
+        sel = isinstance(sel, list) and sel or [sel]
+
+        db = self.env.get_db_cnx()
+        for platform_id in sel:
+            platform = TargetPlatform.fetch(self.env, platform_id, db=db)
+            if not platform:
+                raise TracError('Target platform %r not found' % platform_id)
+            platform.delete(db=db)
+        db.commit()
+
+    def _update_platform(self, req, platform):
         platform.name = req.args.get('name')
 
         properties = [int(key[9:]) for key in req.args.keys()
@@ -269,6 +313,11 @@ class BuildConfigurationsAdminPageProvider(Component):
                           for property, pattern in zip(properties, patterns)
                           if req.args.get('property_%d' % property)]
 
+        if platform.exists:
+            platform.update()
+        else:
+            platform.insert()
+
         add_rules = [int(key[9:]) for key in req.args.keys()
                      if key.startswith('add_rule_')]
         if add_rules:
@@ -277,7 +326,8 @@ class BuildConfigurationsAdminPageProvider(Component):
         rm_rules = [int(key[8:]) for key in req.args.keys()
                     if key.startswith('rm_rule_')]
         if rm_rules:
-            del platform.rules[rm_rules[0]]
+            if rm_rules[0] < len(platform.rules):
+                del platform.rules[rm_rules[0]]
             return False
 
         return True

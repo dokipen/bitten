@@ -2,7 +2,7 @@
 
 if admin.config.name ?>
  <form class="mod" id="modconfig" method="post">
-  <table summary=""><tr>
+  <table class="form" summary=""><tr>
    <td class="name"><label>Name:<br />
     <input type="text" name="name" value="<?cs var:admin.config.name ?>" />
    </label></td>
@@ -14,20 +14,21 @@ if admin.config.name ?>
    <td colspan="2"><fieldset class="iefix">
     <label for="description">Description (you may use <a tabindex="42" href="<?cs
       var:trac.href.wiki ?>/WikiFormatting">WikiFormatting</a> here):</label>
-    <p><textarea id="description" name="description" class="wikitext" rows="5" cols="78"><?cs
+    <p><textarea id="description" name="description" class="wikitext" rows="3" cols="65"><?cs
       var:admin.config.description ?></textarea></p>
     <script type="text/javascript" src="<?cs
       var:chrome.href ?>/common/js/wikitoolbar.js"></script>
    </fieldset></td>
+  </tr><tr>
+   <td colspan="2"><fieldset class="iefix">
+    <label for="recipe">Recipe</label>
+    <p><textarea id="recipe" name="recipe" rows="8" cols="78"><?cs
+     var:admin.config.recipe ?></textarea></p>
+   </fieldset></td>
   </tr></table>
-  <fieldset id="recipe">
-   <legend>Build Recipe</legend>
-   <textarea id="recipe" name="recipe" rows="8" cols="78"><?cs
-     var:admin.config.recipe ?></textarea>
-  </fieldset>
   <fieldset id="repos">
    <legend>Repository Mapping</legend>
-   <table summary=""><tr>
+   <table class="form" summary=""><tr>
     <th><label for="path">Path:</label></th>
     <td colspan="3"><input type="text" name="path" size="48" value="<?cs
       var:admin.config.path ?>" /></td>
@@ -40,61 +41,72 @@ if admin.config.name ?>
       var:admin.config.max_rev ?>" /></td>
    </table>
   </fieldset>
-  <fieldset>
-    <legend>Target Platforms</legend><?cs
-    if:len(admin.config.platforms) ?><ul><?cs
-     each:platform = admin.config.platforms ?>
-      <li><input type="checkbox" name="delete_platform" value="<?cs
-       var:platform.id ?>"> <a href="<?cs
-       var:platform.href ?>"><?cs var:platform.name ?></a>
-      </li><?cs
-     /each ?></ul><?cs
-    /if ?>
-    <div class="buttons">
-     <input type="submit" name="new" value="Add target platform" />
-     <input type="submit" name="delete" value="Delete selected platforms" />
-    </div>
-  </fieldset>
   <div class="buttons">
    <input type="submit" name="cancel" value="Cancel" />
    <input type="submit" name="save" value="Save" />
   </div>
+  <div class="platforms">
+   <h3>Target Platforms</h3>
+   <table class="listing" id="platformlist">
+    <thead>
+     <tr><th class="sel">&nbsp;</th><th>Name</th><th>Rules</th></tr>
+    </thead><?cs each:platform = admin.config.platforms ?><tr>
+      <td class="sel"><input type="checkbox" name="sel" value="<?cs
+        var:platform.id ?>" /></td>
+      <td class="name"><a href="<?cs var:platform.href?>"><?cs
+        var:platform.name ?></a></td>
+      <td class="rules"><?cs if:len(platform.rules) ?><ul><?cs
+       each:rule = platform.rules ?><li><code>
+        <strong><?cs var:rule.property ?></strong> ~= <?cs var:rule.pattern ?>
+       </code></li><?cs
+       /each ?></ul><?cs
+      /if ?></td>
+     </tr><?cs
+    /each ?>
+   </table>
+   <div class="buttons">
+    <input type="submit" name="new" value="Add platform" />
+    <input type="submit" name="remove" value="Delete selected platforms" />
+   </div>
+  </div>
  </form><?cs
 
-elif admin.platform.name ?>
+elif len(admin.platform) ?>
  <form class="mod" id="modplatform" method="post">
-    <div class="field"><label>Target Platform:
-     <input type="text" name="name" value="<?cs var:admin.platform.name ?>" />
-    </label></div>
-    <fieldset>
-     <legend>Rules</legend>
-     <table><thead><tr>
-      <th>Property name</th><th>Match pattern</th>
-     </tr></thead><tbody><?cs
-      each:rule = admin.platform.rules ?><tr>
-       <td><input type="text" name="property_<?cs var:name(rule) ?>" value="<?cs
-        var:rule.property ?>" /></td>
-       <td><input type="text" name="pattern_<?cs var:name(rule) ?>" value="<?cs
-        var:rule.pattern ?>" /></td>
-       <td><input type="submit" name="add_rule_<?cs
-         var:name(rule) ?>" value="+" /><input type="submit" name="rm_rule_<?cs
-         var:name(rule) ?>" value="-" />
-       </td>
-      </tr><?cs /each ?>
-     </tbody></table>
-    </fieldset>
-    <div class="buttons">
-     <form method="get" action=""><div>
-      <input type="hidden" name="action" value="<?cs
-       if:admin.platform.exists ?>edit<?cs else ?>new<?cs /if ?>" />
-      <input type="hidden" name="platform" value="<?cs
-       var:admin.platform.id ?>" />
-      <input type="submit" name="cancel" value="Cancel" />
-      <input type="submit" name="save" value="<?cs
-       if:admin.platform.exists ?>Save<?cs else ?>Add<?cs
-       /if ?>" />
-     </div></form>
-    </div>
+  <div class="field"><label>Target Platform:
+   <input type="text" name="name" value="<?cs var:admin.platform.name ?>" />
+  </label></div>
+  <fieldset>
+   <legend>Rules</legend>
+   <table><thead><tr>
+    <th>Property name</th><th>Match pattern</th>
+   </tr></thead><tbody><?cs
+    each:rule = admin.platform.rules ?><tr>
+     <td><input type="text" name="property_<?cs var:name(rule) ?>" value="<?cs
+      var:rule.property ?>" /></td>
+     <td><input type="text" name="pattern_<?cs var:name(rule) ?>" value="<?cs
+      var:rule.pattern ?>" /></td>
+     <td><input type="submit" name="add_rule_<?cs
+       var:name(rule) ?>" value="+" /><input type="submit" name="rm_rule_<?cs
+       var:name(rule) ?>" value="-" />
+     </td>
+    </tr><?cs /each ?>
+   </tbody></table>
+  </fieldset>
+  <div class="buttons">
+   <form method="get" action=""><div>
+    <input type="hidden" name="<?cs
+     if:admin.platform.exists ?>edit<?cs else ?>new<?cs /if ?>" value="" />
+    <input type="hidden" name="platform" value="<?cs
+     var:admin.platform.id ?>" />
+    <input type="submit" name="cancel" value="Cancel" />
+    <?cs if:admin.platform.exists ?>
+     <input type="submit" name="save" value="Save" />
+    <?cs else ?>
+     <input type="submit" name="add" value="Add" />
+    <?cs /if ?>
+   </div></form>
+  </div>
  </form><?cs
 
 else ?>

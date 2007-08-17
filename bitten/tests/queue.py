@@ -16,7 +16,7 @@ import unittest
 
 from trac.db import DatabaseManager
 from trac.test import EnvironmentStub, Mock
-from bitten.model import BuildConfig, TargetPlatform, Build, BuildStep, schema
+from bitten.model import BuildConfig, TargetPlatform, Build, schema
 from bitten.queue import BuildQueue, collect_changes
 
 

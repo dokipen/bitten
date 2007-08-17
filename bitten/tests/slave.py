@@ -12,7 +12,6 @@ import os
 import shutil
 import tempfile
 import unittest
-import zipfile
 
 from trac.test import Mock
 from bitten.slave import BuildSlave
@@ -22,8 +21,7 @@ class BuildSlaveTestCase(unittest.TestCase):
 
     def setUp(self):
         self.work_dir = tempfile.mkdtemp(prefix='bitten_test')
-        self.slave = Slave(None, work_dir=self.work_dir)
-        self.handler = OrchestrationProfileHandler(Mock(session=self.slave))
+        self.slave = BuildSlave(None, work_dir=self.work_dir)
 
     def tearDown(self):
         shutil.rmtree(self.work_dir)

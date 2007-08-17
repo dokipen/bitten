@@ -15,12 +15,9 @@ from trac.core import TracError
 from trac.db import DatabaseManager
 from trac.perm import PermissionCache, PermissionError, PermissionSystem
 from trac.test import EnvironmentStub, Mock
-from trac.versioncontrol import Repository
-from trac.web.clearsilver import HDFWrapper
 from trac.web.href import Href
-from trac.web.main import Request, RequestDone
-from bitten.main import BuildSystem
-from bitten.model import BuildConfig, TargetPlatform, Build, schema
+from trac.web.main import RequestDone
+from bitten.model import BuildConfig, TargetPlatform, schema
 from bitten.admin import BuildMasterAdminPageProvider, \
                          BuildConfigurationsAdminPageProvider
 
@@ -69,7 +66,7 @@ class BuildMasterAdminPageProviderTestCase(unittest.TestCase):
 
     def test_process_get_request(self):
         data = {}
-        req = Mock(method='GET', hdf=data,
+        req = Mock(method='GET', chrome={}, hdf=data, href=Href('/'),
                    perm=PermissionCache(self.env, 'joe'))
 
         provider = BuildMasterAdminPageProvider(self.env)
@@ -153,9 +150,9 @@ class BuildConfigurationsAdminPageProviderTestCase(unittest.TestCase):
         req = Mock(perm=PermissionCache(self.env, 'joe'))
         self.assertEqual([], list(provider.get_admin_pages(req)))
 
-    def test_process_get_request_overview_empty(self):
+    def test_process_view_configs_empty(self):
         data = {}
-        req = Mock(method='GET', hdf=data,
+        req = Mock(method='GET', chrome={}, hdf=data, href=Href('/'),
                    perm=PermissionCache(self.env, 'joe'))
 
         provider = BuildConfigurationsAdminPageProvider(self.env)
@@ -174,7 +171,7 @@ class BuildConfigurationsAdminPageProviderTestCase(unittest.TestCase):
                     min_rev='123', max_rev='456').insert()
 
         data = {}
-        req = Mock(method='GET', hdf=data, href=Href('/'),
+        req = Mock(method='GET', chrome={}, hdf=data, href=Href('/'),
                    perm=PermissionCache(self.env, 'joe'))
 
         provider = BuildConfigurationsAdminPageProvider(self.env)
@@ -203,7 +200,7 @@ class BuildConfigurationsAdminPageProviderTestCase(unittest.TestCase):
         TargetPlatform(self.env, config='foo', name='any').insert()
 
         data = {}
-        req = Mock(method='GET', hdf=data, href=Href('/'),
+        req = Mock(method='GET', chrome={}, hdf=data, href=Href('/'),
                    perm=PermissionCache(self.env, 'joe'))
 
         provider = BuildConfigurationsAdminPageProvider(self.env)
@@ -219,10 +216,33 @@ class BuildConfigurationsAdminPageProviderTestCase(unittest.TestCase):
             'path': 'branches/foo', 'min_rev': None, 'max_rev': None,
             'active': True, 'platforms': [{
                 'href': '/admin/bitten/configs/foo/1',
-                'name': 'any',
-                'id': 1
+                'name': 'any', 'id': 1, 'rules': []
             }]
         }, config)
+
+    def test_process_activate_config(self):
+        BuildConfig(self.env, name='foo', path='branches/foo').insert()
+        BuildConfig(self.env, name='bar', path='branches/bar').insert()
+
+        redirected_to = []
+        def redirect(url):
+            redirected_to.append(url)
+            raise RequestDone
+        req = Mock(method='POST', perm=PermissionCache(self.env, 'joe'),
+                   abs_href=Href('http://example.org/'), redirect=redirect,
+                   authname='joe',
+                   args={'apply': '', 'active': ['foo']})
+
+        provider = BuildConfigurationsAdminPageProvider(self.env)
+        try:
+            provider.process_admin_request(req, 'bitten', 'configs', '')
+            self.fail('Expected RequestDone')
+
+        except RequestDone:
+            self.assertEqual('http://example.org/admin/bitten/configs',
+                             redirected_to[0])
+            config = BuildConfig.fetch(self.env, name='foo')
+            self.assertEqual(True, config.active)
 
     def test_process_add_config(self):
         BuildConfig(self.env, name='foo', label='Foo', path='branches/foo',
@@ -234,6 +254,7 @@ class BuildConfigurationsAdminPageProviderTestCase(unittest.TestCase):
             raise RequestDone
         req = Mock(method='POST', perm=PermissionCache(self.env, 'joe'),
                    abs_href=Href('http://example.org/'), redirect=redirect,
+                   authname='joe',
                    args={'add': '', 'name': 'bar', 'label': 'Bar'})
 
         provider = BuildConfigurationsAdminPageProvider(self.env)
@@ -278,8 +299,9 @@ class BuildConfigurationsAdminPageProviderTestCase(unittest.TestCase):
 
         except TracError, e:
             self.assertEqual('Missing required field "name"', e.message)
+            self.assertEqual('Missing Field', e.title)
 
-    def test_process_add_config_no_name(self):
+    def test_process_add_config_invalid_name(self):
         req = Mock(method='POST', perm=PermissionCache(self.env, 'joe'),
                    args={'add': '', 'name': 'no spaces allowed'})
 
@@ -291,6 +313,25 @@ class BuildConfigurationsAdminPageProviderTestCase(unittest.TestCase):
         except TracError, e:
             self.assertEqual('The field "name" may only contain letters, '
                              'digits, periods, or dashes.', e.message)
+            self.assertEqual('Invalid Field', e.title)
+
+    def test_new_config_submit_with_invalid_path(self):
+        req = Mock(method='POST', perm=PermissionCache(self.env, 'joe'),
+                   authname='joe',
+                   args={'add': '', 'name': 'foo', 'path': 'invalid/path'})
+
+        def get_node(path, rev=None):
+            raise TracError('No such node')
+        self.repos = Mock(get_node=get_node)
+
+        provider = BuildConfigurationsAdminPageProvider(self.env)
+        try:
+            provider.process_admin_request(req, 'bitten', 'configs', '')
+            self.fail('Expected TracError')
+
+        except TracError, e:
+            self.assertEqual('No such node', e.message)
+            self.assertEqual('Invalid Repository Path', e.title)
 
     def test_process_add_config_no_perms(self):
         BuildConfig(self.env, name='foo', label='Foo', path='branches/foo',
@@ -397,38 +438,7 @@ class BuildConfigurationsAdminPageProviderTestCase(unittest.TestCase):
         self.assertRaises(PermissionError, provider.process_admin_request, req,
                           'bitten', 'configs', '')
 
-    def test_process_update_config_no_name(self):
-        BuildConfig(self.env, name='foo', label='Foo', path='branches/foo',
-                    active=True).insert()
-
-        req = Mock(method='POST', perm=PermissionCache(self.env, 'joe'),
-                   args={'save': ''})
-
-        provider = BuildConfigurationsAdminPageProvider(self.env)
-        try:
-            provider.process_admin_request(req, 'bitten', 'configs', 'foo')
-            self.fail('Expected TracError')
-
-        except TracError, e:
-            self.assertEqual('Missing required field "name"', e.message)
-
-    def test_process_update_config_invalid_name(self):
-        BuildConfig(self.env, name='foo', label='Foo', path='branches/foo',
-                    active=True).insert()
-
-        req = Mock(method='POST', perm=PermissionCache(self.env, 'joe'),
-                   args={'save': '', 'name': 'no spaces allowed'})
-
-        provider = BuildConfigurationsAdminPageProvider(self.env)
-        try:
-            provider.process_admin_request(req, 'bitten', 'configs', 'foo')
-            self.fail('Expected TracError')
-
-        except TracError, e:
-            self.assertEqual('The field "name" may only contain letters, '
-                             'digits, periods, or dashes.', e.message)
-
-    def test_process_update_config_valid(self):
+    def test_process_update_config(self):
         BuildConfig(self.env, name='foo', label='Foo', path='branches/foo',
                     active=True).insert()
 
@@ -454,6 +464,300 @@ class BuildConfigurationsAdminPageProviderTestCase(unittest.TestCase):
             config = BuildConfig.fetch(self.env, name='foo')
             self.assertEqual('Foobar', config.label)
             self.assertEqual('Thanks for all the fish!', config.description)
+
+    def test_process_update_config_no_name(self):
+        BuildConfig(self.env, name='foo', label='Foo', path='branches/foo',
+                    active=True).insert()
+
+        req = Mock(method='POST', perm=PermissionCache(self.env, 'joe'),
+                   args={'save': ''})
+
+        provider = BuildConfigurationsAdminPageProvider(self.env)
+        try:
+            provider.process_admin_request(req, 'bitten', 'configs', 'foo')
+            self.fail('Expected TracError')
+
+        except TracError, e:
+            self.assertEqual('Missing required field "name"', e.message)
+            self.assertEqual('Missing Field', e.title)
+
+    def test_process_update_config_invalid_name(self):
+        BuildConfig(self.env, name='foo', label='Foo', path='branches/foo',
+                    active=True).insert()
+
+        req = Mock(method='POST', perm=PermissionCache(self.env, 'joe'),
+                   args={'save': '', 'name': 'no spaces allowed'})
+
+        provider = BuildConfigurationsAdminPageProvider(self.env)
+        try:
+            provider.process_admin_request(req, 'bitten', 'configs', 'foo')
+            self.fail('Expected TracError')
+
+        except TracError, e:
+            self.assertEqual('The field "name" may only contain letters, '
+                             'digits, periods, or dashes.', e.message)
+            self.assertEqual('Invalid Field', e.title)
+
+    def test_process_update_config_invalid_path(self):
+        BuildConfig(self.env, name='foo', label='Foo', path='branches/foo',
+                    active=True).insert()
+
+        req = Mock(method='POST', perm=PermissionCache(self.env, 'joe'),
+                   authname='joe',
+                   args={'save': '', 'name': 'foo', 'path': 'invalid/path'})
+
+        def get_node(path, rev=None):
+            raise TracError('No such node')
+        self.repos = Mock(get_node=get_node)
+
+        provider = BuildConfigurationsAdminPageProvider(self.env)
+        try:
+            provider.process_admin_request(req, 'bitten', 'configs', 'foo')
+            self.fail('Expected TracError')
+
+        except TracError, e:
+            self.assertEqual('No such node', e.message)
+            self.assertEqual('Invalid Repository Path', e.title)
+
+    def test_process_update_config_non_wellformed_recipe(self):
+        BuildConfig(self.env, name='foo', label='Foo', path='branches/foo',
+                    active=True).insert()
+
+        req = Mock(method='POST', perm=PermissionCache(self.env, 'joe'),
+                   authname='joe',
+                   args={'save': '', 'name': 'foo', 'recipe': 'not_xml'})
+
+        provider = BuildConfigurationsAdminPageProvider(self.env)
+        try:
+            provider.process_admin_request(req, 'bitten', 'configs', 'foo')
+            self.fail('Expected TracError')
+
+        except TracError, e:
+            self.assertEqual('Failure parsing recipe: syntax error: line 1, '
+                             'column 0', e.message)
+            self.assertEqual('Invalid Recipe', e.title)
+
+    def test_process_update_config_invalid_recipe(self):
+        BuildConfig(self.env, name='foo', label='Foo', path='branches/foo',
+                    active=True).insert()
+
+        req = Mock(method='POST', perm=PermissionCache(self.env, 'joe'),
+                   authname='joe',
+                   args={'save': '', 'name': 'foo',
+                         'recipe': '<build><step /></build>'})
+
+        provider = BuildConfigurationsAdminPageProvider(self.env)
+        try:
+            provider.process_admin_request(req, 'bitten', 'configs', 'foo')
+            self.fail('Expected TracError')
+
+        except TracError, e:
+            self.assertEqual('Steps must have an "id" attribute', e.message)
+            self.assertEqual('Invalid Recipe', e.title)
+
+    def test_process_new_platform(self):
+        BuildConfig(self.env, name='foo', label='Foo', path='branches/foo',
+                    active=True).insert()
+
+        data = {}
+        req = Mock(method='POST', chrome={}, hdf=data, href=Href('/'),
+                   perm=PermissionCache(self.env, 'joe'),
+                   args={'new': ''})
+
+        provider = BuildConfigurationsAdminPageProvider(self.env)
+        template_name, content_type = provider.process_admin_request(
+            req, 'bitten', 'configs', 'foo'
+        )
+
+        self.assertEqual('bitten_admin_configs.cs', template_name)
+        self.assertEqual(None, content_type)
+        platform = data['admin']['platform']
+        self.assertEqual({
+            'id': None, 'exists': False, 'name': None, 'rules': [('', '')],
+        }, platform)
+
+    def test_process_add_platform(self):
+        BuildConfig(self.env, name='foo', label='Foo', path='branches/foo',
+                    active=True).insert()
+
+        redirected_to = []
+        def redirect(url):
+            redirected_to.append(url)
+            raise RequestDone
+        req = Mock(method='POST', perm=PermissionCache(self.env, 'joe'),
+                   abs_href=Href('http://example.org/'), redirect=redirect,
+                   authname='joe',
+                   args={'add': '', 'new': '', 'name': 'Test',
+                         'property_0': 'family', 'pattern_0': 'posix'})
+
+        provider = BuildConfigurationsAdminPageProvider(self.env)
+        try:
+            provider.process_admin_request(req, 'bitten', 'configs', 'foo')
+            self.fail('Expected RequestDone')
+
+        except RequestDone:
+            self.assertEqual('http://example.org/admin/bitten/configs/foo',
+                             redirected_to[0])
+            platforms = list(TargetPlatform.select(self.env, config='foo'))
+            self.assertEqual(1, len(platforms))
+            self.assertEqual('Test', platforms[0].name)
+            self.assertEqual([('family', 'posix')], platforms[0].rules)
+
+    def test_process_add_platform_cancel(self):
+        BuildConfig(self.env, name='foo', label='Foo', path='branches/foo',
+                    active=True).insert()
+
+        redirected_to = []
+        def redirect(url):
+            redirected_to.append(url)
+            raise RequestDone
+        req = Mock(method='POST', perm=PermissionCache(self.env, 'joe'),
+                   abs_href=Href('http://example.org/'), redirect=redirect,
+                   authname='joe',
+                   args={'cancel': '', 'new': '', 'name': 'Test',
+                         'property_0': 'family', 'pattern_0': 'posix'})
+
+        provider = BuildConfigurationsAdminPageProvider(self.env)
+        try:
+            provider.process_admin_request(req, 'bitten', 'configs', 'foo')
+            self.fail('Expected RequestDone')
+
+        except RequestDone:
+            self.assertEqual('http://example.org/admin/bitten/configs/foo',
+                             redirected_to[0])
+            platforms = list(TargetPlatform.select(self.env, config='foo'))
+            self.assertEqual(0, len(platforms))
+
+    def test_process_remove_platforms(self):
+        BuildConfig(self.env, name='foo', label='Foo', path='branches/foo',
+                    active=True).insert()
+        platform = TargetPlatform(self.env, config='foo', name='any')
+        platform.insert()
+
+        redirected_to = []
+        def redirect(url):
+            redirected_to.append(url)
+            raise RequestDone
+        req = Mock(method='POST', perm=PermissionCache(self.env, 'joe'),
+                   abs_href=Href('http://example.org/'), redirect=redirect,
+                   authname='joe',
+                   args={'remove': '', 'sel': str(platform.id)})
+
+        provider = BuildConfigurationsAdminPageProvider(self.env)
+        try:
+            provider.process_admin_request(req, 'bitten', 'configs', 'foo')
+            self.fail('Expected RequestDone')
+
+        except RequestDone:
+            self.assertEqual('http://example.org/admin/bitten/configs/foo',
+                             redirected_to[0])
+            platforms = list(TargetPlatform.select(self.env, config='foo'))
+            self.assertEqual(0, len(platforms))
+
+    def test_process_remove_platforms_no_selection(self):
+        BuildConfig(self.env, name='foo', label='Foo', path='branches/foo',
+                    active=True).insert()
+        platform = TargetPlatform(self.env, config='foo', name='any')
+        platform.insert()
+
+        redirected_to = []
+        def redirect(url):
+            redirected_to.append(url)
+            raise RequestDone
+        req = Mock(method='POST', perm=PermissionCache(self.env, 'joe'),
+                   abs_href=Href('http://example.org/'), redirect=redirect,
+                   authname='joe',
+                   args={'remove': ''})
+
+        provider = BuildConfigurationsAdminPageProvider(self.env)
+        try:
+            provider.process_admin_request(req, 'bitten', 'configs', 'foo')
+            self.fail('Expected TracError')
+
+        except TracError, e:
+            self.assertEqual('No platform selected', e.message)
+
+    def test_process_edit_platform(self):
+        BuildConfig(self.env, name='foo', label='Foo', path='branches/foo',
+                    active=True).insert()
+        platform = TargetPlatform(self.env, config='foo', name='any')
+        platform.insert()
+
+        data = {}
+        req = Mock(method='GET', chrome={}, hdf=data, href=Href('/'),
+                   perm=PermissionCache(self.env, 'joe'), args={})
+
+        provider = BuildConfigurationsAdminPageProvider(self.env)
+        template_name, content_type = provider.process_admin_request(
+            req, 'bitten', 'configs', 'foo/%d' % platform.id
+        )
+
+        self.assertEqual('bitten_admin_configs.cs', template_name)
+        self.assertEqual(None, content_type)
+        platform = data['admin']['platform']
+        self.assertEqual({
+            'id': 1, 'exists': True, 'name': 'any', 'rules': [('', '')],
+        }, platform)
+
+    def test_process_update_platform(self):
+        BuildConfig(self.env, name='foo', label='Foo', path='branches/foo',
+                    active=True).insert()
+        platform = TargetPlatform(self.env, config='foo', name='any')
+        platform.insert()
+
+        redirected_to = []
+        def redirect(url):
+            redirected_to.append(url)
+            raise RequestDone
+        req = Mock(method='POST', perm=PermissionCache(self.env, 'joe'),
+                   abs_href=Href('http://example.org/'), redirect=redirect,
+                   authname='joe',
+                   args={'save': '', 'edit': '', 'name': 'Test',
+                         'property_0': 'family', 'pattern_0': 'posix'})
+
+        provider = BuildConfigurationsAdminPageProvider(self.env)
+        try:
+            provider.process_admin_request(req, 'bitten', 'configs',
+                                           'foo/%d' % platform.id)
+            self.fail('Expected RequestDone')
+
+        except RequestDone:
+            self.assertEqual('http://example.org/admin/bitten/configs/foo',
+                             redirected_to[0])
+            platforms = list(TargetPlatform.select(self.env, config='foo'))
+            self.assertEqual(1, len(platforms))
+            self.assertEqual('Test', platforms[0].name)
+            self.assertEqual([('family', 'posix')], platforms[0].rules)
+
+    def test_process_update_platform_cancel(self):
+        BuildConfig(self.env, name='foo', label='Foo', path='branches/foo',
+                    active=True).insert()
+        platform = TargetPlatform(self.env, config='foo', name='any')
+        platform.insert()
+
+        redirected_to = []
+        def redirect(url):
+            redirected_to.append(url)
+            raise RequestDone
+        req = Mock(method='POST', perm=PermissionCache(self.env, 'joe'),
+                   abs_href=Href('http://example.org/'), redirect=redirect,
+                   authname='joe',
+                   args={'cancel': '', 'edit': '', 'name': 'Changed',
+                         'property_0': 'family', 'pattern_0': 'posix'})
+
+        provider = BuildConfigurationsAdminPageProvider(self.env)
+        try:
+            provider.process_admin_request(req, 'bitten', 'configs',
+                                           'foo/%d' % platform.id)
+            self.fail('Expected RequestDone')
+
+        except RequestDone:
+            self.assertEqual('http://example.org/admin/bitten/configs/foo',
+                             redirected_to[0])
+            platforms = list(TargetPlatform.select(self.env, config='foo'))
+            self.assertEqual(1, len(platforms))
+            self.assertEqual('any', platforms[0].name)
+            self.assertEqual([], platforms[0].rules)
 
 
 def suite():

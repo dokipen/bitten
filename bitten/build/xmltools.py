@@ -13,9 +13,6 @@
 import logging
 import os
 
-from bitten.build import CommandLine
-from bitten.util import xmlio
-
 try:
     import libxml2
     import libxslt

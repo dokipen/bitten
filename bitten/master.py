@@ -11,20 +11,11 @@
 """Build master implementation."""
 
 import calendar
-from datetime import datetime, timedelta
-import logging
-import os
 import re
-try:
-    set
-except NameError:
-    from sets import Set as set
-import sys
 import time
 
 from trac.config import BoolOption, IntOption
 from trac.core import *
-from trac.env import Environment
 from trac.web import IRequestHandler, HTTPBadRequest, HTTPConflict, \
                      HTTPForbidden, HTTPMethodNotAllowed, HTTPNotFound, \
                      RequestDone

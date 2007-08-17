@@ -13,10 +13,7 @@
 import logging
 import re
 import os
-try:
-    set
-except NameError:
-    from sets import Set as set
+import posixpath
 
 from bitten.build import CommandLine, FileSet
 from bitten.util import xmlio
