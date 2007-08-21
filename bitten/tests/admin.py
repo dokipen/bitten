@@ -17,6 +17,7 @@ from trac.perm import PermissionCache, PermissionError, PermissionSystem
 from trac.test import EnvironmentStub, Mock
 from trac.web.href import Href
 from trac.web.main import RequestDone
+from bitten.main import BuildSystem
 from bitten.model import BuildConfig, TargetPlatform, schema
 from bitten.admin import BuildMasterAdminPageProvider, \
                          BuildConfigurationsAdminPageProvider

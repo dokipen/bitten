@@ -12,13 +12,16 @@ import shutil
 import tempfile
 import unittest
 
+from trac.core import TracError
 from trac.db import DatabaseManager
 from trac.perm import PermissionCache, PermissionSystem
 from trac.test import EnvironmentStub, Mock
+from trac.util.html import Markup
 from trac.web.clearsilver import HDFWrapper
 from trac.web.href import Href
-from bitten.model import BuildConfig, TargetPlatform, schema
-from bitten.web_ui import BuildConfigController
+from bitten.main import BuildSystem
+from bitten.model import Build, BuildConfig, BuildStep, TargetPlatform, schema
+from bitten.web_ui import BuildConfigController, SourceFileLinkFormatter
 
 
 class BuildConfigControllerTestCase(unittest.TestCase):
@@ -121,8 +124,119 @@ class BuildConfigControllerTestCase(unittest.TestCase):
                              req.hdf.get('chrome.links.next.0.href'))
 
 
+class SourceFileLinkFormatterTestCase(unittest.TestCase):
+
+    def setUp(self):
+        self.env = EnvironmentStub()
+
+        # Create tables
+        db = self.env.get_db_cnx()
+        cursor = db.cursor()
+        connector, _ = DatabaseManager(self.env)._get_connector()
+        for table in schema:
+            for stmt in connector.to_sql(table):
+                cursor.execute(stmt)
+
+        # Hook up a dummy repository
+        self.repos = Mock(
+            get_node=lambda path, rev=None: Mock(get_history=lambda: [],
+                                                 isdir=True),
+            normalize_path=lambda path: path,
+            sync=lambda: None
+        )
+        self.env.get_repository = lambda authname=None: self.repos
+
+    def tearDown(self):
+        pass
+
+    def test_format_simple_link_in_repos(self):
+        BuildConfig(self.env, name='test', path='trunk').insert()
+        build = Build(self.env, config='test', platform=1, rev=123, rev_time=42,
+                      status=Build.SUCCESS, slave='hal')
+        build.insert()
+        step = BuildStep(self.env, build=build.id, name='foo',
+                         status=BuildStep.SUCCESS)
+        step.insert()
+
+        self.repos.get_node = lambda path, rev: (path, rev)
+
+        req = Mock(method='GET', href=Href('/trac'), authname='hal')
+        comp = SourceFileLinkFormatter(self.env)
+        formatter = comp.get_formatter(req, build)
+
+        output = formatter(step, None, None, u'error in foo/bar.c')
+        self.assertEqual(Markup, type(output))
+        self.assertEqual('error in <a href="/trac/browser/trunk/foo/bar.c">'
+                         'foo/bar.c</a>', output)
+
+    def test_format_simple_link_not_in_repos(self):
+        BuildConfig(self.env, name='test', path='trunk').insert()
+        build = Build(self.env, config='test', platform=1, rev=123, rev_time=42,
+                      status=Build.SUCCESS, slave='hal')
+        build.insert()
+        step = BuildStep(self.env, build=build.id, name='foo',
+                         status=BuildStep.SUCCESS)
+        step.insert()
+
+        def _raise():
+            raise TracError('No such node')
+        self.repos.get_node = lambda path, rev: _raise()
+
+        req = Mock(method='GET', href=Href('/trac'), authname='hal')
+        comp = SourceFileLinkFormatter(self.env)
+        formatter = comp.get_formatter(req, build)
+
+        output = formatter(step, None, None, u'error in foo/bar.c')
+        self.assertEqual(Markup, type(output))
+        self.assertEqual('error in foo/bar.c', output)
+
+    def test_format_link_in_repos_with_line(self):
+        BuildConfig(self.env, name='test', path='trunk').insert()
+        build = Build(self.env, config='test', platform=1, rev=123, rev_time=42,
+                      status=Build.SUCCESS, slave='hal')
+        build.insert()
+        step = BuildStep(self.env, build=build.id, name='foo',
+                         status=BuildStep.SUCCESS)
+        step.insert()
+
+        self.repos.get_node = lambda path, rev: (path, rev)
+
+        req = Mock(method='GET', href=Href('/trac'), authname='hal')
+        comp = SourceFileLinkFormatter(self.env)
+        formatter = comp.get_formatter(req, build)
+
+        output = formatter(step, None, None, u'error in foo/bar.c:123')
+        self.assertEqual(Markup, type(output))
+        self.assertEqual('error in <a href="/trac/browser/trunk/foo/bar.c#L123">'
+                         'foo/bar.c:123</a>', output)
+
+    def test_format_link_not_in_repos_with_line(self):
+        BuildConfig(self.env, name='test', path='trunk').insert()
+        build = Build(self.env, config='test', platform=1, rev=123, rev_time=42,
+                      status=Build.SUCCESS, slave='hal')
+        build.insert()
+        step = BuildStep(self.env, build=build.id, name='foo',
+                         status=BuildStep.SUCCESS)
+        step.insert()
+
+        def _raise():
+            raise TracError('No such node')
+        self.repos.get_node = lambda path, rev: _raise()
+
+        req = Mock(method='GET', href=Href('/trac'), authname='hal')
+        comp = SourceFileLinkFormatter(self.env)
+        formatter = comp.get_formatter(req, build)
+
+        output = formatter(step, None, None, u'error in foo/bar.c:123')
+        self.assertEqual(Markup, type(output))
+        self.assertEqual('error in foo/bar.c:123', output)
+
+
 def suite():
-    return unittest.makeSuite(BuildConfigControllerTestCase, 'test')
+    suite = unittest.TestSuite()
+    suite.addTest(unittest.makeSuite(BuildConfigControllerTestCase, 'test'))
+    suite.addTest(unittest.makeSuite(SourceFileLinkFormatterTestCase, 'test'))
+    return suite
 
 if __name__ == '__main__':
     unittest.main(defaultTest='suite')

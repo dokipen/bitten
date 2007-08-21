@@ -23,6 +23,7 @@ except ImportError:
     from trac.Timeline import ITimelineEventProvider
 from trac.util import escape, pretty_timedelta, format_datetime, shorten_line, \
                       Markup
+from trac.util.html import html
 from trac.web import IRequestHandler
 from trac.web.chrome import INavigationContributor, ITemplateProvider, \
                             add_link, add_stylesheet
@@ -559,11 +560,12 @@ class ReportChartController(Component):
 
 class SourceFileLinkFormatter(Component):
     """Detects references to files in the build log and renders them as links
-    to the repository browser."""
+    to the repository browser.
+    """
 
     implements(ILogFormatter)
 
-    _fileref_re = re.compile('(?P<path>[\w.-]+(?:/[\w.-]+)+)(?P<line>(:\d+))')
+    _fileref_re = re.compile('(?P<path>[\w.-]+(?:/[\w.-]+)+)(?P<line>(:\d+))?')
 
     def get_formatter(self, req, build):
         """Return the log message formatter function."""
@@ -571,6 +573,7 @@ class SourceFileLinkFormatter(Component):
         repos = self.env.get_repository(req.authname)
         href = req.href.browser
         cache = {}
+
         def _replace(m):
             filepath = posixpath.normpath(m.group('path').replace('\\', '/'))
             if not cache.get(filepath) is True:
@@ -578,7 +581,7 @@ class SourceFileLinkFormatter(Component):
                 path = ''
                 for part in parts:
                     path = posixpath.join(path, part)
-                    if not path in cache:
+                    if path not in cache:
                         try:
                             repos.get_node(posixpath.join(config.path, path),
                                            build.rev)
@@ -587,9 +590,22 @@ class SourceFileLinkFormatter(Component):
                             cache[path] = False
                     if cache[path] is False:
                         return m.group(0)
-            return '<a href="%s">%s</a>' % (
-                   href(config.path, filepath) + '#L' + m.group('line')[1:],
-                   m.group(0))
+            link = href(config.path, filepath)
+            if m.group('line'):
+                link += '#L' + m.group('line')[1:]
+            return Markup(html.A(m.group(0), href=link))
+
         def _formatter(step, type, level, message):
-            return self._fileref_re.sub(_replace, message)
+            buf = []
+            offset = 0
+            for mo in self._fileref_re.finditer(message):
+                start, end = mo.span()
+                if start > offset:
+                    buf.append(message[offset:start])
+                buf.append(_replace(mo))
+                offset = end
+            if offset < len(buf):
+                buf.append(message[offset:])
+            return Markup("").join(buf)
+
         return _formatter
