@@ -164,10 +164,10 @@ class SourceFileLinkFormatterTestCase(unittest.TestCase):
         comp = SourceFileLinkFormatter(self.env)
         formatter = comp.get_formatter(req, build)
 
-        output = formatter(step, None, None, u'error in foo/bar.c')
+        output = formatter(step, None, None, u'error in foo/bar.c: bad')
         self.assertEqual(Markup, type(output))
         self.assertEqual('error in <a href="/trac/browser/trunk/foo/bar.c">'
-                         'foo/bar.c</a>', output)
+                         'foo/bar.c</a>: bad', output)
 
     def test_format_simple_link_not_in_repos(self):
         BuildConfig(self.env, name='test', path='trunk').insert()
@@ -186,9 +186,9 @@ class SourceFileLinkFormatterTestCase(unittest.TestCase):
         comp = SourceFileLinkFormatter(self.env)
         formatter = comp.get_formatter(req, build)
 
-        output = formatter(step, None, None, u'error in foo/bar.c')
+        output = formatter(step, None, None, u'error in foo/bar.c: bad')
         self.assertEqual(Markup, type(output))
-        self.assertEqual('error in foo/bar.c', output)
+        self.assertEqual('error in foo/bar.c: bad', output)
 
     def test_format_link_in_repos_with_line(self):
         BuildConfig(self.env, name='test', path='trunk').insert()
@@ -205,10 +205,10 @@ class SourceFileLinkFormatterTestCase(unittest.TestCase):
         comp = SourceFileLinkFormatter(self.env)
         formatter = comp.get_formatter(req, build)
 
-        output = formatter(step, None, None, u'error in foo/bar.c:123')
+        output = formatter(step, None, None, u'error in foo/bar.c:123: bad')
         self.assertEqual(Markup, type(output))
         self.assertEqual('error in <a href="/trac/browser/trunk/foo/bar.c#L123">'
-                         'foo/bar.c:123</a>', output)
+                         'foo/bar.c:123</a>: bad', output)
 
     def test_format_link_not_in_repos_with_line(self):
         BuildConfig(self.env, name='test', path='trunk').insert()
@@ -227,9 +227,9 @@ class SourceFileLinkFormatterTestCase(unittest.TestCase):
         comp = SourceFileLinkFormatter(self.env)
         formatter = comp.get_formatter(req, build)
 
-        output = formatter(step, None, None, u'error in foo/bar.c:123')
+        output = formatter(step, None, None, u'error in foo/bar.c:123: bad')
         self.assertEqual(Markup, type(output))
-        self.assertEqual('error in foo/bar.c:123', output)
+        self.assertEqual('error in foo/bar.c:123: bad', output)
 
 
 def suite():

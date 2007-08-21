@@ -604,7 +604,7 @@ class SourceFileLinkFormatter(Component):
                     buf.append(message[offset:start])
                 buf.append(_replace(mo))
                 offset = end
-            if offset < len(buf):
+            if offset < len(message):
                 buf.append(message[offset:])
             return Markup("").join(buf)
 
