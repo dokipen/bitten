@@ -58,7 +58,7 @@ class BuildSlave(object):
 
     def __init__(self, url, name=None, config=None, dry_run=False,
                  work_dir=None, keep_files=False, single_build=False,
-                 username=None, password=None):
+                 username=None, password=None, dump_reports=False):
         """Create the build slave instance.
         
         :param url: the URL of the build master, or the path to a build recipe
@@ -75,6 +75,9 @@ class BuildSlave(object):
         :param username: the username to use when authentication against the
                          build master is requested
         :param password: the password to use when authentication is needed
+        :param dump_reports: whether report data should be written to the
+                             standard output, in addition to being transmitted
+                             to the build master
         """
         self.url = url
         self.local = not url.startswith('http') and not url.startswith('https')
@@ -90,6 +93,7 @@ class BuildSlave(object):
         self.work_dir = work_dir
         self.keep_files = keep_files
         self.single_build = single_build
+        self.dump_reports = dump_reports
 
         if not self.local:
             self.opener = urllib2.build_opener(SaneHTTPErrorProcessor)
@@ -211,6 +215,8 @@ class BuildSlave(object):
                     step.execute(recipe.ctxt):
                 if type == Recipe.ERROR:
                     failed = True
+                if type == Recipe.REPORT and self.dump_reports:
+                    print output
                 xml.append(xmlio.Element(type, category=category,
                                          generator=generator)[
                     output
@@ -272,28 +278,36 @@ def main():
                       help='name of this slave (defaults to host name)')
     parser.add_option('-f', '--config', action='store', dest='config',
                       metavar='FILE', help='path to configuration file')
-    parser.add_option('-d', '--work-dir', action='store', dest='work_dir',
-                      metavar='DIR', help='working directory for builds')
-    parser.add_option('-k', '--keep-files', action='store_true',
-                      dest='keep_files', 
-                      help='don\'t delete files after builds')
-    parser.add_option('-l', '--log', dest='logfile', metavar='FILENAME',
-                      help='write log messages to FILENAME')
-    parser.add_option('-n', '--dry-run', action='store_true', dest='dry_run',
-                      help='don\'t report results back to master')
-    parser.add_option('-v', '--verbose', action='store_const', dest='loglevel',
-                      const=logging.DEBUG, help='print as much as possible')
-    parser.add_option('-q', '--quiet', action='store_const', dest='loglevel',
-                      const=logging.WARN, help='print as little as possible')
-    parser.add_option('-s', '--single', action='store_true',
-                      dest='single_build',
-                      help='exit after completing a single build')
     parser.add_option('-u', '--user', dest='username',
                       help='the username to use for authentication')
     parser.add_option('-p', '--password', dest='password',
                       help='the password to use when authenticating')
+
+    group = parser.add_option_group('building')
+    group.add_option('-d', '--work-dir', action='store', dest='work_dir',
+                     metavar='DIR', help='working directory for builds')
+    group.add_option('-k', '--keep-files', action='store_true',
+                     dest='keep_files', 
+                     help='don\'t delete files after builds')
+    group.add_option('-s', '--single', action='store_true',
+                     dest='single_build',
+                     help='exit after completing a single build')
+    group.add_option('-n', '--dry-run', action='store_true', dest='dry_run',
+                     help='don\'t report results back to master')
+
+    group = parser.add_option_group('logging')
+    group.add_option('-l', '--log', dest='logfile', metavar='FILENAME',
+                     help='write log messages to FILENAME')
+    group.add_option('-v', '--verbose', action='store_const', dest='loglevel',
+                     const=logging.DEBUG, help='print as much as possible')
+    group.add_option('-q', '--quiet', action='store_const', dest='loglevel',
+                     const=logging.WARN, help='print as little as possible')
+    group.add_option('--dump-reports', action='store_true', dest='dump_reports',
+                     help='whether report data should be printed')
+
     parser.set_defaults(dry_run=False, keep_files=False,
-                        loglevel=logging.INFO, single_build=False)
+                        loglevel=logging.INFO, single_build=False,
+                        dump_reports=False)
     options, args = parser.parse_args()
 
     if len(args) < 1:
@@ -319,7 +333,8 @@ def main():
                        dry_run=options.dry_run, work_dir=options.work_dir,
                        keep_files=options.keep_files,
                        single_build=options.single_build,
-                       username=options.username, password=options.password)
+                       username=options.username, password=options.password,
+                       dump_reports=options.dump_reports)
     try:
         try:
             slave.run()

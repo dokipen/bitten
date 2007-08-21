@@ -31,8 +31,6 @@ class XMLTestResult(_TextTestResult):
     def __init__(self, stream, descriptions, verbosity):
         _TextTestResult.__init__(self, stream, descriptions, verbosity)
         self.tests = []
-        self.orig_stdout = self.orig_stderr = None
-        self.buf_stdout = self.buf_stderr = None
 
     def startTest(self, test):
         _TextTestResult.startTest(self, test)
@@ -41,17 +39,8 @@ class XMLTestResult(_TextTestResult):
             filename = filename[:-1]
         self.tests.append([test, filename, time.time(), None, None])
 
-        # Record output by the test to stdout and stderr
-        self.old_stdout, self.buf_stdout = sys.stdout, StringIO()
-        self.old_stderr, self.buf_stderr = sys.stderr, StringIO()
-        sys.stdout, sys.stderr = self.buf_stdout, self.buf_stderr
-
     def stopTest(self, test):
         self.tests[-1][2] = time.time() - self.tests[-1][2]
-        self.tests[-1][3] = self.buf_stdout.getvalue()
-        self.tests[-1][4] = self.buf_stderr.getvalue()
-        sys.stdout, sys.stderr = self.orig_stdout, self.orig_stderr
-
         _TextTestResult.stopTest(self, test)
 
 
@@ -159,7 +148,6 @@ class unittest(test):
         import coverage
         coverage.use_cache(False)
         coverage.start()
-        log.info('running tests under coverage.py')
         try:
             self._run_tests()
         finally:
@@ -185,7 +173,9 @@ class unittest(test):
                         fileobj.write(line)
                         continue
                     filename = os.path.normpath(sys.modules[name].__file__)
-                    fileobj.write(line + ' ' + filename + '\n')
+                    if filename.endswith('.pyc') or filename.endswith('.pyo'):
+                        filename = filename[:-1]
+                    fileobj.write(line.rstrip() + ' ' + filename + '\n')
             finally:
                 fileobj.close()
 

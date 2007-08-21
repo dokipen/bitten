@@ -69,6 +69,7 @@ setup(
             NS + 'php#phing = bitten.build.phptools:phing',
             NS + 'php#phpunit = bitten.build.phptools:phpunit',
             NS + 'php#coverage = bitten.build.phptools:coverage',
+            NS + 'python#coverage = bitten.build.pythontools:coverage',
             NS + 'python#distutils = bitten.build.pythontools:distutils',
             NS + 'python#exec = bitten.build.pythontools:exec_',
             NS + 'python#pylint = bitten.build.pythontools:pylint',

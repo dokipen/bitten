@@ -175,11 +175,11 @@ def coverage(ctxt, summary=None, coverdir=None, include=None, exclude=None):
     :param exclude: patterns of files or directories to exclude from the report
     """
     assert summary, 'Missing required attribute "summary"'
-    assert coverdir, 'Missing required attribute "coverdir"'
 
-    summary_line_re = re.compile(r'^\s*(?P<lines>\d+)\s+(?P<cov>\d+)%\s+'
-                                 r'(?P<module>.*?)\s+\((?P<filename>.*?)\)')
-    coverage_line_re = re.compile(r'\s*(?:(?P<hits>\d+): )?(?P<line>.*)')
+    summary_line_re = re.compile(r'^(?P<module>.*?)\s+(?P<stmts>\d+)\s+'
+                                 r'(?P<exec>\d+)\s+(?P<cov>\d+)%\s+'
+                                 r'(?:(?P<missing>(?:\d+(?:-\d+)?(?:, )?)*)\s+)?'
+                                 r'(?P<file>.+)$')
 
     fileset = FileSet(ctxt.basedir, include, exclude)
     missing_files = []
@@ -189,46 +189,6 @@ def coverage(ctxt, summary=None, coverdir=None, include=None, exclude=None):
         missing_files.append(filename)
     covered_modules = set()
 
-    def handle_file(elem, sourcefile, coverfile=None):
-        code_lines = set()
-        for lineno, linetype, line in loc.count(sourcefile):
-            if linetype == loc.CODE:
-                code_lines.add(lineno)
-        num_covered = 0
-        lines = []
-
-        if coverfile:
-            prev_hits = '0'
-            for idx, coverline in enumerate(coverfile):
-                match = coverage_line_re.search(coverline)
-                if match:
-                    hits = match.group(1)
-                    if hits: # Line covered
-                        if hits != '0':
-                            num_covered += 1
-                        lines.append(hits)
-                        prev_hits = hits
-                    elif coverline.startswith('>'): # Line not covered
-                        lines.append('0')
-                        prev_hits = '0'
-                    elif idx not in code_lines: # Not a code line
-                        lines.append('-')
-                        prev_hits = '0'
-                    else: # A code line not flagged by trace.py
-                        if prev_hits != '0':
-                            num_covered += 1
-                        lines.append(prev_hits)
-
-            elem.append(xmlio.Element('line_hits')[' '.join(lines)])
-
-        num_lines = len(code_lines)
-        if num_lines:
-            percentage = int(round(num_covered * 100 / num_lines))
-        else:
-            percentage = 0
-        elem.attr['percentage'] = percentage
-        elem.attr['lines'] = num_lines
-
     try:
         summary_file = open(ctxt.resolve(summary), 'r')
         try:
@@ -236,8 +196,8 @@ def coverage(ctxt, summary=None, coverdir=None, include=None, exclude=None):
             for summary_line in summary_file:
                 match = summary_line_re.search(summary_line)
                 if match:
-                    modname = match.group(3)
-                    filename = match.group(4)
+                    modname = match.group(1)
+                    filename = match.group(6)
                     if not os.path.isabs(filename):
                         filename = os.path.normpath(os.path.join(ctxt.basedir,
                                                                  filename))
@@ -249,26 +209,13 @@ def coverage(ctxt, summary=None, coverdir=None, include=None, exclude=None):
                     if not filename in fileset:
                         continue
 
+                    percentage = int(match.group(4).rstrip('%'))
+
                     missing_files.remove(filename)
                     covered_modules.add(modname)
                     module = xmlio.Element('coverage', name=modname,
-                                           file=filename.replace(os.sep, '/'))
-                    sourcefile = file(ctxt.resolve(filename))
-                    try:
-                        coverpath = ctxt.resolve(coverdir, modname + '.cover')
-                        if os.path.isfile(coverpath):
-                            coverfile = file(coverpath, 'r')
-                        else:
-                            log.warning('No coverage file for module %s at %s',
-                                        modname, coverpath)
-                            coverfile = None
-                        try:
-                            handle_file(module, sourcefile, coverfile)
-                        finally:
-                            if coverfile:
-                                coverfile.close()
-                    finally:
-                        sourcefile.close()
+                                           file=filename.replace(os.sep, '/'),
+                                           percentage=percentage)
                     coverage.append(module)
 
             for filename in missing_files:
@@ -279,12 +226,6 @@ def coverage(ctxt, summary=None, coverdir=None, include=None, exclude=None):
                 module = xmlio.Element('coverage', name=modname,
                                        file=filename.replace(os.sep, '/'),
                                        percentage=0)
-                filepath = ctxt.resolve(filename)
-                fileobj = file(filepath, 'r')
-                try:
-                    handle_file(module, fileobj)
-                finally:
-                    fileobj.close()
                 coverage.append(module)
 
             ctxt.report('coverage', coverage)
