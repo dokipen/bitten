@@ -147,37 +147,70 @@ class unittest(test):
                                        self.coverage_method)
 
     def run_tests(self):
-        if self.coverage_dir:
-
+        if self.coverage_summary:
             if self.coverage_method == 'coverage':
-                import coverage
-                coverage.erase()
-                coverage.start()
-                log.info('running tests under coverage.py')
-                try:
-                    self._run_tests()
-                finally:
-                    coverage.stop()
-
+                self._run_with_coverage()
             else:
-                from trace import Trace
-                trace = Trace(ignoredirs=[sys.prefix, sys.exec_prefix],
-                              trace=False, count=True)
-                try:
-                    trace.runfunc(self._run_tests)
-                finally:
-                    results = trace.results()
-                    real_stdout = sys.stdout
-                    sys.stdout = open(self.coverage_summary, 'w')
-                    try:
-                        results.write_results(show_missing=True, summary=True,
-                                              coverdir=self.coverage_dir)
-                    finally:
-                        sys.stdout.close()
-                        sys.stdout = real_stdout
-
+                self._run_with_trace()
         else:
             self._run_tests()
+
+    def _run_with_coverage(self):
+        import coverage
+        coverage.use_cache(False)
+        coverage.start()
+        log.info('running tests under coverage.py')
+        try:
+            self._run_tests()
+        finally:
+            coverage.stop()
+
+            modules = [m for _, m in sys.modules.items()
+                       if m is not None and hasattr(m, '__file__')
+                       and os.path.splitext(m.__file__)[-1] in ('.py', '.pyc')]
+
+            # Generate summary file
+            buf = StringIO()
+            coverage.report(modules, file=buf)
+            buf.seek(0)
+            fileobj = open(self.coverage_summary, 'w')
+            try:
+                for idx, line in enumerate(buf):
+                    if idx < 2 or line.startswith('--'):
+                        fileobj.write(line)
+                        continue
+                    parts = line.split()
+                    name = parts[0]
+                    if name not in sys.modules:
+                        fileobj.write(line)
+                        continue
+                    filename = os.path.normpath(sys.modules[name].__file__)
+                    fileobj.write(line + ' ' + filename + '\n')
+            finally:
+                fileobj.close()
+
+            if self.coverage_dir:
+                if not os.path.exists(self.coverage_dir):
+                    os.makedirs(self.coverage_dir)
+                coverage.annotate(modules, directory=self.coverage_dir,
+                                  ignore_errors=True)
+
+    def _run_with_trace(self):
+        from trace import Trace
+        trace = Trace(ignoredirs=[sys.prefix, sys.exec_prefix], trace=False,
+                      count=True)
+        try:
+            trace.runfunc(self._run_tests)
+        finally:
+            results = trace.results()
+            real_stdout = sys.stdout
+            sys.stdout = open(self.coverage_summary, 'w')
+            try:
+                results.write_results(show_missing=True, summary=True,
+                                      coverdir=self.coverage_dir)
+            finally:
+                sys.stdout.close()
+                sys.stdout = real_stdout
 
     def _run_tests(self):
         old_path = sys.path[:]
@@ -192,13 +225,16 @@ class unittest(test):
         loader_ep = EntryPoint.parse("x=" + self.test_loader)
         loader_class = loader_ep.load(require=False)
 
-        import unittest
-        unittest.main(
-            None, None, [unittest.__file__] + self.test_args,
-            testRunner=XMLTestRunner(stream=sys.stdout,
-                                     xml_stream=self.xml_output_file),
-            testLoader=loader_class()
-        )
+        try:
+            import unittest
+            unittest.main(
+                None, None, [unittest.__file__] + self.test_args,
+                testRunner=XMLTestRunner(stream=sys.stdout,
+                                         xml_stream=self.xml_output_file),
+                testLoader=loader_class()
+            )
+        except SystemExit, e:
+            return e.code
 
 
 def main():
