@@ -36,11 +36,20 @@ A ``<step>`` element will consist of any number of commands and reports. Most of
 these elements are declared in XML namespaces, where the namespace URI defines
 a collection of related commands.
 
+Commonly, the first step of any build recipe will perform the checkout from the
+repository.
+
 .. code-block:: xml
 
-  <build xmlns:python="http://bitten.cmlenz.net/tools/python">
+  <build xmlns:python="http://bitten.cmlenz.net/tools/python"
+         xmlns:svn="http://bitten.cmlenz.net/tools/svn">
   
-    <step id="build" description="Compile to byte code">
+    <step id="build" description="Checkout source from repository">
+      <svn:checkout url="http://svn.example.org/repos/foo"
+          path="${path}" revision="${revision}" />
+    </step>
+  
+    <step id="checkout" description="Compile to byte code">
       <python:distutils command="build"/>
     </step>
   
