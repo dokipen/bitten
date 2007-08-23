@@ -58,7 +58,8 @@ class BuildSlave(object):
 
     def __init__(self, url, name=None, config=None, dry_run=False,
                  work_dir=None, keep_files=False, single_build=False,
-                 username=None, password=None, dump_reports=False):
+                 poll_interval=60, username=None, password=None,
+                 dump_reports=False):
         """Create the build slave instance.
         
         :param url: the URL of the build master, or the path to a build recipe
@@ -72,6 +73,8 @@ class BuildSlave(object):
                            execution should be kept when done
         :param single_build: whether this slave should exit after completing a 
                              single build, or continue processing builds forever
+        :param poll_interval: the time in seconds to wait between requesting
+                              builds from the build master
         :param username: the username to use when authentication against the
                          build master is requested
         :param password: the password to use when authentication is needed
@@ -93,6 +96,7 @@ class BuildSlave(object):
         self.work_dir = work_dir
         self.keep_files = keep_files
         self.single_build = single_build
+        self.poll_interval = poll_interval
         self.dump_reports = dump_reports
 
         if not self.local:
@@ -132,7 +136,7 @@ class BuildSlave(object):
                     raise ExitSlave()
             except ExitSlave:
                 break
-            time.sleep(30)
+            time.sleep(self.poll_interval)
 
     def quit(self):
         log.info('Shutting down')
@@ -294,7 +298,8 @@ def main():
                      help='exit after completing a single build')
     group.add_option('-n', '--dry-run', action='store_true', dest='dry_run',
                      help='don\'t report results back to master')
-
+    group.add_option('-i', '--interval', dest='interval', metavar='SECONDS',
+                     type='int', help='time to wait between requesting builds')
     group = parser.add_option_group('logging')
     group.add_option('-l', '--log', dest='logfile', metavar='FILENAME',
                      help='write log messages to FILENAME')
@@ -333,6 +338,7 @@ def main():
                        dry_run=options.dry_run, work_dir=options.work_dir,
                        keep_files=options.keep_files,
                        single_build=options.single_build,
+                       poll_interval=options.interval,
                        username=options.username, password=options.password,
                        dump_reports=options.dump_reports)
     try:
