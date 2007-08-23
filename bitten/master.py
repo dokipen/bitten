@@ -117,6 +117,8 @@ class BuildMaster(Component):
                         continue
                     properties[child.attr['name'] + '.' + name] = value
 
+        self.log.debug('Build slave configuration: %r', properties)
+
         build = queue.get_build_for_slave(slavename, properties)
         if not build:
             req.send_response(204)

@@ -192,8 +192,8 @@ class BuildQueue(object):
                     platforms.append(platform)
 
         if not platforms:
-            self.log.debug('Slave %r matched none of the target platforms',
-                           name)
+            self.log.warning('Slave %r matched none of the target platforms',
+                             name)
 
         return platforms
 
