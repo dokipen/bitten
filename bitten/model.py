@@ -44,6 +44,9 @@ class BuildConfig(object):
         self.label = label or ''
         self.description = description or ''
 
+    def __repr__(self):
+        return '<%s %r>' % (type(self).__name__, self.name)
+
     exists = property(fget=lambda self: self._old_name is not None,
                       doc='Whether this configuration exists in the database')
 
@@ -198,6 +201,9 @@ class TargetPlatform(object):
         self.config = config
         self.name = name
         self.rules = []
+
+    def __repr__(self):
+        return '<%s %r>' % (type(self).__name__, self.id)
 
     exists = property(fget=lambda self: self.id is not None,
                       doc='Whether this target platform exists in the database')
@@ -362,6 +368,9 @@ class Build(object):
         self.rev_time = rev_time
         self.status = status
         self.slave_info = {}
+
+    def __repr__(self):
+        return '<%s %r>' % (type(self).__name__, self.id)
 
     exists = property(fget=lambda self: self.id is not None,
                       doc='Whether this build exists in the database')

@@ -190,6 +190,74 @@ class BuildQueueTestCase(unittest.TestCase):
         build = queue.get_build_for_slave('foobar', {})
         self.assertEqual(None, build)
 
+    def test_populate_not_build_all(self):
+        self.env.get_repository = lambda authname=None: Mock(
+            get_changeset=lambda rev: Mock(date=rev * 1000),
+            get_node=lambda path, rev=None: Mock(
+                get_entries=lambda: [Mock(), Mock()],
+                get_history=lambda: [('somepath', 123, 'edit'),
+                                     ('somepath', 121, 'edit'),
+                                     ('somepath', 120, 'edit')]
+            ),
+            normalize_path=lambda path: path,
+            rev_older_than=lambda rev1, rev2: rev1 < rev2
+        )
+        BuildConfig(self.env, 'test', path='somepath', active=True).insert()
+        platform1 = TargetPlatform(self.env, config='test', name='P1')
+        platform1.insert()
+        platform2 = TargetPlatform(self.env, config='test', name='P2')
+        platform2.insert()
+
+        queue = BuildQueue(self.env)
+        queue.populate()
+        queue.populate()
+        queue.populate()
+
+        builds = list(Build.select(self.env, config='test'))
+        self.assertEqual(2, len(builds))
+        self.assertEqual(platform1.id, builds[0].platform)
+        self.assertEqual('123', builds[0].rev)
+        self.assertEqual(platform2.id, builds[1].platform)
+        self.assertEqual('123', builds[1].rev)
+
+    def test_populate_build_all(self):
+        self.env.get_repository = lambda authname=None: Mock(
+            get_changeset=lambda rev: Mock(date=rev * 1000),
+            get_node=lambda path, rev=None: Mock(
+                get_entries=lambda: [Mock(), Mock()],
+                get_history=lambda: [('somepath', 123, 'edit'),
+                                     ('somepath', 121, 'edit'),
+                                     ('somepath', 120, 'edit')]
+            ),
+            normalize_path=lambda path: path,
+            rev_older_than=lambda rev1, rev2: rev1 < rev2
+        )
+        BuildConfig(self.env, 'test', path='somepath', active=True).insert()
+        platform1 = TargetPlatform(self.env, config='test', name='P1')
+        platform1.insert()
+        platform2 = TargetPlatform(self.env, config='test', name='P2')
+        platform2.insert()
+
+        queue = BuildQueue(self.env, build_all=True)
+        queue.populate()
+        queue.populate()
+        queue.populate()
+
+        builds = list(Build.select(self.env, config='test'))
+        self.assertEqual(6, len(builds))
+        self.assertEqual(platform1.id, builds[0].platform)
+        self.assertEqual('123', builds[0].rev)
+        self.assertEqual(platform2.id, builds[1].platform)
+        self.assertEqual('123', builds[1].rev)
+        self.assertEqual(platform1.id, builds[2].platform)
+        self.assertEqual('121', builds[2].rev)
+        self.assertEqual(platform2.id, builds[3].platform)
+        self.assertEqual('121', builds[3].rev)
+        self.assertEqual(platform1.id, builds[4].platform)
+        self.assertEqual('120', builds[4].rev)
+        self.assertEqual(platform2.id, builds[5].platform)
+        self.assertEqual('120', builds[5].rev)
+
     def test_reset_orphaned_builds(self):
         BuildConfig(self.env, 'test').insert()
         platform = TargetPlatform(self.env, config='test', name='Foo')

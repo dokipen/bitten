@@ -215,7 +215,18 @@ class BuildQueue(object):
         builds = []
 
         for config in BuildConfig.select(self.env, db=db):
+            platforms = []
             for platform, rev, build in collect_changes(repos, config, db):
+
+                if not self.build_all and platform.id in platforms:
+                    # We've seen this platform already, so these are older
+                    # builds that should only be built if built_all=True
+                    self.log.debug('Ignoring older revisions for configuration '
+                                   '%r on %r', config.name, platform.name)
+                    break
+
+                platforms.append(platform.id)
+
                 if build is None:
                     self.log.info('Enqueuing build of configuration "%s" at '
                                   'revision [%s] on %s', config.name, rev,
@@ -230,12 +241,6 @@ class BuildQueue(object):
                                   platform=platform.id, rev=str(rev),
                                   rev_time=rev_time)
                     builds.append(build)
-                    break
-
-                if not self.build_all:
-                    self.log.debug('Ignoring older revisions for configuration '
-                                   '%r on %r', config.name, platform.name)
-                    continue
 
         for build in builds:
             build.insert(db=db)
