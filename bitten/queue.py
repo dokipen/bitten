@@ -138,7 +138,10 @@ class BuildQueue(object):
         builds_to_delete = []
         for build in Build.select(self.env, status=Build.PENDING, db=db):
             if self.should_delete_build(build, repos):
-               builds_to_delete.append(build)
+                self.log.info('Scheduling build of configuration "%s" at '
+                              'revision [%s] on %r for deletion', config.name,
+                              rev, platform.name)
+                builds_to_delete.append(build)
             elif build.platform in platforms:
                 break
         else:
@@ -233,8 +236,8 @@ class BuildQueue(object):
 
                 if not self.build_all:
                     self.log.debug('Ignoring older revisions for configuration '
-                                   '%r', config.name)
-                    break
+                                   '%r on %r', config.name, platform.name)
+                    continue
 
         for build in builds:
             build.insert(db=db)
