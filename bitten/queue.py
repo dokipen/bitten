@@ -138,9 +138,7 @@ class BuildQueue(object):
         builds_to_delete = []
         for build in Build.select(self.env, status=Build.PENDING, db=db):
             if self.should_delete_build(build, repos):
-                self.log.info('Scheduling build of configuration "%s" at '
-                              'revision [%s] on %r for deletion', config.name,
-                              rev, platform.name)
+                self.log.info('Scheduling build %d for deletion', build.id)
                 builds_to_delete.append(build)
             elif build.platform in platforms:
                 break
