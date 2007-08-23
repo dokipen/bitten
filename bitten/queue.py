@@ -144,11 +144,11 @@ class BuildQueue(object):
                 break
         else:
             self.log.debug('No pending builds.')
-            return None
+            build = None
 
         # delete any obsolete builds
-        for build in builds_to_delete:
-            build.delete(db=db)
+        for build_to_delete in builds_to_delete:
+            build_to_delete.delete(db=db)
 
         if build:
             build.slave = name
