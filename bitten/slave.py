@@ -58,7 +58,7 @@ class BuildSlave(object):
 
     def __init__(self, url, name=None, config=None, dry_run=False,
                  work_dir=None, keep_files=False, single_build=False,
-                 poll_interval=60, username=None, password=None,
+                 poll_interval=300, username=None, password=None,
                  dump_reports=False):
         """Create the build slave instance.
         
@@ -74,7 +74,8 @@ class BuildSlave(object):
         :param single_build: whether this slave should exit after completing a 
                              single build, or continue processing builds forever
         :param poll_interval: the time in seconds to wait between requesting
-                              builds from the build master
+                              builds from the build master (default is five
+                              minutes)
         :param username: the username to use when authentication against the
                          build master is requested
         :param password: the password to use when authentication is needed
@@ -312,7 +313,7 @@ def main():
 
     parser.set_defaults(dry_run=False, keep_files=False,
                         loglevel=logging.INFO, single_build=False,
-                        dump_reports=False)
+                        dump_reports=False, interval=300)
     options, args = parser.parse_args()
 
     if len(args) < 1:
