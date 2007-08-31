@@ -119,8 +119,10 @@ def exec_(ctxt, file_=None, module=None, function=None, output=None, args=None):
                 return
 
     from bitten.build import shtools
-    shtools.execute(ctxt, executable=_python_path(ctxt), file_=file_,
-                    output=output, args=args)
+    returncode = shtools.execute(ctxt, executable=_python_path(ctxt),
+                                 file_=file_, output=output, args=args)
+    if returncode != 0:
+        ctxt.error('Executing %s failed (error code %s)' % (file_, returncode))
 
 def pylint(ctxt, file_=None):
     """Extract data from a ``pylint`` run written to a file.
