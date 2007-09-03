@@ -190,11 +190,9 @@ class BuildConfigurationsAdminPageProvider(Component):
     def _activate_configs(self, req):
         req.perm.assert_permission('BUILD_MODIFY')
 
-        active = req.args.get('active')
-        if not active:
-            return
-
+        active = req.args.get('active') or []
         active = isinstance(active, list) and active or [active]
+
         db = self.env.get_db_cnx()
         for config in list(BuildConfig.select(self.env, db=db,
                                               include_inactive=True)):

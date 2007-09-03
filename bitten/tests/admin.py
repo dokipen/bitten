@@ -245,6 +245,34 @@ class BuildConfigurationsAdminPageProviderTestCase(unittest.TestCase):
             config = BuildConfig.fetch(self.env, name='foo')
             self.assertEqual(True, config.active)
 
+    def test_process_deactivate_config(self):
+        BuildConfig(self.env, name='foo', path='branches/foo',
+                    active=True).insert()
+        BuildConfig(self.env, name='bar', path='branches/bar',
+                    active=True).insert()
+
+        redirected_to = []
+        def redirect(url):
+            redirected_to.append(url)
+            raise RequestDone
+        req = Mock(method='POST', perm=PermissionCache(self.env, 'joe'),
+                   abs_href=Href('http://example.org/'), redirect=redirect,
+                   authname='joe',
+                   args={'apply': ''})
+
+        provider = BuildConfigurationsAdminPageProvider(self.env)
+        try:
+            provider.process_admin_request(req, 'bitten', 'configs', '')
+            self.fail('Expected RequestDone')
+
+        except RequestDone:
+            self.assertEqual('http://example.org/admin/bitten/configs',
+                             redirected_to[0])
+            config = BuildConfig.fetch(self.env, name='foo')
+            self.assertEqual(False, config.active)
+            config = BuildConfig.fetch(self.env, name='bar')
+            self.assertEqual(False, config.active)
+
     def test_process_add_config(self):
         BuildConfig(self.env, name='foo', label='Foo', path='branches/foo',
                     active=True).insert()
