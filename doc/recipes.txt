@@ -44,12 +44,12 @@ repository.
   <build xmlns:python="http://bitten.cmlenz.net/tools/python"
          xmlns:svn="http://bitten.cmlenz.net/tools/svn">
   
-    <step id="build" description="Checkout source from repository">
+    <step id="checkout" description="Checkout source from repository">
       <svn:checkout url="http://svn.example.org/repos/foo"
           path="${path}" revision="${revision}" />
     </step>
   
-    <step id="checkout" description="Compile to byte code">
+    <step id="build" description="Compile to byte code">
       <python:distutils command="build"/>
     </step>
   

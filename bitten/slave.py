@@ -104,6 +104,7 @@ class BuildSlave(object):
             self.opener = urllib2.build_opener(SaneHTTPErrorProcessor)
             password_mgr = urllib2.HTTPPasswordMgrWithDefaultRealm()
             if username and password:
+                log.debug('Enabling authentication with username %r', username)
                 password_mgr.add_password(None, url, username, password)
             self.opener.add_handler(urllib2.HTTPBasicAuthHandler(password_mgr))
             self.opener.add_handler(urllib2.HTTPDigestAuthHandler(password_mgr))
