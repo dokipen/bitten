@@ -11,11 +11,13 @@
 """Implementation of the build slave."""
 
 from datetime import datetime
+import errno
 import urllib2
 import logging
 import os
 import platform
 import shutil
+import socket
 import tempfile
 import time
 
@@ -28,6 +30,10 @@ __all__ = ['BuildSlave', 'ExitSlave']
 __docformat__ = 'restructuredtext en'
 
 log = logging.getLogger('bitten.slave')
+
+# List of network errors which are usually temporary and non critical.
+temp_net_errors = [errno.ENETUNREACH, errno.ENETDOWN, errno.ETIMEDOUT,
+                   errno.ECONNREFUSED]
 
 
 class SaneHTTPErrorProcessor(urllib2.HTTPErrorProcessor):
@@ -134,8 +140,14 @@ class BuildSlave(object):
                 try:
                     self._create_build()
                 except urllib2.URLError, e:
-                    log.error(e)
-                    raise ExitSlave()
+                    # Is this a temporary network glitch or something a bit
+                    # more severe?
+                    if isinstance(e.reason, socket.error) and \
+                        e.reason.args[0] in temp_net_errors:
+                        log.warning(e)
+                    else:
+                        log.error(e)
+                        raise ExitSlave()
             except ExitSlave:
                 break
             time.sleep(self.poll_interval)
