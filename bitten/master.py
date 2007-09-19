@@ -210,6 +210,8 @@ class BuildMaster(Component):
         if elem.attr['status'] == 'failure':
             self.log.warning('Build %s step %s failed', build.id, stepname)
             step.status = BuildStep.FAILURE
+            if current_step.onerror == 'fail':
+                last_step = True
         else:
             step.status = BuildStep.SUCCESS
         step.errors += [error.gettext() for error in elem.children('error')]
@@ -240,8 +242,7 @@ class BuildMaster(Component):
 
         # If this was the last step in the recipe we mark the build as
         # completed
-        if last_step or step.status == BuildStep.FAILURE and \
-                current_step.onerror == 'fail':
+        if last_step:
             self.log.info('Slave %s completed build %d ("%s" as of [%s])',
                           build.slave, build.id, build.config, build.rev)
             build.stopped = step.stopped
@@ -262,8 +263,7 @@ class BuildMaster(Component):
 
         db.commit()
 
-        if last_step or step.status == BuildStep.FAILURE and \
-                current_step.onerror == 'fail':
+        if last_step:
             for listener in BuildSystem(self.env).listeners:
                 listener.build_completed(build)
 
