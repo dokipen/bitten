@@ -29,7 +29,7 @@ from bitten.model import BuildConfig, TargetPlatform, Build, BuildStep, \
 class BuildMasterTestCase(unittest.TestCase):
 
     def setUp(self):
-        self.env = EnvironmentStub()
+        self.env = EnvironmentStub(enable=['trac.*', 'bitten.*'])
         self.env.path = tempfile.mkdtemp()
 
         PermissionSystem(self.env).grant_permission('hal', 'BUILD_EXEC')

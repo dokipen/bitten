@@ -27,7 +27,7 @@ from bitten.web_ui import BuildConfigController, SourceFileLinkFormatter
 class BuildConfigControllerTestCase(unittest.TestCase):
 
     def setUp(self):
-        self.env = EnvironmentStub()
+        self.env = EnvironmentStub(enable=['trac.*', 'bitten.*'])
         self.env.path = tempfile.mkdtemp()
 
         # Create tables
@@ -127,7 +127,7 @@ class BuildConfigControllerTestCase(unittest.TestCase):
 class SourceFileLinkFormatterTestCase(unittest.TestCase):
 
     def setUp(self):
-        self.env = EnvironmentStub()
+        self.env = EnvironmentStub(enable=['trac.*', 'bitten.*'])
 
         # Create tables
         db = self.env.get_db_cnx()

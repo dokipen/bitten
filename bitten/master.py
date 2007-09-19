@@ -144,6 +144,9 @@ class BuildMaster(Component):
         build.update(db=db)
         db.commit()
 
+        for listener in BuildSystem(self.env).listeners:
+            listener.build_aborted(build)
+
         req.send_response(204)
         req.write('')
         raise RequestDone
@@ -153,6 +156,9 @@ class BuildMaster(Component):
                       build.id)
         build.started = int(time.time())
         build.update()
+
+        for listener in BuildSystem(self.env).listeners:
+            listener.build_started(build)
 
         xml = xmlio.parse(config.recipe)
         xml.attr['path'] = config.path
@@ -256,7 +262,8 @@ class BuildMaster(Component):
 
         db.commit()
 
-        if last_step:
+        if last_step or step.status == BuildStep.FAILURE and \
+                current_step.onerror == 'fail':
             for listener in BuildSystem(self.env).listeners:
                 listener.build_completed(build)
 

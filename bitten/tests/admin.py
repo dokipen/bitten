@@ -26,7 +26,7 @@ from bitten.admin import BuildMasterAdminPageProvider, \
 class BuildMasterAdminPageProviderTestCase(unittest.TestCase):
 
     def setUp(self):
-        self.env = EnvironmentStub()
+        self.env = EnvironmentStub(enable=['trac.*', 'bitten.*'])
         self.env.path = tempfile.mkdtemp()
 
         # Create tables
@@ -110,7 +110,7 @@ class BuildMasterAdminPageProviderTestCase(unittest.TestCase):
 class BuildConfigurationsAdminPageProviderTestCase(unittest.TestCase):
 
     def setUp(self):
-        self.env = EnvironmentStub()
+        self.env = EnvironmentStub(enable=['trac.*', 'bitten.*'])
         self.env.path = tempfile.mkdtemp()
 
         # Create tables
