@@ -99,7 +99,7 @@ class BuildMaster(Component):
             raise HTTPBadRequest('XML parser error')
 
         slavename = elem.attr['name']
-        properties = {Build.IP_ADDRESS: req.remote_addr}
+        properties = {'name': slavename, Build.IP_ADDRESS: req.remote_addr}
         self.log.info('Build slave %r connected from %s', slavename,
                       req.remote_addr)
 

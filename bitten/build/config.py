@@ -49,7 +49,7 @@ class Configuration(object):
 
     def _merge_sysinfo(self, parser, properties):
         """Merge the platform information properties into the configuration."""
-        system, node, release, version, machine, processor = platform.uname()
+        system, _, release, version, machine, processor = platform.uname()
         system, release, version = platform.system_alias(system, release,
                                                          version)
         self.properties['machine'] = machine

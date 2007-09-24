@@ -21,7 +21,7 @@ if admin.config.name ?>
    </fieldset></td>
   </tr><tr>
    <td colspan="2"><fieldset class="iefix">
-    <label for="recipe">Recipe</label>
+    <label for="recipe">Recipe:</label>
     <p><textarea id="recipe" name="recipe" rows="8" cols="78"><?cs
      var:admin.config.recipe ?></textarea></p>
    </fieldset></td>
@@ -93,6 +93,29 @@ elif len(admin.platform) ?>
     </tr><?cs /each ?>
    </tbody></table>
   </fieldset>
+  <p class="help">
+   The property name can be any of a set of standard default properties, or
+   custom properties defined in slave configuration files. The default
+   properties are:
+  </p>
+  <dl class="help">
+   <dt><code>os<code>:</dt>
+   <dd>The name of the operating system (for example "Darwin")</dd>
+   <dt><code>family<code>:</dt>
+   <dd>The type of operating system (for example "posix" or "nt")</dd>
+   <dt><code>version<code>:</dt>
+   <dd>The operating system version (for example "8.10.1)</dd>
+   <dt><code>machine<code>:</dt>
+   <dd>The hardware architecture (for example "i386")</dd>
+   <dt><code>processor<code>:</dt>
+   <dd>The CPU model (for example "i386", this may be empty or the same as for
+     <code>machine</code>)</dd>
+   <dt><code>name<code>:</dt>
+   <dd>The name of the slave</dd>
+   <dt><code>ipnr<code>:</dt>
+   <dd>The IP address of the slave</dd>
+  </dl>
+  <p class="help">The match pattern is a regular expression.</p>
   <div class="buttons">
    <form method="get" action=""><div>
     <input type="hidden" name="<?cs
