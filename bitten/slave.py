@@ -214,8 +214,8 @@ class BuildSlave(object):
                     break
             else:
                 log.info('Build completed')
-                if self.dry_run:
-                    self._cancel_build(build_url)
+            if self.dry_run:
+                self._cancel_build(build_url)
         finally:
             if not self.keep_files:
                 log.debug('Removing build directory %s' % basedir)
