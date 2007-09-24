@@ -210,7 +210,7 @@ class BuildConfigController(Component):
                 rev = build.rev
                 req.hdf[prefix2] = _build_to_hdf(self.env, req, build)
                 req.hdf[prefix2 + '.rev'] = rev
-                req.hdf[prefix2 + '.rev_href'] = self.env.href.changeset(rev)
+                req.hdf[prefix2 + '.rev_href'] = req.href.changeset(rev)
                 platform = TargetPlatform.fetch(self.env, build.platform)
                 req.hdf[prefix2 + '.platform'] = platform.name
 
@@ -236,7 +236,7 @@ class BuildConfigController(Component):
                 'name': config.name, 'label': config.label or config.name,
                 'active': config.active, 'path': config.path,
                 'description': description,
-                'href': self.env.href.build(config.name),
+                'href': req.href.build(config.name),
             }
 
         req.hdf['page.mode'] = 'view_inprogress'
@@ -455,7 +455,7 @@ class BuildController(Component):
                            platform, _status_label[status])
             message = ''
             if req.args.get('format') == 'rss':
-                href = self.env.abs_href.build(config, id)
+                href = req.abs_href.build(config, id)
                 if errors:
                     buf = StringIO()
                     prev_step = None
