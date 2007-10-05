@@ -212,12 +212,14 @@ def coverage(ctxt, summary=None, coverdir=None, include=None, exclude=None):
                         continue
 
                     percentage = int(match.group(4).rstrip('%'))
+                    num_lines = int(match.group(2))
 
                     missing_files.remove(filename)
                     covered_modules.add(modname)
                     module = xmlio.Element('coverage', name=modname,
                                            file=filename.replace(os.sep, '/'),
-                                           percentage=percentage)
+                                           percentage=percentage,
+                                           lines=num_lines)
                     coverage.append(module)
 
             for filename in missing_files:

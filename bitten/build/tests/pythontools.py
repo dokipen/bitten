@@ -17,6 +17,108 @@ from bitten.build import pythontools
 from bitten.recipe import Context, Recipe
 
 
+class CoverageTestCase(unittest.TestCase):
+
+    def setUp(self):
+        self.basedir = os.path.realpath(tempfile.mkdtemp())
+        self.ctxt = Context(self.basedir)
+        self.summary = open(os.path.join(self.basedir, 'test-coverage.txt'),
+                            'w')
+        self.coverdir = os.path.join(self.basedir, 'coverage')
+        os.mkdir(self.coverdir)
+
+    def tearDown(self):
+        shutil.rmtree(self.basedir)
+
+    def _create_file(self, *path):
+        filename = os.path.join(self.basedir, *path)
+        dirname = os.path.dirname(filename)
+        os.makedirs(dirname)
+        fd = file(filename, 'w')
+        fd.close()
+        return filename[len(self.basedir) + 1:]
+
+    def test_missing_param_summary(self):
+        self.summary.close()
+        self.assertRaises(AssertionError, pythontools.coverage, self.ctxt,
+                          coverdir=self.coverdir)
+
+    def test_empty_summary(self):
+        self.summary.write("""
+Name         Stmts    Exec  Cover   Missing
+-------------------------------------------
+""")
+        self.summary.close()
+        pythontools.coverage(self.ctxt, summary=self.summary.name, include='*.py')
+        type, category, generator, xml = self.ctxt.output.pop()
+        self.assertEqual(Recipe.REPORT, type)
+        self.assertEqual('coverage', category)
+        self.assertEqual(0, len(xml.children))
+
+    def test_summary_with_absolute_path(self):
+        self.summary.write("""
+Name         Stmts    Exec  Cover   Missing
+-------------------------------------------
+test.module     60      60   100%% %s/test/module.py
+""" % self.ctxt.basedir)
+        self.summary.close()
+        self._create_file('test', 'module.py')
+        pythontools.coverage(self.ctxt, summary=self.summary.name,
+                             include='test/*')
+        type, category, generator, xml = self.ctxt.output.pop()
+        self.assertEqual(Recipe.REPORT, type)
+        self.assertEqual('coverage', category)
+        self.assertEqual(1, len(xml.children))
+        child = xml.children[0]
+        self.assertEqual('coverage', child.name)
+        self.assertEqual('test.module', child.attr['name'])
+        self.assertEqual('test/module.py', child.attr['file'])
+        self.assertEqual(100, child.attr['percentage'])
+        self.assertEqual(60, child.attr['lines'])
+
+    def test_summary_with_relative_path(self):
+        self.summary.write("""
+Name         Stmts    Exec  Cover   Missing
+-------------------------------------------
+test.module     60      60   100% ./test/module.py
+""")
+        self.summary.close()
+        self._create_file('test', 'module.py')
+        pythontools.coverage(self.ctxt, summary=self.summary.name,
+                             include='test/*')
+        type, category, generator, xml = self.ctxt.output.pop()
+        self.assertEqual(Recipe.REPORT, type)
+        self.assertEqual('coverage', category)
+        self.assertEqual(1, len(xml.children))
+        child = xml.children[0]
+        self.assertEqual('coverage', child.name)
+        self.assertEqual('test.module', child.attr['name'])
+        self.assertEqual('test/module.py', child.attr['file'])
+        self.assertEqual(100, child.attr['percentage'])
+        self.assertEqual(60, child.attr['lines'])
+
+    def test_summary_with_missing_lines(self):
+        self.summary.write("""
+Name         Stmts   Exec  Cover   Missing
+-------------------------------------------
+test.module     28     26    92%   13-14 ./test/module.py
+""")
+        self.summary.close()
+        self._create_file('test', 'module.py')
+        pythontools.coverage(self.ctxt, summary=self.summary.name,
+                             include='test/*')
+        type, category, generator, xml = self.ctxt.output.pop()
+        self.assertEqual(Recipe.REPORT, type)
+        self.assertEqual('coverage', category)
+        self.assertEqual(1, len(xml.children))
+        child = xml.children[0]
+        self.assertEqual('coverage', child.name)
+        self.assertEqual('test.module', child.attr['name'])
+        self.assertEqual('test/module.py', child.attr['file'])
+        self.assertEqual(92, child.attr['percentage'])
+        self.assertEqual(28, child.attr['lines'])
+
+
 class TraceTestCase(unittest.TestCase):
 
     def setUp(self):
@@ -169,6 +271,7 @@ class UnittestTestCase(unittest.TestCase):
 
 def suite():
     suite = unittest.TestSuite()
+    suite.addTest(unittest.makeSuite(CoverageTestCase, 'test'))
     suite.addTest(unittest.makeSuite(TraceTestCase, 'test'))
     suite.addTest(unittest.makeSuite(UnittestTestCase, 'test'))
     return suite
