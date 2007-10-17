@@ -139,6 +139,10 @@ class BuildSlave(object):
             try:
                 try:
                     self._create_build()
+                except urllib2.HTTPError, e:
+                    # HTTPError doesn't have the "reason" attribute of URLError
+                    log.error(e)
+                    raise ExitSlave()
                 except urllib2.URLError, e:
                     # Is this a temporary network glitch or something a bit
                     # more severe?
