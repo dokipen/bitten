@@ -91,14 +91,21 @@ class BuildConfigurationsAdminPageProvider(Component):
         if req.perm.has_permission('BUILD_MODIFY'):
             yield ('bitten', 'Builds', 'configs', 'Configurations')
 
-    def process_admin_request(self, req, cat, page, config_name):
+    def process_admin_request(self, req, cat, page, path_info):
         data = {}
 
-        if config_name:
-            if '/' in config_name or (
+        # Analyze url
+        try:
+            config_name, platform_id = path_info.split('/', 1)
+        except:
+            config_name = path_info
+            platform_id = None
+
+        if config_name: # Existing build config
+            if platform_id or ( # Editing or creating one of the config's target platforms
                     req.method == 'POST' and 'new' in req.args):
-                if '/' in config_name:
-                    config_name, platform_id = config_name.split('/', 1)
+
+                if platform_id: # Editing target platform
                     platform_id = int(platform_id)
                     platform = TargetPlatform.fetch(self.env, platform_id)
 
@@ -107,7 +114,7 @@ class BuildConfigurationsAdminPageProvider(Component):
                                 self._update_platform(req, platform):
                             req.redirect(req.abs_href.admin(cat, page,
                                                             config_name))
-                else:
+                else: # creating target platform
                     if req.method == 'POST':
                         if 'add' in req.args:
                             self._create_platform(req, config_name)
@@ -119,6 +126,7 @@ class BuildConfigurationsAdminPageProvider(Component):
 
                     platform = TargetPlatform(self.env, config=config_name)
 
+                # Set up template variables
                 data['platform'] = {
                     'id': platform.id, 'name': platform.name,
                     'exists': platform.exists,
@@ -128,7 +136,7 @@ class BuildConfigurationsAdminPageProvider(Component):
                     ] or [('', '')]
                 }
 
-            else:
+            else: # Editing existing build config itself
                 config = BuildConfig.fetch(self.env, config_name)
                 platforms = list(TargetPlatform.select(self.env,
                                                        config=config.name))
@@ -137,13 +145,17 @@ class BuildConfigurationsAdminPageProvider(Component):
                     if 'add' in req.args: # Add target platform
                         platform = self._create_platform(req, config)
                         req.redirect(req.abs_href.admin(cat, page, config.name))
+                        
                     elif 'remove' in req.args: # Remove selected platforms
                         self._remove_platforms(req)
                         req.redirect(req.abs_href.admin(cat, page, config.name))
-                    elif 'save' in req.args:
+                        
+                    elif 'save' in req.args: # Save this build config
                         self._update_config(req, config)
+                        
                     req.redirect(req.abs_href.admin(cat, page))
-
+                    
+                # Prepare template variables
                 data['config'] = {
                     'name': config.name, 'label': config.label or config.name,
                     'active': config.active, 'path': config.path,
@@ -160,17 +172,20 @@ class BuildConfigurationsAdminPageProvider(Component):
                     } for platform in platforms]
                 }
 
-        else:
+        else: # At the top level build config list
             if req.method == 'POST':
                 if 'add' in req.args: # Add build config
                     config = self._create_config(req)
                     req.redirect(req.abs_href.admin(cat, page, config.name))
+
                 elif 'remove' in req.args: # Remove selected build configs
                     self._remove_configs(req)
+
                 elif 'apply' in req.args: # Update active state of configs
                     self._activate_configs(req)
                 req.redirect(req.abs_href.admin(cat, page))
 
+            # Prepare template variables
             configs = []
             for config in BuildConfig.select(self.env, include_inactive=True):
                 configs.append({
