@@ -29,13 +29,25 @@
     <hr />
     <div class="field">
       <label>
+        Time to wait for stabilization:
+        <input type="text" id="stabilize_wait" name="stabilize_wait"
+               value="<?cs var:admin.master.stabilize_wait ?>" size="5" />
+      </label>
+    </div>
+    <p class="hint">
+      The time in seconds to wait for the repository to stabilize after a
+      check-in before initiating a build.
+    </p>
+    <hr />
+    <div class="field">
+      <label>
         Connection timeout for build slaves:
         <input type="text" id="slave_timeout" name="slave_timeout"
                value="<?cs var:admin.master.slave_timeout ?>" size="5" />
       </label>
     </div>
     <p class="hint">
-      The timeout in milliseconds after which a build started by a slave is
+      The timeout in seconds after which a build started by a slave is
       considered aborted, in case there has been no activity from that slave
       in that time.
     </p>

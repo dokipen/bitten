@@ -47,6 +47,7 @@ class BuildMasterAdminPageProvider(Component):
         req.hdf['admin.master'] = {
             'build_all': master.build_all,
             'adjust_timestamps': master.adjust_timestamps,
+            'stabilize_wait': master.stabilize_wait,
             'slave_timeout': master.slave_timeout,
         }
         add_stylesheet(req, 'bitten/admin.css')
@@ -67,6 +68,11 @@ class BuildMasterAdminPageProvider(Component):
         if adjust_timestamps != master.adjust_timestamps:
             self.config['bitten'].set('adjust_timestamps',
                                       adjust_timestamps and 'yes' or 'no')
+            changed = True
+
+        stabilize_wait = int(req.args.get('stabilize_wait', 0))
+        if stabilize_wait != master.stabilize_wait:
+            self.config['bitten'].set('stabilize_wait', str(stabilize_wait))
             changed = True
 
         slave_timeout = int(req.args.get('slave_timeout', 0))
@@ -145,16 +151,16 @@ class BuildConfigurationsAdminPageProvider(Component):
                     if 'add' in req.args: # Add target platform
                         platform = self._create_platform(req, config)
                         req.redirect(req.abs_href.admin(cat, page, config.name))
-                        
+
                     elif 'remove' in req.args: # Remove selected platforms
                         self._remove_platforms(req)
                         req.redirect(req.abs_href.admin(cat, page, config.name))
-                        
+
                     elif 'save' in req.args: # Save this build config
                         self._update_config(req, config)
-                        
+
                     req.redirect(req.abs_href.admin(cat, page))
-                    
+
                 # Prepare template variables
                 data['config'] = {
                     'name': config.name, 'label': config.label or config.name,

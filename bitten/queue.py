@@ -97,11 +97,13 @@ class BuildQueue(object):
     repository revisions that need to be built.
     """
 
-    def __init__(self, env, build_all=False, timeout=0):
+    def __init__(self, env, build_all=False, stabilize_wait=0, timeout=0):
         """Create the build queue.
         
         :param env: the Trac environment
         :param build_all: whether older revisions should be built
+        :param stabilize_wait: The time in seconds to wait before considering
+                        the repository stable to create a build in the queue.
         :param timeout: the time in seconds after which an in-progress build
                         should be considered orphaned, and reset to pending
                         state
@@ -109,6 +111,7 @@ class BuildQueue(object):
         self.env = env
         self.log = env.log
         self.build_all = build_all
+        self.stabilize_wait = stabilize_wait
         self.timeout = timeout
 
     # Build scheduling
@@ -236,6 +239,13 @@ class BuildQueue(object):
                     if isinstance(rev_time, datetime): # Trac>=0.11
                         from trac.util.datefmt import to_timestamp
                         rev_time = to_timestamp(rev_time)
+                    age = int(time.time()) - rev_time
+                    if self.stabilize_wait and age < self.stabilize_wait:
+                        self.log.info('Delaying build of revision %s until %s '
+                                      'seconds pass. Current age is: %s '
+                                      'seconds' % (rev, self.stabilize_wait,
+                                      age))
+                        continue
 
                     build = Build(self.env, config=config.name,
                                   platform=platform.id, rev=str(rev),

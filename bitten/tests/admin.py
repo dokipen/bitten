@@ -80,6 +80,7 @@ class BuildMasterAdminPageProviderTestCase(unittest.TestCase):
         assert 'admin.master' in data
         self.assertEqual({
             'slave_timeout': 3600,
+            'stabilize_wait': 0,
             'adjust_timestamps': False,
             'build_all': False,
         }, data['admin.master'])

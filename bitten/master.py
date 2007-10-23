@@ -44,6 +44,12 @@ class BuildMaster(Component):
     build_all = BoolOption('bitten', 'build_all', False, doc=
         """Whether to request builds of older revisions even if a younger
         revision has already been built.""")
+    
+    stabilize_wait = IntOption('bitten', 'stabilize_wait', 0, doc=
+        """The time in seconds to wait for the repository to stabilize before
+        queuing up a new build.  This allows time for developers to check in
+        a group of related changes back to back without spawning multiple
+        builds.""")
 
     slave_timeout = IntOption('bitten', 'slave_timeout', 3600, doc=
         """The time in seconds after which a build is cancelled if the slave
@@ -89,7 +95,8 @@ class BuildMaster(Component):
             raise HTTPNotFound('No such collection')
 
     def _process_build_creation(self, req):
-        queue = BuildQueue(self.env, build_all=self.build_all,
+        queue = BuildQueue(self.env, build_all=self.build_all, 
+                           stabilize_wait=self.stabilize_wait,
                            timeout=self.slave_timeout)
         queue.populate()
 
