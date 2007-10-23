@@ -213,12 +213,13 @@ class BuildMasterTestCase(unittest.TestCase):
             self.fail('Expected RequestDone')
         except RequestDone:
             self.assertEqual(200, outheaders['Status'])
-            self.assertEqual('39', outheaders['Content-Length'])
+            self.assertEqual('63', outheaders['Content-Length'])
             self.assertEqual('application/x-bitten+xml',
                              outheaders['Content-Type'])
             self.assertEqual('attachment; filename=recipe_test_r123.xml',
                              outheaders['Content-Disposition'])
-            self.assertEqual('<build path="somepath" revision="123"/>',
+            self.assertEqual('<build build="1" config="test"'
+                             ' path="somepath" revision="123"/>',
                              outbody.getvalue())
 
             # Make sure the started timestamp has been set

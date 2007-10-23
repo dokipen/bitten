@@ -63,7 +63,8 @@ class BuildSlave(object):
     """BEEP initiator implementation for the build slave."""
 
     def __init__(self, url, name=None, config=None, dry_run=False,
-                 work_dir=None, keep_files=False, single_build=False,
+                 work_dir=None, build_dir="build_${build}",
+                 keep_files=False, single_build=False,
                  poll_interval=300, username=None, password=None,
                  dump_reports=False):
         """Create the build slave instance.
@@ -75,6 +76,7 @@ class BuildSlave(object):
         :param dry_run: wether the build outcome should not be reported back
                         to the master
         :param work_dir: the working directory to use for build execution
+        :param build_dir: the pattern to use for naming the build subdir
         :param keep_files: whether files and directories created for build
                            execution should be kept when done
         :param single_build: whether this slave should exit after completing a 
@@ -101,6 +103,7 @@ class BuildSlave(object):
         elif not os.path.exists(work_dir):
             os.makedirs(work_dir)
         self.work_dir = work_dir
+        self.build_dir = build_dir
         self.keep_files = keep_files
         self.single_build = single_build
         self.poll_interval = poll_interval
@@ -206,11 +209,14 @@ class BuildSlave(object):
     def _execute_build(self, build_url, fileobj):
         build_id = build_url and int(build_url.split('/')[-1]) or 0
         xml = xmlio.parse(fileobj)
-        basedir = os.path.join(self.work_dir, 'build_%d' % build_id)
-        if not os.path.exists(basedir):
-            os.mkdir(basedir)
         try:
-            recipe = Recipe(xml, basedir, self.config)
+            recipe = Recipe(xml, os.path.join(self.work_dir, self.build_dir), 
+                            self.config)
+            basedir = recipe.ctxt.basedir
+            log.debug('Running build in directory %s' % basedir)	
+            if not os.path.exists(basedir):
+                os.mkdir(basedir)
+
             for step in recipe:
                 log.info('Executing build step %r', step.id)
                 if not self._execute_step(build_url, recipe, step):
@@ -308,6 +314,10 @@ def main():
     group = parser.add_option_group('building')
     group.add_option('-d', '--work-dir', action='store', dest='work_dir',
                      metavar='DIR', help='working directory for builds')
+    group.add_option('--build-dir', action='store', dest='build_dir',
+                     default = 'build_${config}_${build}',
+                     help='name pattern for the build dir to use inside the '
+                          'working dir ["%default"]')
     group.add_option('-k', '--keep-files', action='store_true',
                      dest='keep_files', 
                      help='don\'t delete files after builds')
@@ -354,6 +364,7 @@ def main():
 
     slave = BuildSlave(url, name=options.name, config=options.config,
                        dry_run=options.dry_run, work_dir=options.work_dir,
+                       build_dir=options.build_dir,
                        keep_files=options.keep_files,
                        single_build=options.single_build,
                        poll_interval=options.interval,

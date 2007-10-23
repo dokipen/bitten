@@ -163,6 +163,8 @@ class BuildMaster(Component):
         xml = xmlio.parse(config.recipe)
         xml.attr['path'] = config.path
         xml.attr['revision'] = build.rev
+        xml.attr['config'] = config.name
+        xml.attr['build'] = str(build.id)
         body = str(xml)
 
         req.send_response(200)

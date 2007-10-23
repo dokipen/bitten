@@ -46,14 +46,16 @@ class Context(object):
     def __init__(self, basedir, config=None, vars=None):
         """Initialize the context.
         
-        :param basedir: a string containing the working directory for the build
+        :param basedir: a string containing the working directory for the build.
+                        (may be a pattern for replacement ex: 'build_${build}'
         :param config: the build slave configuration
         :type config: `Configuration`
-        """
-        self.basedir = os.path.realpath(basedir)
+        """        
         self.config = config or Configuration()
         self.vars = vars or {}
         self.output = []
+        self.basedir = os.path.realpath(self.config.interpolate(basedir,
+                                                                **self.vars))
 
     def run(self, step, namespace, name, attr):
         """Run the specified recipe command.
