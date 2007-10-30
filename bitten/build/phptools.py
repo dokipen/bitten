@@ -17,7 +17,7 @@ from bitten.build import shtools
 
 log = logging.getLogger('bitten.build.phptools')
 
-def phing(ctxt, file_=None, target_=None, executable_=None, args=None):
+def phing(ctxt, file_=None, target=None, executable=None, args=None):
     """Run a phing build"""
     if args:
         args = shlex.split(args)
@@ -25,10 +25,10 @@ def phing(ctxt, file_=None, target_=None, executable_=None, args=None):
         args = []
     args += ['-logger', 'phing.listener.DefaultLogger',
              '-buildfile', ctxt.resolve(file_ or 'build.xml')]
-    if target_:
-        args.append(target_)
+    if target:
+        args.append(target)
 
-    returncode = shtools.execute(ctxt, file_= executable_ or 'phing', args=args)
+    returncode = shtools.execute(ctxt, file_=executable or 'phing', args=args)
     if returncode != 0:
         ctxt.error('Phing failed (%s)' % returncode)
 
