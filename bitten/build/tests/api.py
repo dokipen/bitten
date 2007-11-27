@@ -62,7 +62,7 @@ class CommandLineTestCase(unittest.TestCase):
         self.assertEqual([('foo', 'baz'), ('bar', None)], combined)
 
     def test_single_argument(self):
-        cmdline = CommandLine('python', ['-V'])
+        cmdline = CommandLine(sys.executable, ['-V'])
         stdout = []
         stderr = []
         for out, err in cmdline.execute(timeout=5.0):
