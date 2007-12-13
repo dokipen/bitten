@@ -163,19 +163,7 @@ class unittest(test):
             buf.seek(0)
             fileobj = open(self.coverage_summary, 'w')
             try:
-                for idx, line in enumerate(buf):
-                    if idx < 2 or line.startswith('--'):
-                        fileobj.write(line)
-                        continue
-                    parts = line.split()
-                    name = parts[0]
-                    if name not in sys.modules:
-                        fileobj.write(line)
-                        continue
-                    filename = os.path.normpath(sys.modules[name].__file__)
-                    if filename.endswith('.pyc') or filename.endswith('.pyo'):
-                        filename = filename[:-1]
-                    fileobj.write(line.rstrip() + ' ' + filename + '\n')
+                filter_coverage(buf, fileobj)
             finally:
                 fileobj.close()
 
@@ -225,6 +213,24 @@ class unittest(test):
             )
         except SystemExit, e:
             return e.code
+
+
+def filter_coverage(infile, outfile):
+    for idx, line in enumerate(infile):
+        if idx < 2 or line.startswith('--'):
+            outfile.write(line)
+            continue
+        parts = line.split()
+        name = parts[0]
+        if name == 'TOTAL':
+            continue
+        if name not in sys.modules:
+            outfile.write(line)
+            continue
+        filename = os.path.normpath(sys.modules[name].__file__)
+        if filename.endswith('.pyc') or filename.endswith('.pyo'):
+            filename = filename[:-1]
+        outfile.write(line.rstrip() + ' ' + filename + '\n')
 
 
 def main():
