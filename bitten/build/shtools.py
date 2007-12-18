@@ -21,7 +21,7 @@ log = logging.getLogger('bitten.build.shtools')
 
 __docformat__ = 'restructuredtext en'
 
-def exec_(ctxt, executable=None, file_=None, output=None, args=None):
+def exec_(ctxt, executable=None, file_=None, output=None, args=None, dir_=None):
     """Execute a program or shell script.
     
     :param ctxt: the build context
@@ -37,13 +37,13 @@ def exec_(ctxt, executable=None, file_=None, output=None, args=None):
         'Either "executable" or "file" attribute required'
 
     returncode = execute(ctxt, executable=executable, file_=file_,
-                         output=output, args=args)
+                         output=output, args=args, dir_=dir_)
     if returncode != 0:
         ctxt.error('Executing %s failed (error code %s)' % (executable or file_,
                                                             returncode))
 
 def pipe(ctxt, executable=None, file_=None, input_=None, output=None,
-         args=None):
+         args=None, dir_=None):
     """Pipe the contents of a file through a program or shell script.
     
     :param ctxt: the build context
@@ -62,13 +62,13 @@ def pipe(ctxt, executable=None, file_=None, input_=None, output=None,
     assert input_, 'Missing required attribute "input"'
 
     returncode = execute(ctxt, executable=executable, file_=file_,
-                         input_=input_, output=output, args=args)
+                         input_=input_, output=output, args=args, dir_=dir_)
     if returncode != 0:
         ctxt.error('Piping through %s failed (error code %s)'
                    % (executable or file_, returncode))
 
 def execute(ctxt, executable=None, file_=None, input_=None, output=None,
-            args=None):
+            args=None, dir_=None):
     """Generic external program execution.
     
     This function is not itself bound to a recipe command, but rather used from
@@ -91,8 +91,14 @@ def execute(ctxt, executable=None, file_=None, input_=None, output=None,
     else:
         args = []
 
-    if file_ and os.path.isfile(ctxt.resolve(file_)):
-        file_ = ctxt.resolve(file_)
+    if dir_:
+        def resolve(*args):
+            return ctxt.resolve(dir_, *args)
+    else:
+        resolve = ctxt.resolve
+
+    if file_ and os.path.isfile(resolve(file_)):
+        file_ = resolve(file_)
 
     if executable is None:
         executable = file_
@@ -100,18 +106,23 @@ def execute(ctxt, executable=None, file_=None, input_=None, output=None,
         args[:0] = [file_]
 
     if input_:
-        input_file = file(ctxt.resolve(input_), 'r')
+        input_file = file(resolve(input_), 'r')
     else:
         input_file = None
 
-    output_file = None
     if output:
-        output = ctxt.resolve(output)
-        output_file = file(output, 'w')
+        output_file = file(resolve(output), 'w')
+    else:
+        output_file = None
+
+	if dir_ and os.path.isdir(ctxt.resolve(dir_)):
+		dir_ = ctxt.resolve(dir_)
+	else:
+		dir_ = ctxt.basedir
 
     try:
         cmdline = CommandLine(executable, args, input=input_file,
-                              cwd=ctxt.basedir)
+                              cwd=dir_)
         log_elem = xmlio.Fragment()
         for out, err in cmdline.execute():
             if out is not None:
