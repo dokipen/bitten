@@ -35,6 +35,12 @@ log = logging.getLogger('bitten.slave')
 temp_net_errors = [errno.ENETUNREACH, errno.ENETDOWN, errno.ETIMEDOUT,
                    errno.ECONNREFUSED]
 
+def _rmtree(root):
+    """Catch shutil.rmtree failures on Windows when files are read-only."""
+    def _handle_error(fn, path, excinfo):
+       os.chmod(path, 0666)
+       fn(path)
+    return shutil.rmtree(root, onerror=_handle_error) 
 
 class SaneHTTPErrorProcessor(urllib2.HTTPErrorProcessor):
     "The HTTPErrorProcessor defined in urllib needs some love."
@@ -229,7 +235,7 @@ class BuildSlave(object):
         finally:
             if not self.keep_files:
                 log.debug('Removing build directory %s' % basedir)
-                shutil.rmtree(basedir)
+                _rmtree(basedir)
             if self.single_build:
                 log.info('Exiting after single build completed.')
                 raise ExitSlave()
@@ -380,7 +386,7 @@ def main():
 
     if not options.work_dir:
         log.debug('Removing temporary directory %s' % slave.work_dir)
-        shutil.rmtree(slave.work_dir)
+        _rmtree(slave.work_dir)
 
 if __name__ == '__main__':
     main()
