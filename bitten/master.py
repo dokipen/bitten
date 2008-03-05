@@ -174,6 +174,9 @@ class BuildMaster(Component):
         xml.attr['build'] = str(build.id)
         body = str(xml)
 
+        self.log.info('Build slave %r initiated build %d', build.slave,
+                      build.id)
+
         req.send_response(200)
         req.send_header('Content-Type', 'application/x-bitten+xml')
         req.send_header('Content-Length', str(len(body)))
@@ -189,6 +192,10 @@ class BuildMaster(Component):
         except xmlio.ParseError, e:
             raise HTTPBadRequest('XML parser error')
         stepname = elem.attr['step']
+	
+	# make sure it's the right slave.
+	if build.status != Build.IN_PROGRESS or build.slave_info.get(Build.IP_ADDRESS) != req.remote_addr:
+            raise HTTPForbidden('Build %s has been invalidated for host %s.' % (build.id, req.remote_addr))
 
         step = BuildStep.fetch(self.env, build=build.id, name=stepname)
         if step:
@@ -205,8 +212,8 @@ class BuildMaster(Component):
             raise HTTPForbidden('No such build step')
         last_step = index == num
 
-        self.log.debug('Slave %s completed step %d (%s) with status %s',
-                       build.slave, index, stepname, elem.attr['status'])
+        self.log.debug('Slave %s (build %d) completed step %d (%s) with status %s',
+                       build.slave, build.id, index, stepname, elem.attr['status'])
 
         db = self.env.get_db_cnx()
 
