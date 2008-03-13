@@ -168,7 +168,7 @@ class BuildConfigController(Component):
                             'author': chgset.author or 'anonymous',
                             'date': format_datetime(chgset.date),
                             'message': wiki_to_oneliner(
-                                shorten_line(chgset.message), self.env)
+                                shorten_line(chgset.message), self.env, req=req)
                         }
                     else:
                         break
