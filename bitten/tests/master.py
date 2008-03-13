@@ -18,7 +18,7 @@ from trac.db import DatabaseManager
 from trac.perm import PermissionCache, PermissionSystem
 from trac.test import EnvironmentStub, Mock
 from trac.web.api import HTTPBadRequest, HTTPMethodNotAllowed, HTTPNotFound, \
-                         RequestDone
+                         HTTPForbidden, RequestDone
 from trac.web.href import Href
 
 from bitten.master import BuildMaster
@@ -267,7 +267,8 @@ class BuildMasterTestCase(unittest.TestCase):
         BuildConfig(self.env, 'test', path='somepath', active=True,
                     recipe=recipe).insert()
         build = Build(self.env, 'test', '123', 1, slave='hal', rev_time=42,
-                      started=42)
+                      started=42, status=Build.IN_PROGRESS)
+        build.slave_info[Build.IP_ADDRESS] = '127.0.0.1';
         build.insert()
 
         inbody = StringIO("""<result step="foo" status="success"
@@ -314,7 +315,8 @@ class BuildMasterTestCase(unittest.TestCase):
         BuildConfig(self.env, 'test', path='somepath', active=True,
                     recipe=recipe).insert()
         build = Build(self.env, 'test', '123', 1, slave='hal', rev_time=42,
-                      started=42)
+                      started=42, status=Build.IN_PROGRESS)
+        build.slave_info[Build.IP_ADDRESS] = '127.0.0.1';
         build.insert()
 
         inbody = StringIO("""<result step="foo" status="success"
@@ -373,7 +375,8 @@ class BuildMasterTestCase(unittest.TestCase):
         BuildConfig(self.env, 'test', path='somepath', active=True,
                     recipe=recipe).insert()
         build = Build(self.env, 'test', '123', 1, slave='hal', rev_time=42,
-                      started=42)
+                      started=42, status=Build.IN_PROGRESS)
+        build.slave_info[Build.IP_ADDRESS] = '127.0.0.1';
         build.insert()
 
         inbody = StringIO("""<result step="foo" status="success"
@@ -431,6 +434,136 @@ class BuildMasterTestCase(unittest.TestCase):
                 'type': 'test',
             }, reports[0].items[0])
 
+    def test_process_build_step_wrong_slave(self):
+        recipe = """<build>
+  <step id="foo">
+  </step>
+</build>"""
+        BuildConfig(self.env, 'test', path='somepath', active=True,
+                    recipe=recipe).insert()
+        build = Build(self.env, 'test', '123', 1, slave='hal', rev_time=42,
+                      started=42, status=Build.IN_PROGRESS)
+        build.slave_info[Build.IP_ADDRESS] = '192.168.1.1';
+        build.insert()
+
+        inbody = StringIO("""<result step="foo" status="success"
+                                     time="2007-04-01T15:30:00.0000"
+                                     duration="3.45">
+    <log generator="http://bitten.cmlenz.net/tools/python#unittest">
+        <message level="info">Doing stuff</message>
+        <message level="error">Ouch that hurt</message>
+    </log>
+</result>""")
+        outheaders = {}
+        outbody = StringIO()
+        req = Mock(method='POST', base_path='',
+                   path_info='/builds/%d/steps/' % build.id,
+                   href=Href('/trac'), abs_href=Href('http://example.org/trac'),
+                   remote_addr='127.0.0.1', args={},
+                   perm=PermissionCache(self.env, 'hal'),
+                   read=inbody.read,
+                   send_response=lambda x: outheaders.setdefault('Status', x),
+                   send_header=lambda x, y: outheaders.setdefault(x, y),
+                   write=outbody.write)
+        module = BuildMaster(self.env)
+        assert module.match_request(req)
+        try:
+            module.process_request(req)
+            self.fail('Expected HTTPForbidden')
+        except HTTPForbidden, e:
+            self.assertEqual('Build 1 has been invalidated for host 127.0.0.1.', e.detail)
+
+            build = Build.fetch(self.env, build.id)
+            self.assertEqual(Build.IN_PROGRESS, build.status)
+            assert not build.stopped
+
+            steps = list(BuildStep.select(self.env, build.id))
+            self.assertEqual(0, len(steps))
+
+
+    def test_process_build_step_invalidated_build(self):
+        recipe = """<build>
+  <step id="foo">
+  </step>
+  <step id="foo2">
+  </step>
+</build>"""
+        BuildConfig(self.env, 'test', path='somepath', active=True,
+                    recipe=recipe).insert()
+        build = Build(self.env, 'test', '123', 1, slave='hal', rev_time=42,
+                      started=42, status=Build.IN_PROGRESS)
+        build.slave_info[Build.IP_ADDRESS] = '127.0.0.1';
+        build.insert()
+
+        inbody = StringIO("""<result step="foo" status="success"
+                                     time="2007-04-01T15:30:00.0000"
+                                     duration="3.45">
+    <log generator="http://bitten.cmlenz.net/tools/python#unittest">
+        <message level="info">Doing stuff</message>
+        <message level="error">Ouch that hurt</message>
+    </log>
+</result>""")
+        outheaders = {}
+        outbody = StringIO()
+        req = Mock(method='POST', base_path='',
+                   path_info='/builds/%d/steps/' % build.id,
+                   href=Href('/trac'), abs_href=Href('http://example.org/trac'),
+                   remote_addr='127.0.0.1', args={},
+                   perm=PermissionCache(self.env, 'hal'),
+                   read=inbody.read,
+                   send_response=lambda x: outheaders.setdefault('Status', x),
+                   send_header=lambda x, y: outheaders.setdefault(x, y),
+                   write=outbody.write)
+        module = BuildMaster(self.env)
+        assert module.match_request(req)
+        try:
+            module.process_request(req)
+            self.fail('Expected RequestDone')
+        except RequestDone:            
+            build = Build.fetch(self.env, build.id)
+            self.assertEqual(Build.IN_PROGRESS, build.status)
+            assert not build.stopped
+
+            steps = list(BuildStep.select(self.env, build.id))
+            self.assertEqual(1, len(steps))
+
+        # invalidate the build. 
+
+        build = Build.fetch(self.env, build.id)
+        build.slave = None
+        build.status = Build.PENDING
+        build.update()
+
+        # have this slave submit more data.
+        inbody = StringIO("""<result step="foo2" status="success"
+                                     time="2007-04-01T15:45:00.0000"
+                                     duration="4">
+    <log generator="http://bitten.cmlenz.net/tools/python#unittest">
+        <message level="info">This is a step after invalidation</message>
+    </log>
+</result>""")
+        outheaders = {}
+        outbody = StringIO()
+        req = Mock(method='POST', base_path='',
+                   path_info='/builds/%d/steps/' % build.id,
+                   href=Href('/trac'), abs_href=Href('http://example.org/trac'),
+                   remote_addr='127.0.0.1', args={},
+                   perm=PermissionCache(self.env, 'hal'),
+                   read=inbody.read,
+                   send_response=lambda x: outheaders.setdefault('Status', x),
+                   send_header=lambda x, y: outheaders.setdefault(x, y),
+                   write=outbody.write)
+        module = BuildMaster(self.env)
+        assert module.match_request(req)
+        try:
+            module.process_request(req)
+            self.fail('Build was invalidated. Should fail.');
+        except HTTPForbidden, e:
+            self.assertEqual('Build 1 has been invalidated for host 127.0.0.1.', e.detail)            
+
+            build = Build.fetch(self.env, build.id)
+            self.assertEqual(Build.PENDING, build.status)
+
     def test_process_build_step_failure(self):
         recipe = """<build>
   <step id="foo">
@@ -439,7 +572,8 @@ class BuildMasterTestCase(unittest.TestCase):
         BuildConfig(self.env, 'test', path='somepath', active=True,
                     recipe=recipe).insert()
         build = Build(self.env, 'test', '123', 1, slave='hal', rev_time=42,
-                      started=42)
+                      started=42, status=Build.IN_PROGRESS)
+        build.slave_info[Build.IP_ADDRESS] = '127.0.0.1';
         build.insert()
 
         inbody = StringIO("""<result step="foo" status="failure"
@@ -486,7 +620,9 @@ class BuildMasterTestCase(unittest.TestCase):
         BuildConfig(self.env, 'test', path='somepath', active=True,
                     recipe=recipe).insert()
         build = Build(self.env, 'test', '123', 1, slave='hal', rev_time=42,
-                      started=42)
+                      started=42, status=Build.IN_PROGRESS)
+        build.slave_info[Build.IP_ADDRESS] = '127.0.0.1';
+
         build.insert()
 
         inbody = StringIO("""<result step="foo" status="failure"
@@ -559,7 +695,8 @@ class BuildMasterTestCase(unittest.TestCase):
         BuildConfig(self.env, 'test', path='somepath', active=True,
                     recipe=recipe).insert()
         build = Build(self.env, 'test', '123', 1, slave='hal', rev_time=42,
-                      started=42)
+                      started=42, status=Build.IN_PROGRESS)
+        build.slave_info[Build.IP_ADDRESS] = '127.0.0.1';
         build.insert()
 
         inbody = StringIO("""<result step="foo" status="success"
