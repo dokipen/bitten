@@ -60,6 +60,7 @@ setup(
             NS + 'sh#exec = bitten.build.shtools:exec_',
             NS + 'sh#pipe = bitten.build.shtools:pipe',
             NS + 'c#configure = bitten.build.ctools:configure',
+            NS + 'c#autoreconf = bitten.build.ctools:autoreconf',
             NS + 'c#cppunit = bitten.build.ctools:cppunit',
             NS + 'c#gcov = bitten.build.ctools:gcov',
             NS + 'c#make = bitten.build.ctools:make',

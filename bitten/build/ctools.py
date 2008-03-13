@@ -60,6 +60,40 @@ def configure(ctxt, file_='configure', enable=None, disable=None, with=None,
     if returncode != 0:
         ctxt.error('configure failed (%s)' % returncode)
 
+def autoreconf(ctxt, file_='configure', force=None, install=None, symlink=None,
+              warnings=None, prepend_include=None, include =None):
+    """Run the autotoll ``autoreconf``.
+    
+    :param ctxt: the build context
+    :type ctxt: `Context`
+    :param force: consider all files obsolete
+    :param install: copy missing auxiliary files
+    :param symlink: install symbolic links instead of copies
+    :param warnings: report the warnings falling in CATEGORY
+    :prepend_include: prepend directories to search path
+    :include: append directories to search path
+
+    """
+    args = []
+    if install:
+        args.append('--install')
+        if symlink:
+            args.append('--symlink')
+    if force:
+        args.append('--force')
+    if warnings:
+        args.append('--warnings=%s' % warnings)
+        
+    if include:
+        args += ['--include=%s' % inc for inc in include.split()]
+    if prepend_include:
+        args += ['--prepend-include=%s' % pinc for pinc in prepend_include.split()]
+            
+    from bitten.build import shtools
+    returncode = shtools.execute(ctxt, 'autoreconf', args=args)
+    if returncode != 0:
+        ctxt.error('autoreconf failed (%s)' % returncode)
+
 def make(ctxt, target=None, file_=None, keep_going=False):
     """Execute a Makefile target.
     
