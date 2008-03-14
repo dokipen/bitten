@@ -147,7 +147,9 @@ class BuildSlave(object):
         while True:
             try:
                 try:
-                    self._create_build()
+                    job_done = self._create_build()
+                    if job_done:
+                        continue
                 except urllib2.HTTPError, e:
                     # HTTPError doesn't have the "reason" attribute of URLError
                     log.error(e)
@@ -193,8 +195,10 @@ class BuildSlave(object):
 
         if resp.code == 201:
             self._initiate_build(resp.info().get('location'))
+            return True
         elif resp.code == 204:
             log.info('No pending builds')
+            return False
         else:
             log.error('Unexpected response (%d %s)', resp.code, resp.msg)
             raise ExitSlave()
