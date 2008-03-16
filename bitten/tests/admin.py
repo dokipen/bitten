@@ -22,6 +22,10 @@ from bitten.model import BuildConfig, TargetPlatform, schema
 from bitten.admin import BuildMasterAdminPageProvider, \
                          BuildConfigurationsAdminPageProvider
 
+try:
+    from trac.perm import DefaultPermissionPolicy
+except ImportError:
+    DefaultPermissionPolicy = None
 
 class BuildMasterAdminPageProviderTestCase(unittest.TestCase):
 
@@ -41,6 +45,9 @@ class BuildMasterAdminPageProviderTestCase(unittest.TestCase):
         self.env.config.set('trac', 'permission_store',
                             'DefaultPermissionStore')
         PermissionSystem(self.env).grant_permission('joe', 'BUILD_ADMIN')
+        if DefaultPermissionPolicy is not None:
+            self.old_perm_cache_expiry = DefaultPermissionPolicy.CACHE_EXPIRY
+            DefaultPermissionPolicy.CACHE_EXPIRY = 0
 
         # Hook up a dummy repository
         self.repos = Mock(
@@ -52,6 +59,8 @@ class BuildMasterAdminPageProviderTestCase(unittest.TestCase):
         self.env.get_repository = lambda authname=None: self.repos
 
     def tearDown(self):
+        if DefaultPermissionPolicy is not None:
+            DefaultPermissionPolicy.CACHE_EXPIRY = self.old_perm_cache_expiry
         shutil.rmtree(self.env.path)
 
     def test_get_admin_pages(self):
@@ -128,6 +137,9 @@ class BuildConfigurationsAdminPageProviderTestCase(unittest.TestCase):
         PermissionSystem(self.env).grant_permission('joe', 'BUILD_CREATE')
         PermissionSystem(self.env).grant_permission('joe', 'BUILD_DELETE')
         PermissionSystem(self.env).grant_permission('joe', 'BUILD_MODIFY')
+        if DefaultPermissionPolicy is not None:
+            self.old_perm_cache_expiry = DefaultPermissionPolicy.CACHE_EXPIRY
+            DefaultPermissionPolicy.CACHE_EXPIRY = 0
 
         # Hook up a dummy repository
         self.repos = Mock(
@@ -139,6 +151,8 @@ class BuildConfigurationsAdminPageProviderTestCase(unittest.TestCase):
         self.env.get_repository = lambda authname=None: self.repos
 
     def tearDown(self):
+        if DefaultPermissionPolicy is not None:
+            DefaultPermissionPolicy.CACHE_EXPIRY = self.old_perm_cache_expiry
         shutil.rmtree(self.env.path)
 
     def test_get_admin_pages(self):
