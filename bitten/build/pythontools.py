@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
 #
 # Copyright (C) 2005-2007 Christopher Lenz <cmlenz@gmx.de>
-# Copyright (C) 2007 Edgewall Software
+# Copyright (C) 2008 Matt Good <matt@matt-good.net>
+# Copyright (C) 2008 Edgewall Software
 # All rights reserved.
 #
 # This software is licensed as described in the file COPYING, which
@@ -10,8 +11,11 @@
 
 """Recipe commands for tools commonly used by Python projects."""
 
+from __future__ import division
+
 import logging
 import os
+import cPickle as pickle
 import re
 try:
     set
@@ -367,6 +371,55 @@ def trace(ctxt, summary=None, coverdir=None, include=None, exclude=None):
             summary_file.close()
     except IOError, e:
         log.warning('Error opening coverage summary file (%s)', e)
+
+def figleaf(ctxt, summary=None, include=None, exclude=None):
+    from figleaf import get_lines
+    coverage = xmlio.Fragment()
+    try:
+        fileobj = open(ctxt.resolve(summary))
+    except IOError, e:
+        log.warning('Error opening coverage summary file (%s)', e)
+        return
+    coverage_data = pickle.load(fileobj)
+    fileset = FileSet(ctxt.basedir, include, exclude)
+    for filename in fileset:
+        base, ext = os.path.splitext(filename)
+        if ext != '.py':
+            continue
+        modname = base.replace('/', '.')
+        realfilename = ctxt.resolve(filename)
+        interesting_lines = get_lines(open(realfilename))
+        covered_lines = coverage_data.get(realfilename, set())
+        percentage = int(round(len(covered_lines) * 100 / len(interesting_lines)))
+        line_hits = []
+        for lineno in xrange(1, max(interesting_lines)+1):
+            if lineno not in interesting_lines:
+                line_hits.append('-')
+            elif lineno in covered_lines:
+                line_hits.append('1')
+            else:
+                line_hits.append('0')
+        module = xmlio.Element('coverage', name=modname,
+                               file=filename,
+                               percentage=percentage,
+                               lines=len(interesting_lines),
+                               line_hits=' '.join(line_hits))
+        coverage.append(module)
+    ctxt.report('coverage', coverage)
+
+def _normalize_filenames(ctxt, filenames, fileset):
+    for filename in filenames:
+        if not os.path.isabs(filename):
+            filename = os.path.normpath(os.path.join(ctxt.basedir,
+                                                     filename))
+        else:
+            filename = os.path.realpath(filename)
+        if not filename.startswith(ctxt.basedir):
+            continue
+        filename = filename[len(ctxt.basedir) + 1:]
+        if filename not in fileset:
+            continue
+        yield filename.replace(os.sep, '/')
 
 def unittest(ctxt, file_=None):
     """Extract data from a unittest results file in XML format.

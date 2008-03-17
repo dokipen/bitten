@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
 #
 # Copyright (C) 2005-2007 Christopher Lenz <cmlenz@gmx.de>
-# Copyright (C) 2007 Edgewall Software
+# Copyright (C) 2008 Matt Good <matt@matt-good.net>
+# Copyright (C) 2008 Edgewall Software
 # All rights reserved.
 #
 # This software is licensed as described in the file COPYING, which
@@ -131,7 +132,7 @@ class unittest(test):
                 os.makedirs(os.path.dirname(self.xml_output))
             self.xml_output_file = open(self.xml_output, 'w')
 
-        if self.coverage_method not in ('trace', 'coverage'):
+        if self.coverage_method not in ('trace', 'coverage', 'figleaf'):
             raise DistutilsOptionError('Unknown coverage method %r' %
                                        self.coverage_method)
 
@@ -139,10 +140,21 @@ class unittest(test):
         if self.coverage_summary:
             if self.coverage_method == 'coverage':
                 self._run_with_coverage()
+            elif self.coverage_method == 'figleaf':
+                self._run_with_figleaf()
             else:
                 self._run_with_trace()
         else:
             self._run_tests()
+
+    def _run_with_figleaf(self):
+        import figleaf
+        figleaf.start()
+        try:
+            self._run_tests()
+        finally:
+            figleaf.stop()
+            figleaf.write_coverage(self.coverage_summary)
 
     def _run_with_coverage(self):
         import coverage

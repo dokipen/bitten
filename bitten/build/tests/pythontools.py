@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
 #
 # Copyright (C) 2005-2007 Christopher Lenz <cmlenz@gmx.de>
-# Copyright (C) 2007 Edgewall Software
+# Copyright (C) 2008 Matt Good <matt@matt-good.net>
+# Copyright (C) 2008 Edgewall Software
 # All rights reserved.
 #
 # This software is licensed as described in the file COPYING, which
@@ -9,11 +10,13 @@
 # are also available at http://bitten.edgewall.org/wiki/License.
 
 import os
+import cPickle as pickle
 import shutil
 import tempfile
 import unittest
 
 from bitten.build import pythontools
+from bitten.build import FileSet
 from bitten.recipe import Context, Recipe
 
 
@@ -197,6 +200,134 @@ lines   cov%   module   (path)
         self.assertEqual('test/module.py', child.attr['file'])
 
 
+class FigleafTestCase(unittest.TestCase):
+
+    def setUp(self):
+        self.basedir = os.path.realpath(tempfile.mkdtemp())
+        self.ctxt = Context(self.basedir)
+        self.summary = open(os.path.join(self.basedir, '.figleaf'), 'w')
+
+    def tearDown(self):
+        shutil.rmtree(self.basedir)
+
+    def _create_file(self, *path):
+        filename = os.path.join(self.basedir, *path)
+        dirname = os.path.dirname(filename)
+        os.makedirs(dirname)
+        fd = file(filename, 'w')
+        fd.close()
+        return filename[len(self.basedir) + 1:]
+
+    def test_missing_param_summary(self):
+        self.summary.close()
+        self.assertRaises(AssertionError, pythontools.coverage, self.ctxt)
+
+    def test_empty_summary(self):
+        pickle.dump({}, self.summary)
+        self.summary.close()
+        pythontools.figleaf(self.ctxt, summary=self.summary.name, include='*.py')
+        type, category, generator, xml = self.ctxt.output.pop()
+        self.assertEqual(Recipe.REPORT, type)
+        self.assertEqual('coverage', category)
+        self.assertEqual(0, len(xml.children))
+
+    def test_missing_coverage_file(self):
+        self.summary.close()
+        pythontools.figleaf(self.ctxt, summary='non-existant-file', include='*.py')
+        self.assertEqual([], self.ctxt.output)
+
+    def test_summary_with_absolute_path(self):
+        filename = '%s/test/module.py' % self.ctxt.basedir
+        pickle.dump({
+            filename: set([1, 4, 5]),
+        }, self.summary)
+        self.summary.close()
+        sourcefile = self.ctxt.resolve(self._create_file('test', 'module.py'))
+        open(sourcefile, 'w').write(
+            "if foo: # line 1\n"
+            "  print 'uncovered' # line 2\n"
+            "else: # line 3 (uninteresting)\n"
+            "  print 'covered' # line 4\n"
+            "print 'covered' # line 6\n"
+        )
+        pythontools.figleaf(self.ctxt, summary=self.summary.name,
+                            include='test/*')
+        type, category, generator, xml = self.ctxt.output.pop()
+        self.assertEqual(Recipe.REPORT, type)
+        self.assertEqual('coverage', category)
+        self.assertEqual(1, len(xml.children))
+        child = xml.children[0]
+        self.assertEqual('coverage', child.name)
+        self.assertEqual('test.module', child.attr['name'])
+        self.assertEqual('test/module.py', child.attr['file'])
+        self.assertEqual(75, child.attr['percentage'])
+        self.assertEqual(4, child.attr['lines'])
+        self.assertEqual('1 0 - 1 1', child.attr['line_hits'])
+
+    def test_summary_with_non_covered_file(self):
+        pickle.dump({}, self.summary)
+        self.summary.close()
+        sourcefile = self.ctxt.resolve(self._create_file('test', 'module.py'))
+        open(sourcefile, 'w').write(
+            "print 'line 1'\n"
+            "print 'line 2'\n"
+            "print 'line 3'\n"
+            "print 'line 4'\n"
+            "print 'line 5'\n"
+        )
+        pythontools.figleaf(self.ctxt, summary=self.summary.name,
+                            include='test/*')
+        type, category, generator, xml = self.ctxt.output.pop()
+        self.assertEqual(Recipe.REPORT, type)
+        self.assertEqual('coverage', category)
+        self.assertEqual(1, len(xml.children))
+        child = xml.children[0]
+        self.assertEqual('coverage', child.name)
+        self.assertEqual('test.module', child.attr['name'])
+        self.assertEqual('test/module.py', child.attr['file'])
+        self.assertEqual(0, child.attr['percentage'])
+        self.assertEqual(5, child.attr['lines'])
+
+    def test_summary_with_non_python_files(self):
+        "Figleaf coverage reports should not include files that do not end in .py"
+        pickle.dump({}, self.summary)
+        self.summary.close()
+        sourcefile = self.ctxt.resolve(self._create_file('test', 'document.txt'))
+        open(sourcefile, 'w').write("\n")
+        pythontools.figleaf(self.ctxt, summary=self.summary.name,
+                            include='test/*')
+        type, category, generator, xml = self.ctxt.output.pop()
+        self.assertEqual(Recipe.REPORT, type)
+        self.assertEqual('coverage', category)
+        self.assertEqual(0, len(xml.children))
+
+
+class FilenameNormalizationTestCase(unittest.TestCase):
+
+    def setUp(self):
+        self.basedir = os.path.realpath(tempfile.mkdtemp())
+        self.ctxt = Context(self.basedir)
+
+    def tearDown(self):
+        shutil.rmtree(self.basedir)
+
+    def _create_file(self, *path):
+        filename = os.path.join(self.basedir, *path)
+        dirname = os.path.dirname(filename)
+        os.makedirs(dirname)
+        fd = file(filename, 'w')
+        fd.close()
+        return filename[len(self.basedir) + 1:]
+
+    def test_absolute_path(self):
+        filename = '%s/test/module.py' % self.ctxt.basedir
+        self._create_file('test', 'module.py')
+        filenames = pythontools._normalize_filenames(
+                            self.ctxt, [filename],
+                            FileSet(self.ctxt.basedir, '**/*.py', None))
+        self.assertEqual(['test/module.py'], list(filenames))
+
+
 class UnittestTestCase(unittest.TestCase):
 
     def setUp(self):
@@ -273,6 +404,8 @@ def suite():
     suite = unittest.TestSuite()
     suite.addTest(unittest.makeSuite(CoverageTestCase, 'test'))
     suite.addTest(unittest.makeSuite(TraceTestCase, 'test'))
+    suite.addTest(unittest.makeSuite(FigleafTestCase, 'test'))
+    suite.addTest(unittest.makeSuite(FilenameNormalizationTestCase, 'test'))
     suite.addTest(unittest.makeSuite(UnittestTestCase, 'test'))
     return suite
 

@@ -73,6 +73,7 @@ setup(
             NS + 'python#coverage = bitten.build.pythontools:coverage',
             NS + 'python#distutils = bitten.build.pythontools:distutils',
             NS + 'python#exec = bitten.build.pythontools:exec_',
+            NS + 'python#figleaf = bitten.build.pythontools:figleaf',
             NS + 'python#pylint = bitten.build.pythontools:pylint',
             NS + 'python#trace = bitten.build.pythontools:trace',
             NS + 'python#unittest = bitten.build.pythontools:unittest',
