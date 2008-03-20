@@ -31,7 +31,7 @@ def checkout(ctxt, url, path=None, revision=None, dir_='.'):
     if revision:
         args += ['-r', revision]
     if path:
-        url = posixpath.join(url, path)
+        url = posixpath.join(url, path.lstrip('/'))
     args += [url, dir_]
 
     from bitten.build import shtools
