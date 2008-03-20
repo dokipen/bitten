@@ -8,27 +8,31 @@
 # you should have received as part of this distribution. The terms
 # are also available at http://bitten.edgewall.org/wiki/License.
 
+import doctest
 import unittest
 
 from trac.db import DatabaseManager
 from trac.test import EnvironmentStub, Mock
 from trac.web.clearsilver import HDFWrapper
 from bitten.model import *
+from bitten.report import coverage
 from bitten.report.coverage import TestCoverageChartGenerator
 
+def env_stub_with_tables():
+    env = EnvironmentStub()
+    db = env.get_db_cnx()
+    cursor = db.cursor()
+    connector, _ = DatabaseManager(env)._get_connector()
+    for table in schema:
+        for stmt in connector.to_sql(table):
+            cursor.execute(stmt)
+    return env
 
 class TestCoverageChartGeneratorTestCase(unittest.TestCase):
 
     def setUp(self):
-        self.env = EnvironmentStub()
+        self.env = env_stub_with_tables()
         self.env.path = ''
-        db = self.env.get_db_cnx()
-        cursor = db.cursor()
-
-        connector, _ = DatabaseManager(self.env)._get_connector()
-        for table in schema:
-            for stmt in connector.to_sql(table):
-                cursor.execute(stmt)
 
     def test_supported_categories(self):
         generator = TestCoverageChartGenerator(self.env)
@@ -100,6 +104,7 @@ class TestCoverageChartGeneratorTestCase(unittest.TestCase):
 def suite():
     suite = unittest.TestSuite()
     suite.addTest(unittest.makeSuite(TestCoverageChartGeneratorTestCase))
+    suite.addTest(doctest.DocTestSuite(coverage))
     return suite
 
 if __name__ == '__main__':
