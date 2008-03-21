@@ -386,7 +386,7 @@ def figleaf(ctxt, summary=None, include=None, exclude=None):
         base, ext = os.path.splitext(filename)
         if ext != '.py':
             continue
-        modname = base.replace('/', '.')
+        modname = base.replace(os.path.sep, '.')
         realfilename = ctxt.resolve(filename)
         interesting_lines = get_lines(open(realfilename))
         covered_lines = coverage_data.get(realfilename, set())
