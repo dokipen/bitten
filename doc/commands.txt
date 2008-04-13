@@ -127,9 +127,9 @@ applications on Unix platforms, such as ``make``.
 :Common prefix: ``c``
 
 
------------------
+------------------
 ``<c:autoreconf>``
------------------
+------------------
 
 Executes ths autotool autoreconf.
 
@@ -153,7 +153,8 @@ Parameters
 +--------------+-------------------------------------------------------------+
 | ``symlink``  | Install symbolic links instead of copies                    |
 +--------------+-------------------------------------------------------------+
-| ``warnings`` | Report the warnings related to category (which can actually be a comma separated list)           |
+| ``warnings`` | Report the warnings related to category                     |
+|              | (which can actually be a comma separated list)              |
 +--------------+-------------------------------------------------------------+
 | ``prepend_include``  | Prepend directories to search path                  |
 +--------------+-------------------------------------------------------------+
@@ -259,6 +260,15 @@ Parameters
 | ``keep-going`` | Whether `make` should try to continue even after          |
 |                | encountering errors.                                      |
 +----------------+-----------------------------------------------------------+
+| ``jobs``       | Number of parallel jobs used by make.                     |
++----------------+-----------------------------------------------------------+
+| ``directory``  | Path of the directory in which make should be called.     |
++----------------+-----------------------------------------------------------+
+| ``args``       | Any space separated arguments to pass to the makefile.    | 
+|                | Usually in the form:                                      |
+|                | ``"parameter1=value1 parameter2=value2"``.                |
++----------------+-----------------------------------------------------------+
+
 
 Examples
 --------
@@ -270,6 +280,12 @@ Examples
 Runs the target "compile" of the ``Makefile`` located in the sub-directory
 ``build``.
 
+.. code-block:: xml
+
+  <c:make target="compile" file="build/Makefile" directory="work" args="coverage=1" />
+
+Same as previous but execute the command in the ``work`` directory and call
+the makefile with the command line argument ``coverage=1``.
 
 ---------------
 ``<c:cppunit>``

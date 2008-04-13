@@ -14,6 +14,7 @@ import logging
 import re
 import os
 import posixpath
+import shlex
 
 from bitten.build import CommandLine, FileSet
 from bitten.util import xmlio
@@ -94,7 +95,7 @@ def autoreconf(ctxt, file_='configure', force=None, install=None, symlink=None,
     if returncode != 0:
         ctxt.error('autoreconf failed (%s)' % returncode)
 
-def make(ctxt, target=None, file_=None, keep_going=False):
+def make(ctxt, target=None, file_=None, keep_going=False, directory=None, jobs=None, args=None):
     """Execute a Makefile target.
     
     :param ctxt: the build context
@@ -102,19 +103,32 @@ def make(ctxt, target=None, file_=None, keep_going=False):
     :param file\_: name of the Makefile
     :param keep_going: whether make should keep going when errors are
                        encountered
+    :param directory: directory in which to build; defaults to project source directory
+    :param jobs: number of concurrent jobs to run
+    :param args: command-line arguments to pass to the script
     """
     executable = ctxt.config.get_filepath('make.path') or 'make'
 
-    args = ['--directory', ctxt.basedir]
+    if directory is None:
+        directory = ctxt.basedir
+
+    margs = ['--directory', directory]
+
     if file_:
-        args += ['--file', ctxt.resolve(file_)]
+        margs += ['--file', ctxt.resolve(file_)]
     if keep_going:
-        args.append('--keep-going')
+        margs.append('--keep-going')
     if target:
-        args.append(target)
+        margs.append(target)
+    if jobs:
+        margs += ['--jobs', jobs]
+
+    if args:
+        if isinstance(args, basestring):
+            margs += shlex.split(args)
 
     from bitten.build import shtools
-    returncode = shtools.execute(ctxt, executable=executable, args=args)
+    returncode = shtools.execute(ctxt, executable=executable, args=margs)
     if returncode != 0:
         ctxt.error('make failed (%s)' % returncode)
 
