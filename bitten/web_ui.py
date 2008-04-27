@@ -85,8 +85,8 @@ class BittenChrome(Component):
         if not req.perm.has_permission('BUILD_VIEW'):
             return
         yield ('mainnav', 'build', \
-               Markup('<a href="%s" accesskey="5">Build Status</a>',
-                      req.href.build()))
+               Markup('<a href="%s" accesskey="5">Build Status</a>') %
+                      req.href.build())
 
     # ITemplatesProvider methods
 
@@ -451,8 +451,9 @@ class BuildController(Component):
                     errors += [(step.name, error) for error
                                in step.errors]
 
-            title = Markup('Build of <em>%s [%s]</em> on %s %s', label, rev,
-                           platform, _status_label[status])
+            title = Markup('Build of <em>%s [%s]</em> on %s %s') % (
+                label, rev, platform, _status_label[status]
+            )
             message = ''
             if req.args.get('format') == 'rss':
                 href = req.abs_href.build(config, id)
@@ -476,7 +477,7 @@ class BuildController(Component):
                     for step, error in errors:
                         if step not in steps:
                             steps.append(step)
-                    steps = [Markup('<em>%s</em>', step) for step in steps]
+                    steps = [Markup('<em>%s</em>') % step for step in steps]
                     if len(steps) < 2:
                         message = steps[0]
                     elif len(steps) == 2:
@@ -484,8 +485,9 @@ class BuildController(Component):
                     elif len(steps) > 2:
                         message = Markup(', ').join(steps[:-1]) + ', and ' + \
                                   steps[-1]
-                    message = Markup('Step%s %s failed',
-                                     len(steps) != 1 and 's' or '', message)
+                    message = Markup('Step%s %s failed') % (
+                        len(steps) != 1 and 's' or '', message
+                    )
             yield event_kinds[status], href, title, stopped, None, message
 
     # Internal methods
