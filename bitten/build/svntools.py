@@ -12,12 +12,13 @@
 
 import logging
 import posixpath
+import re
 
 log = logging.getLogger('bitten.build.svntools')
 
 __docformat__ = 'restructuredtext en'
 
-def checkout(ctxt, url, path=None, revision=None, dir_='.'):
+def checkout(ctxt, url, path=None, revision=None, dir_='.', verbose=False):
     """Perform a checkout from a Subversion repository.
     
     :param ctxt: the build context
@@ -26,6 +27,7 @@ def checkout(ctxt, url, path=None, revision=None, dir_='.'):
     :param path: the path inside the repository
     :param revision: the revision to check out
     :param dir_: the name of a local subdirectory to check out into
+    :param verbose: whether to log the list of checked out files
     """
     args = ['checkout']
     if revision:
@@ -34,8 +36,13 @@ def checkout(ctxt, url, path=None, revision=None, dir_='.'):
         url = posixpath.join(url, path.lstrip('/'))
     args += [url, dir_]
 
+    cofilter = None
+    if not verbose:
+        cre = re.compile(r'^[AU]\s.*$')
+        cofilter = lambda s: cre.sub('', s)
     from bitten.build import shtools
-    returncode = shtools.execute(ctxt, file_='svn', args=args)
+    returncode = shtools.execute(ctxt, file_='svn', args=args, 
+                                 filter_=cofilter)
     if returncode != 0:
         ctxt.error('svn checkout failed (%s)' % returncode)
 

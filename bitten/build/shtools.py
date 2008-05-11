@@ -68,7 +68,7 @@ def pipe(ctxt, executable=None, file_=None, input_=None, output=None,
                    % (executable or file_, returncode))
 
 def execute(ctxt, executable=None, file_=None, input_=None, output=None,
-            args=None, dir_=None):
+            args=None, dir_=None, filter_=None):
     """Generic external program execution.
     
     This function is not itself bound to a recipe command, but rather used from
@@ -84,6 +84,8 @@ def execute(ctxt, executable=None, file_=None, input_=None, output=None,
     :param output: name of the file to which the output of the script should be
                    written
     :param args: command-line arguments to pass to the script
+    :param dirs:
+    :param filter\_: function to filter out messages from the executable stdout
     """
     if args:
         if isinstance(args, basestring):
@@ -115,10 +117,13 @@ def execute(ctxt, executable=None, file_=None, input_=None, output=None,
     else:
         output_file = None
 
-	if dir_ and os.path.isdir(ctxt.resolve(dir_)):
-		dir_ = ctxt.resolve(dir_)
-	else:
-		dir_ = ctxt.basedir
+    if dir_ and os.path.isdir(ctxt.resolve(dir_)):
+        dir_ = ctxt.resolve(dir_)
+    else:
+        dir_ = ctxt.basedir
+        
+    if not filter_:
+        filter_=lambda s: s
 
     try:
         cmdline = CommandLine(executable, args, input=input_file,
@@ -127,9 +132,11 @@ def execute(ctxt, executable=None, file_=None, input_=None, output=None,
         for out, err in cmdline.execute():
             if out is not None:
                 log.info(out)
-                log_elem.append(xmlio.Element('message', level='info')[
-                    out.replace(ctxt.basedir + os.sep, '')
-                       .replace(ctxt.basedir, '')
+                info = filter_(out)
+                if info:
+                    log_elem.append(xmlio.Element('message', level='info')[
+                        info.replace(ctxt.basedir + os.sep, '')
+                            .replace(ctxt.basedir, '')
                 ])
                 if output:
                     output_file.write(out + os.linesep)
