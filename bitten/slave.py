@@ -142,7 +142,7 @@ class BuildSlave(object):
                 self._execute_build(None, fileobj)
             finally:
                 fileobj.close()
-            return
+            return os.EX_OK
 
         while True:
             try:
@@ -153,7 +153,7 @@ class BuildSlave(object):
                 except urllib2.HTTPError, e:
                     # HTTPError doesn't have the "reason" attribute of URLError
                     log.error(e)
-                    raise ExitSlave()
+                    raise ExitSlave(os.EX_UNAVAILABLE)
                 except urllib2.URLError, e:
                     # Is this a temporary network glitch or something a bit
                     # more severe?
@@ -162,14 +162,14 @@ class BuildSlave(object):
                         log.warning(e)
                     else:
                         log.error(e)
-                        raise ExitSlave()
-            except ExitSlave:
-                break
+                        raise ExitSlave(os.EX_UNAVAILABLE)
+            except ExitSlave, e:
+                return e.exit_code
             time.sleep(self.poll_interval)
 
     def quit(self):
         log.info('Shutting down')
-        raise ExitSlave()
+        raise ExitSlave(os.EX_OK)
 
     def _create_build(self):
         xml = xmlio.Element('slave', name=self.name)[
@@ -201,7 +201,7 @@ class BuildSlave(object):
             return False
         else:
             log.error('Unexpected response (%d %s)', resp.code, resp.msg)
-            raise ExitSlave()
+            raise ExitSlave(os.EX_PROTOCOL)
 
     def _initiate_build(self, build_url):
         log.info('Build pending at %s', build_url)
@@ -211,7 +211,7 @@ class BuildSlave(object):
                 self._execute_build(build_url, resp)
             else:
                 log.error('Unexpected response (%d): %s', resp.code, resp.msg)
-                self._cancel_build(build_url)
+                self._cancel_build(build_url, exit_code=os.EX_PROTOCOL)
         except KeyboardInterrupt:
             log.warning('Build interrupted')
             self._cancel_build(build_url)
@@ -223,7 +223,7 @@ class BuildSlave(object):
             recipe = Recipe(xml, os.path.join(self.work_dir, self.build_dir), 
                             self.config)
             basedir = recipe.ctxt.basedir
-            log.debug('Running build in directory %s' % basedir)	
+            log.debug('Running build in directory %s' % basedir)
             if not os.path.exists(basedir):
                 os.mkdir(basedir)
 
@@ -242,7 +242,7 @@ class BuildSlave(object):
                 _rmtree(basedir)
             if self.single_build:
                 log.info('Exiting after single build completed.')
-                raise ExitSlave()
+                raise ExitSlave(os.EX_OK)
 
     def _execute_step(self, build_url, recipe, step):
         failed = False
@@ -290,19 +290,22 @@ class BuildSlave(object):
 
         return not failed or step.onerror != 'fail'
 
-    def _cancel_build(self, build_url):
+    def _cancel_build(self, build_url, exit_code=os.EX_OK):
         log.info('Cancelling build at %s', build_url)
         if not self.local:
             resp = self.request('DELETE', build_url)
             if resp.code not in (200, 204):
                 log.error('Unexpected response (%d): %s', resp.code, resp.msg)
-        raise ExitSlave()
+        raise ExitSlave(exit_code)
 
 
 class ExitSlave(Exception):
     """Exception used internally by the slave to signal that the slave process
     should be stopped.
     """
+    def __init__(self, exit_code):
+        self.exit_code = exit_code
+        Exception.__init__(self)
 
 
 def main():
@@ -382,15 +385,16 @@ def main():
                        dump_reports=options.dump_reports)
     try:
         try:
-            slave.run()
+            exit_code = slave.run()
         except KeyboardInterrupt:
             slave.quit()
-    except ExitSlave:
-        pass
+    except ExitSlave, e:
+        exit_code = e.exit_code
 
     if not options.work_dir:
         log.debug('Removing temporary directory %s' % slave.work_dir)
         _rmtree(slave.work_dir)
+    return exit_code
 
 if __name__ == '__main__':
-    main()
+    sys.exit(main())
