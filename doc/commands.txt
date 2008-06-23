@@ -747,6 +747,13 @@ Parameters
 |              | normally set this to ``${revision}`` so that the revision   |
 |              | of the build is used.                                       |
 +--------------+-------------------------------------------------------------+
+| ``dir``      | Path specifying which directory the sources should be       |
+|              | checked out to (defaults to '.').                           |
++--------------+-------------------------------------------------------------+
+| ``verbose``  | Whether to log the list of checked out files (defaults to   |
+|              | False).                                                     |
++--------------+-------------------------------------------------------------+
+
 
 Examples
 --------
@@ -784,6 +791,9 @@ Parameters
 |              | normally set this to ``${revision}`` so that the revision   |
 |              | of the build is used.                                       |
 +--------------+-------------------------------------------------------------+
+| ``dir``      | Path specifying which directory the sources should be       |
+|              | exported to (defaults to '.')                               |
++--------------+-------------------------------------------------------------+
 
 Examples
 --------
@@ -815,6 +825,9 @@ Parameters
 | ``revision`` | The revision that should be checked out. You should         |
 |              | normally set this to ``${revision}`` so that the revision   |
 |              | of the build is used.                                       |
++--------------+-------------------------------------------------------------+
+| ``dir``      | Path specifying the directory containing the sources to be  |
+|              | updated (defaults to '.')                                   |
 +--------------+-------------------------------------------------------------+
 
 Examples
