@@ -19,19 +19,32 @@ import pkg_resources
 from trac.core import *
 try:
     from trac.timeline import ITimelineEventProvider
+    have_trac_011 = True
 except ImportError:
     from trac.Timeline import ITimelineEventProvider
+    have_trac_011 = False
 from trac.util import escape, pretty_timedelta, format_datetime, shorten_line, \
                       Markup
 from trac.util.html import html
 from trac.web import IRequestHandler
 from trac.web.chrome import INavigationContributor, ITemplateProvider, \
                             add_link, add_stylesheet
-from trac.wiki import wiki_to_html, wiki_to_oneliner
+from trac.wiki import wiki_to_html
+from trac.wiki import wiki_to_oneliner as wiki_to_oneliner_
 from bitten.api import ILogFormatter, IReportChartGenerator, IReportSummarizer
 from bitten.model import BuildConfig, TargetPlatform, Build, BuildStep, \
                          BuildLog, Report
 from bitten.queue import collect_changes
+
+def wiki_to_oneliner(wikitext, env, db=None, shorten=False, absurls=False,
+                      req=None):
+    if have_trac_011:
+        return wiki_to_oneliner_(wikitext, env, db=db, shorten=shorten,
+                                 absurls=absurls, req=req)
+    else:
+        return wiki_to_oneliner_(wikitext, env, db=db, shorten=shorten,
+                                 absurls=absurls)
+
 
 _status_label = {Build.PENDING: 'pending',
                  Build.IN_PROGRESS: 'in progress',
@@ -168,7 +181,8 @@ class BuildConfigController(Component):
                             'author': chgset.author or 'anonymous',
                             'date': format_datetime(chgset.date),
                             'message': wiki_to_oneliner(
-                                shorten_line(chgset.message), self.env)
+                                shorten_line(chgset.message), self.env, req=req
+                            )
                         }
                     else:
                         break
