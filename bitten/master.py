@@ -198,8 +198,10 @@ class BuildMaster(Component):
         stepname = elem.attr['step']
 	
         # make sure it's the right slave.
-        if build.status != Build.IN_PROGRESS or build.slave_info.get(Build.IP_ADDRESS) != req.remote_addr:
-            raise HTTPForbidden('Build %s has been invalidated for host %s.' % (build.id, req.remote_addr))
+        if build.status != Build.IN_PROGRESS or \
+                build.slave_info.get(Build.IP_ADDRESS) != req.remote_addr:
+            raise HTTPForbidden('Build %s has been invalidated for host %s.'
+                                % (build.id, req.remote_addr))
 
         step = BuildStep.fetch(self.env, build=build.id, name=stepname)
         if step:
@@ -216,8 +218,9 @@ class BuildMaster(Component):
             raise HTTPForbidden('No such build step')
         last_step = index == num
 
-        self.log.debug('Slave %s (build %d) completed step %d (%s) with status %s',
-                       build.slave, build.id, index, stepname, elem.attr['status'])
+        self.log.debug('Slave %s (build %d) completed step %d (%s) with '
+                       'status %s', build.slave, build.id, index, stepname,
+                       elem.attr['status'])
 
         db = self.env.get_db_cnx()
 
