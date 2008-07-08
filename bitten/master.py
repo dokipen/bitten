@@ -103,6 +103,8 @@ class BuildMaster(Component):
         try:
             elem = xmlio.parse(req.read())
         except xmlio.ParseError, e:
+            self.log.error('Error parsing build initialization request: %s', e,
+                           exc_info=True)
             raise HTTPBadRequest('XML parser error')
 
         slavename = elem.attr['name']
@@ -190,6 +192,8 @@ class BuildMaster(Component):
         try:
             elem = xmlio.parse(req.read())
         except xmlio.ParseError, e:
+            self.log.error('Error parsing build step result: %s', e,
+                           exc_info=True)
             raise HTTPBadRequest('XML parser error')
         stepname = elem.attr['step']
 	
@@ -222,6 +226,8 @@ class BuildMaster(Component):
             step.started = int(_parse_iso_datetime(elem.attr['time']))
             step.stopped = step.started + float(elem.attr['duration'])
         except ValueError, e:
+            self.log.error('Error parsing build step timestamp: %s', e,
+                           exc_info=True)
             raise HTTPBadRequest(e.args[0])
         if elem.attr['status'] == 'failure':
             self.log.warning('Build %s step %s failed', build.id, stepname)
