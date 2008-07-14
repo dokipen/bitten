@@ -26,6 +26,10 @@ from bitten.build.config import Configuration
 from bitten.recipe import Recipe
 from bitten.util import xmlio
 
+EX_OK = getattr(os, "EX_OK", 0)
+EX_UNAVAILABLE = getattr(os, "EX_UNAVAILABLE", 69)
+EX_PROTOCOL = getattr(os, "EX_PROTOCOL", 76)
+
 __all__ = ['BuildSlave', 'ExitSlave']
 __docformat__ = 'restructuredtext en'
 
@@ -144,7 +148,7 @@ class BuildSlave(object):
                 self._execute_build(None, fileobj)
             finally:
                 fileobj.close()
-            return os.EX_OK
+            return EX_OK
 
         urls = []
         while True:
@@ -159,7 +163,7 @@ class BuildSlave(object):
                 except urllib2.HTTPError, e:
                     # HTTPError doesn't have the "reason" attribute of URLError
                     log.error(e)
-                    raise ExitSlave(os.EX_UNAVAILABLE)
+                    raise ExitSlave(EX_UNAVAILABLE)
                 except urllib2.URLError, e:
                     # Is this a temporary network glitch or something a bit
                     # more severe?
@@ -168,14 +172,14 @@ class BuildSlave(object):
                         log.warning(e)
                     else:
                         log.error(e)
-                        raise ExitSlave(os.EX_UNAVAILABLE)
+                        raise ExitSlave(EX_UNAVAILABLE)
             except ExitSlave, e:
                 return e.exit_code
             time.sleep(self.poll_interval)
 
     def quit(self):
         log.info('Shutting down')
-        raise ExitSlave(os.EX_OK)
+        raise ExitSlave(EX_OK)
 
     def _create_build(self, url):
         xml = xmlio.Element('slave', name=self.name)[
@@ -207,7 +211,7 @@ class BuildSlave(object):
             return False
         else:
             log.error('Unexpected response (%d %s)', resp.code, resp.msg)
-            raise ExitSlave(os.EX_PROTOCOL)
+            raise ExitSlave(EX_PROTOCOL)
 
     def _initiate_build(self, build_url):
         log.info('Build pending at %s', build_url)
@@ -217,7 +221,7 @@ class BuildSlave(object):
                 self._execute_build(build_url, resp)
             else:
                 log.error('Unexpected response (%d): %s', resp.code, resp.msg)
-                self._cancel_build(build_url, exit_code=os.EX_PROTOCOL)
+                self._cancel_build(build_url, exit_code=EX_PROTOCOL)
         except KeyboardInterrupt:
             log.warning('Build interrupted')
             self._cancel_build(build_url)
@@ -248,7 +252,7 @@ class BuildSlave(object):
                 _rmtree(basedir)
             if self.single_build:
                 log.info('Exiting after single build completed.')
-                raise ExitSlave(os.EX_OK)
+                raise ExitSlave(EX_OK)
 
     def _execute_step(self, build_url, recipe, step):
         failed = False
@@ -296,7 +300,7 @@ class BuildSlave(object):
 
         return not failed or step.onerror != 'fail'
 
-    def _cancel_build(self, build_url, exit_code=os.EX_OK):
+    def _cancel_build(self, build_url, exit_code=EX_OK):
         log.info('Cancelling build at %s', build_url)
         if not self.local:
             resp = self.request('DELETE', build_url)
