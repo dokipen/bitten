@@ -45,7 +45,7 @@ class BuildMasterAdminPageProviderTestCase(unittest.TestCase):
         self.env.config.set('trac', 'permission_store',
                             'DefaultPermissionStore')
         PermissionSystem(self.env).grant_permission('joe', 'BUILD_ADMIN')
-        if DefaultPermissionPolicy is not None:
+        if DefaultPermissionPolicy is not None and hasattr(DefaultPermissionPolicy, "CACHE_EXPIRY"):
             self.old_perm_cache_expiry = DefaultPermissionPolicy.CACHE_EXPIRY
             DefaultPermissionPolicy.CACHE_EXPIRY = 0
 
@@ -59,7 +59,7 @@ class BuildMasterAdminPageProviderTestCase(unittest.TestCase):
         self.env.get_repository = lambda authname=None: self.repos
 
     def tearDown(self):
-        if DefaultPermissionPolicy is not None:
+        if DefaultPermissionPolicy is not None and hasattr(DefaultPermissionPolicy, "CACHE_EXPIRY"):
             DefaultPermissionPolicy.CACHE_EXPIRY = self.old_perm_cache_expiry
         shutil.rmtree(self.env.path)
 
@@ -137,7 +137,7 @@ class BuildConfigurationsAdminPageProviderTestCase(unittest.TestCase):
         PermissionSystem(self.env).grant_permission('joe', 'BUILD_CREATE')
         PermissionSystem(self.env).grant_permission('joe', 'BUILD_DELETE')
         PermissionSystem(self.env).grant_permission('joe', 'BUILD_MODIFY')
-        if DefaultPermissionPolicy is not None:
+        if DefaultPermissionPolicy is not None and hasattr(DefaultPermissionPolicy, "CACHE_EXPIRY"):
             self.old_perm_cache_expiry = DefaultPermissionPolicy.CACHE_EXPIRY
             DefaultPermissionPolicy.CACHE_EXPIRY = 0
 
@@ -151,7 +151,7 @@ class BuildConfigurationsAdminPageProviderTestCase(unittest.TestCase):
         self.env.get_repository = lambda authname=None: self.repos
 
     def tearDown(self):
-        if DefaultPermissionPolicy is not None:
+        if DefaultPermissionPolicy is not None and hasattr(DefaultPermissionPolicy, "CACHE_EXPIRY"):
             DefaultPermissionPolicy.CACHE_EXPIRY = self.old_perm_cache_expiry
         shutil.rmtree(self.env.path)
 
