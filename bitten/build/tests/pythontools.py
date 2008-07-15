@@ -75,7 +75,7 @@ test.module     60      60   100%% %s/test/module.py
         child = xml.children[0]
         self.assertEqual('coverage', child.name)
         self.assertEqual('test.module', child.attr['name'])
-        self.assertEqual('test/module.py', child.attr['file'])
+        self.assertEqual(os.path.join('test', 'module.py'), child.attr['file'])
         self.assertEqual(100, child.attr['percentage'])
         self.assertEqual(60, child.attr['lines'])
 
@@ -96,7 +96,7 @@ test.module     60      60   100% ./test/module.py
         child = xml.children[0]
         self.assertEqual('coverage', child.name)
         self.assertEqual('test.module', child.attr['name'])
-        self.assertEqual('test/module.py', child.attr['file'])
+        self.assertEqual(os.path.join('test', 'module.py'), child.attr['file'])
         self.assertEqual(100, child.attr['percentage'])
         self.assertEqual(60, child.attr['lines'])
 
@@ -117,7 +117,7 @@ test.module     28     26    92%   13-14 ./test/module.py
         child = xml.children[0]
         self.assertEqual('coverage', child.name)
         self.assertEqual('test.module', child.attr['name'])
-        self.assertEqual('test/module.py', child.attr['file'])
+        self.assertEqual(os.path.join('test', 'module.py'), child.attr['file'])
         self.assertEqual(92, child.attr['percentage'])
         self.assertEqual(28, child.attr['lines'])
 
@@ -179,7 +179,7 @@ lines   cov%%   module   (path)
         child = xml.children[0]
         self.assertEqual('coverage', child.name)
         self.assertEqual('test.module', child.attr['name'])
-        self.assertEqual('test/module.py', child.attr['file'])
+        self.assertEqual(os.path.join('test', 'module.py'), child.attr['file'])
 
     def test_summary_with_relative_path(self):
         self.summary.write("""
@@ -197,7 +197,7 @@ lines   cov%   module   (path)
         child = xml.children[0]
         self.assertEqual('coverage', child.name)
         self.assertEqual('test.module', child.attr['name'])
-        self.assertEqual('test/module.py', child.attr['file'])
+        self.assertEqual(os.path.join('test', 'module.py'), child.attr['file'])
 
 
 class FigleafTestCase(unittest.TestCase):
@@ -259,7 +259,7 @@ class FigleafTestCase(unittest.TestCase):
         child = xml.children[0]
         self.assertEqual('coverage', child.name)
         self.assertEqual('test.module', child.attr['name'])
-        self.assertEqual('test/module.py', child.attr['file'])
+        self.assertEqual(os.path.join('test', 'module.py'), child.attr['file'])
         self.assertEqual(75, child.attr['percentage'])
         self.assertEqual(4, child.attr['lines'])
         self.assertEqual('1 0 - 1 1', child.attr['line_hits'])
@@ -284,7 +284,7 @@ class FigleafTestCase(unittest.TestCase):
         child = xml.children[0]
         self.assertEqual('coverage', child.name)
         self.assertEqual('test.module', child.attr['name'])
-        self.assertEqual('test/module.py', child.attr['file'])
+        self.assertEqual(os.path.join('test', 'module.py'), child.attr['file'])
         self.assertEqual(0, child.attr['percentage'])
         self.assertEqual(5, child.attr['lines'])
 
@@ -325,7 +325,7 @@ class FilenameNormalizationTestCase(unittest.TestCase):
         filenames = pythontools._normalize_filenames(
                             self.ctxt, [filename],
                             FileSet(self.ctxt.basedir, '**/*.py', None))
-        self.assertEqual(['test/module.py'], list(filenames))
+        self.assertEqual([os.path.join('test', 'module.py')], list(filenames))
 
 
 class UnittestTestCase(unittest.TestCase):
