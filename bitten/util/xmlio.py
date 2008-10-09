@@ -76,7 +76,7 @@ class Fragment(object):
             if isinstance(child, (Element, ParsedElement)):
                 child.write(out, newlines=newlines)
             else:
-                if child[0] == '<':
+                if child.startswith('<'):
                     out.write('<![CDATA[' + child + ']]>')
                 else:
                     out.write(_escape_text(child))
