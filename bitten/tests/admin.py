@@ -47,7 +47,7 @@ class BuildMasterAdminPageProviderTestCase(unittest.TestCase):
         PermissionSystem(self.env).grant_permission('joe', 'BUILD_ADMIN')
         if DefaultPermissionPolicy is not None and hasattr(DefaultPermissionPolicy, "CACHE_EXPIRY"):
             self.old_perm_cache_expiry = DefaultPermissionPolicy.CACHE_EXPIRY
-            DefaultPermissionPolicy.CACHE_EXPIRY = 0
+            DefaultPermissionPolicy.CACHE_EXPIRY = -1
 
         # Hook up a dummy repository
         self.repos = Mock(
@@ -139,7 +139,7 @@ class BuildConfigurationsAdminPageProviderTestCase(unittest.TestCase):
         PermissionSystem(self.env).grant_permission('joe', 'BUILD_MODIFY')
         if DefaultPermissionPolicy is not None and hasattr(DefaultPermissionPolicy, "CACHE_EXPIRY"):
             self.old_perm_cache_expiry = DefaultPermissionPolicy.CACHE_EXPIRY
-            DefaultPermissionPolicy.CACHE_EXPIRY = 0
+            DefaultPermissionPolicy.CACHE_EXPIRY = -1
 
         # Hook up a dummy repository
         self.repos = Mock(

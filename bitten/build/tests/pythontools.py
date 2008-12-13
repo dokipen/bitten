@@ -237,7 +237,7 @@ class FigleafTestCase(unittest.TestCase):
         self.assertEqual([], self.ctxt.output)
 
     def test_summary_with_absolute_path(self):
-        filename = '%s/test/module.py' % self.ctxt.basedir
+        filename = os.sep.join([self.ctxt.basedir, 'test', 'module.py'])
         pickle.dump({
             filename: set([1, 4, 5]),
         }, self.summary)
@@ -320,7 +320,7 @@ class FilenameNormalizationTestCase(unittest.TestCase):
         return filename[len(self.basedir) + 1:]
 
     def test_absolute_path(self):
-        filename = '%s/test/module.py' % self.ctxt.basedir
+        filename = os.sep.join([self.ctxt.basedir, 'test', 'module.py'])
         self._create_file('test', 'module.py')
         filenames = pythontools._normalize_filenames(
                             self.ctxt, [filename],
