@@ -58,14 +58,14 @@ ORDER BY build.rev_time""" % (db.cast('item_lines.value', 'int'),
                 coverage[-1][2] = int(cov)
             prev_rev = rev
 
-        req.hdf['chart.title'] = 'Test Coverage'
-        req.hdf['chart.data'] = [
-            [''] + ['[%s]' % item[0] for item in coverage],
-            ['Lines of code'] + [item[1] for item in coverage],
-            ['Coverage'] + [int(item[2]) for item in coverage]
-        ]
+        data = {'title': 'Test Coverage',
+                'data': [
+                    [''] + ['[%s]' % item[0] for item in coverage],
+                    ['Lines of code'] + [item[1] for item in coverage],
+                    ['Coverage'] + [int(item[2]) for item in coverage]
+                ]}
 
-        return 'bitten_chart_coverage.cs'
+        return 'bitten_chart_coverage.html', data
 
 
 class TestCoverageSummarizer(Component):
@@ -101,7 +101,7 @@ WHERE category='coverage' AND build=%s AND step=%s
 GROUP BY file, item_name.value
 ORDER BY item_name.value""", (build.id, step.name))
 
-        data = []
+        units = []
         total_loc, total_cov = 0, 0
         for unit, file, loc, cov in cursor:
             try:
@@ -112,7 +112,7 @@ ORDER BY item_name.value""", (build.id, step.name))
                 d = {'name': unit, 'loc': loc, 'cov': int(cov)}
                 if file:
                     d['href'] = req.href.browser(config.path, file, rev=build.rev, annotate='coverage')
-                data.append(d)
+                units.append(d)
                 total_loc += loc
                 total_cov += loc * cov
 
@@ -120,10 +120,10 @@ ORDER BY item_name.value""", (build.id, step.name))
         if total_loc != 0:
             coverage = total_cov // total_loc
 
-        hdf = HDFWrapper(loadpaths=Chrome(self.env).get_all_templates_dirs())
-        hdf['data'] = data
-        hdf['totals'] = {'loc': total_loc, 'cov': int(coverage)}
-        return hdf.render('bitten_summary_coverage.cs')
+        return 'bitten_summary_coverage.html', {
+            'units': units,
+            'totals': {'loc': total_loc, 'cov': int(coverage)}
+        }
 
 
 # Coverage annotation requires the new interface from 0.11

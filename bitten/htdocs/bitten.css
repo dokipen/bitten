@@ -157,6 +157,7 @@
 }
 #content.build table.tests tr.failed { background: #d99; }
 #content.build table.tests tr.failed td { font-weight: bold; }
+#content.build table.tests tr.failed:hover th,
 #content.build table.tests tr.failed:hover td,
 #content.build table.tests tr.failed:hover tr { background: #966; }
 #content.build table.tests tr.failed :link,

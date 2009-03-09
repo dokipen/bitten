@@ -17,7 +17,6 @@ from trac.db import DatabaseManager
 from trac.perm import PermissionCache, PermissionSystem
 from trac.test import EnvironmentStub, Mock
 from trac.util.html import Markup
-from trac.web.clearsilver import HDFWrapper
 from trac.web.href import Href
 from bitten.main import BuildSystem
 from bitten.model import Build, BuildConfig, BuildStep, TargetPlatform, schema
@@ -58,14 +57,13 @@ class BuildConfigControllerTestCase(unittest.TestCase):
         PermissionSystem(self.env).grant_permission('joe', 'BUILD_VIEW')
         req = Mock(method='GET', base_path='', cgi_location='',
                    path_info='/build', href=Href('/trac'), args={}, chrome={},
-                   hdf=HDFWrapper(), perm=PermissionCache(self.env, 'joe'))
+                   perm=PermissionCache(self.env, 'joe'))
 
         module = BuildConfigController(self.env)
         assert module.match_request(req)
-        module.process_request(req)
+        _, data, _ = module.process_request(req)
 
-        self.assertEqual('overview', req.hdf['page.mode'])
-        self.assertEqual('0', req.hdf.get('build.can_create', '0'))
+        self.assertEqual('overview', data['page_mode'])
 
     def test_view_config(self):
         config = BuildConfig(self.env, name='test', path='trunk')
@@ -76,7 +74,7 @@ class BuildConfigControllerTestCase(unittest.TestCase):
         PermissionSystem(self.env).grant_permission('joe', 'BUILD_VIEW')
         req = Mock(method='GET', base_path='', cgi_location='',
                    path_info='/build/test', href=Href('/trac'), args={},
-                   chrome={}, hdf=HDFWrapper(), authname='joe',
+                   chrome={}, authname='joe',
                    perm=PermissionCache(self.env, 'joe'))
 
         root = Mock(get_entries=lambda: ['foo'],
@@ -87,12 +85,10 @@ class BuildConfigControllerTestCase(unittest.TestCase):
 
         module = BuildConfigController(self.env)
         assert module.match_request(req)
-        module.process_request(req)
+        _, data, _ = module.process_request(req)
 
-        self.assertEqual('view_config', req.hdf['page.mode'])
-        self.assertEqual('0', req.hdf.get('build.config.can_delete', '0'))
-        self.assertEqual('0', req.hdf.get('build.config.can_modify', '0'))
-        self.assertEqual(None, req.hdf.get('chrome.links.next.0.href'))
+        self.assertEqual('view_config', data['page_mode'])
+        assert not 'next' in req.chrome['links']
 
     def test_view_config_paging(self):
         config = BuildConfig(self.env, name='test', path='trunk')
@@ -103,7 +99,7 @@ class BuildConfigControllerTestCase(unittest.TestCase):
         PermissionSystem(self.env).grant_permission('joe', 'BUILD_VIEW')
         req = Mock(method='GET', base_path='', cgi_location='',
                    path_info='/build/test', href=Href('/trac'), args={},
-                   chrome={}, hdf=HDFWrapper(), authname='joe',
+                   chrome={}, authname='joe',
                    perm=PermissionCache(self.env, 'joe'))
 
         root = Mock(get_entries=lambda: ['foo'],
@@ -114,14 +110,11 @@ class BuildConfigControllerTestCase(unittest.TestCase):
 
         module = BuildConfigController(self.env)
         assert module.match_request(req)
-        module.process_request(req)
+        _, data, _ = module.process_request(req)
 
-        if req.chrome: # Trac 0.11
+        if req.chrome:
             self.assertEqual('/trac/build/test?page=2',
                              req.chrome['links']['next'][0]['href'])
-        else:
-            self.assertEqual('/trac/build/test?page=2',
-                             req.hdf.get('chrome.links.next.0.href'))
 
 
 class SourceFileLinkFormatterTestCase(unittest.TestCase):

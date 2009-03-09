@@ -128,8 +128,9 @@ class unittest(test):
         test.finalize_options(self)
 
         if self.xml_output is not None:
-            if not os.path.exists(os.path.dirname(self.xml_output)):
-                os.makedirs(os.path.dirname(self.xml_output))
+            output_dir = os.path.dirname(self.xml_output) or '.'
+            if not os.path.exists(output_dir):
+                os.makedirs(output_dir)
             self.xml_output_file = open(self.xml_output, 'w')
 
         if self.coverage_method not in ('trace', 'coverage', 'figleaf'):

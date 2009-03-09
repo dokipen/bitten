@@ -13,12 +13,8 @@ from pkg_resources import require, DistributionNotFound
 import re
 
 from trac.core import *
+from trac.admin import IAdminPanelProvider
 from trac.web.chrome import add_stylesheet
-try:
-    require("TracWebAdmin")
-    from webadmin.web_ui import IAdminPageProvider
-except DistributionNotFound, ImportError:
-    IAdminPageProvider = None
 
 from bitten.model import BuildConfig, TargetPlatform
 from bitten.recipe import Recipe, InvalidRecipeError
@@ -28,15 +24,15 @@ from bitten.util import xmlio
 class BuildMasterAdminPageProvider(Component):
     """Web administration panel for configuring the build master."""
 
-    implements(IAdminPageProvider)
+    implements(IAdminPanelProvider)
 
-    # IAdminPageProvider methods
+    # IAdminPanelProvider methods
 
-    def get_admin_pages(self, req):
+    def get_admin_panels(self, req):
         if req.perm.has_permission('BUILD_ADMIN'):
             yield ('bitten', 'Builds', 'master', 'Master Settings')
 
-    def process_admin_request(self, req, cat, page, path_info):
+    def render_admin_panel(self, req, cat, page, path_info):
         from bitten.master import BuildMaster
         master = BuildMaster(self.env)
 
@@ -44,14 +40,9 @@ class BuildMasterAdminPageProvider(Component):
             self._save_config_changes(req, master)
             req.redirect(req.abs_href.admin(cat, page))
 
-        req.hdf['admin.master'] = {
-            'build_all': master.build_all,
-            'adjust_timestamps': master.adjust_timestamps,
-            'stabilize_wait': master.stabilize_wait,
-            'slave_timeout': master.slave_timeout,
-        }
+        data = {'master': master}
         add_stylesheet(req, 'bitten/admin.css')
-        return 'bitten_admin_master.cs', None
+        return 'bitten_admin_master.html', data
 
     # Internal methods
 
@@ -89,15 +80,15 @@ class BuildMasterAdminPageProvider(Component):
 class BuildConfigurationsAdminPageProvider(Component):
     """Web administration panel for configuring the build master."""
 
-    implements(IAdminPageProvider)
+    implements(IAdminPanelProvider)
 
-    # IAdminPageProvider methods
+    # IAdminPanelProvider methods
 
-    def get_admin_pages(self, req):
+    def get_admin_panels(self, req):
         if req.perm.has_permission('BUILD_MODIFY'):
             yield ('bitten', 'Builds', 'configs', 'Configurations')
 
-    def process_admin_request(self, req, cat, page, path_info):
+    def render_admin_panel(self, req, cat, page, path_info):
         data = {}
 
         # Analyze url
@@ -108,7 +99,8 @@ class BuildConfigurationsAdminPageProvider(Component):
             platform_id = None
 
         if config_name: # Existing build config
-            if platform_id or ( # Editing or creating one of the config's target platforms
+            if platform_id or (
+                    # Editing or creating one of the config's target platforms
                     req.method == 'POST' and 'new' in req.args):
 
                 if platform_id: # Editing target platform
@@ -202,9 +194,8 @@ class BuildConfigurationsAdminPageProvider(Component):
                 })
             data['configs'] = configs
 
-        req.hdf['admin'] = data
         add_stylesheet(req, 'bitten/admin.css')
-        return 'bitten_admin_configs.cs', None
+        return 'bitten_admin_configs.html', data
 
     # Internal methods
 

@@ -63,36 +63,33 @@ class BuildMasterAdminPageProviderTestCase(unittest.TestCase):
             DefaultPermissionPolicy.CACHE_EXPIRY = self.old_perm_cache_expiry
         shutil.rmtree(self.env.path)
 
-    def test_get_admin_pages(self):
+    def test_get_admin_panels(self):
         provider = BuildMasterAdminPageProvider(self.env)
 
         req = Mock(perm=PermissionCache(self.env, 'joe'))
         self.assertEqual([('bitten', 'Builds', 'master', 'Master Settings')],
-                         list(provider.get_admin_pages(req)))
+                         list(provider.get_admin_panels(req)))
 
         PermissionSystem(self.env).revoke_permission('joe', 'BUILD_ADMIN')
         req = Mock(perm=PermissionCache(self.env, 'joe'))
-        self.assertEqual([], list(provider.get_admin_pages(req)))
+        self.assertEqual([], list(provider.get_admin_panels(req)))
 
     def test_process_get_request(self):
-        data = {}
-        req = Mock(method='GET', chrome={}, hdf=data, href=Href('/'),
+        req = Mock(method='GET', chrome={}, href=Href('/'),
                    perm=PermissionCache(self.env, 'joe'))
 
         provider = BuildMasterAdminPageProvider(self.env)
-        template_name, content_type = provider.process_admin_request(
+        template_name, data = provider.render_admin_panel(
             req, 'bitten', 'master', ''
         )
 
-        self.assertEqual('bitten_admin_master.cs', template_name)
-        self.assertEqual(None, content_type)
-        assert 'admin.master' in data
-        self.assertEqual({
-            'slave_timeout': 3600,
-            'stabilize_wait': 0,
-            'adjust_timestamps': False,
-            'build_all': False,
-        }, data['admin.master'])
+        self.assertEqual('bitten_admin_master.html', template_name)
+        assert 'master' in data
+        master = data['master']
+        self.assertEqual(3600, master.slave_timeout)
+        self.assertEqual(0, master.stabilize_wait)
+        assert not master.adjust_timestamps
+        assert not master.build_all
 
     def test_process_config_changes(self):
         redirected_to = []
@@ -105,7 +102,7 @@ class BuildMasterAdminPageProviderTestCase(unittest.TestCase):
 
         provider = BuildMasterAdminPageProvider(self.env)
         try:
-            provider.process_admin_request(req, 'bitten', 'master', '')
+            provider.render_admin_panel(req, 'bitten', 'master', '')
             self.fail('Expected RequestDone')
 
         except RequestDone:
@@ -155,30 +152,28 @@ class BuildConfigurationsAdminPageProviderTestCase(unittest.TestCase):
             DefaultPermissionPolicy.CACHE_EXPIRY = self.old_perm_cache_expiry
         shutil.rmtree(self.env.path)
 
-    def test_get_admin_pages(self):
+    def test_get_admin_panels(self):
         provider = BuildConfigurationsAdminPageProvider(self.env)
 
         req = Mock(perm=PermissionCache(self.env, 'joe'))
         self.assertEqual([('bitten', 'Builds', 'configs', 'Configurations')],
-                         list(provider.get_admin_pages(req)))
+                         list(provider.get_admin_panels(req)))
 
         PermissionSystem(self.env).revoke_permission('joe', 'BUILD_MODIFY')
         req = Mock(perm=PermissionCache(self.env, 'joe'))
-        self.assertEqual([], list(provider.get_admin_pages(req)))
+        self.assertEqual([], list(provider.get_admin_panels(req)))
 
     def test_process_view_configs_empty(self):
-        data = {}
-        req = Mock(method='GET', chrome={}, hdf=data, href=Href('/'),
+        req = Mock(method='GET', chrome={}, href=Href('/'),
                    perm=PermissionCache(self.env, 'joe'))
 
         provider = BuildConfigurationsAdminPageProvider(self.env)
-        template_name, content_type = provider.process_admin_request(
+        template_name, data = provider.render_admin_panel(
             req, 'bitten', 'configs', ''
         )
 
-        self.assertEqual('bitten_admin_configs.cs', template_name)
-        self.assertEqual(None, content_type)
-        self.assertEqual([], data['admin']['configs'])
+        self.assertEqual('bitten_admin_configs.html', template_name)
+        self.assertEqual([], data['configs'])
 
     def test_process_view_configs(self):
         BuildConfig(self.env, name='foo', label='Foo', path='branches/foo',
@@ -186,18 +181,17 @@ class BuildConfigurationsAdminPageProviderTestCase(unittest.TestCase):
         BuildConfig(self.env, name='bar', label='Bar', path='branches/bar',
                     min_rev='123', max_rev='456').insert()
 
-        data = {}
-        req = Mock(method='GET', chrome={}, hdf=data, href=Href('/'),
+        req = Mock(method='GET', chrome={}, href=Href('/'),
                    perm=PermissionCache(self.env, 'joe'))
 
         provider = BuildConfigurationsAdminPageProvider(self.env)
-        template_name, content_type = provider.process_admin_request(
+        template_name, data = provider.render_admin_panel(
             req, 'bitten', 'configs', ''
         )
 
-        self.assertEqual('bitten_admin_configs.cs', template_name)
-        self.assertEqual(None, content_type)
-        configs = data['admin']['configs']
+        self.assertEqual('bitten_admin_configs.html', template_name)
+        assert 'configs' in data
+        configs = data['configs']
         self.assertEqual(2, len(configs))
         self.assertEqual({
             'name': 'bar', 'href': '/admin/bitten/configs/bar',
@@ -215,18 +209,17 @@ class BuildConfigurationsAdminPageProviderTestCase(unittest.TestCase):
                     active=True).insert()
         TargetPlatform(self.env, config='foo', name='any').insert()
 
-        data = {}
-        req = Mock(method='GET', chrome={}, hdf=data, href=Href('/'),
+        req = Mock(method='GET', chrome={}, href=Href('/'),
                    perm=PermissionCache(self.env, 'joe'))
 
         provider = BuildConfigurationsAdminPageProvider(self.env)
-        template_name, content_type = provider.process_admin_request(
+        template_name, data = provider.render_admin_panel(
             req, 'bitten', 'configs', 'foo'
         )
 
-        self.assertEqual('bitten_admin_configs.cs', template_name)
-        self.assertEqual(None, content_type)
-        config = data['admin']['config']
+        self.assertEqual('bitten_admin_configs.html', template_name)
+        assert 'config' in data
+        config = data['config']
         self.assertEqual({
             'name': 'foo', 'label': 'Foo', 'description': '', 'recipe': '',
             'path': 'branches/foo', 'min_rev': None, 'max_rev': None,
@@ -251,7 +244,7 @@ class BuildConfigurationsAdminPageProviderTestCase(unittest.TestCase):
 
         provider = BuildConfigurationsAdminPageProvider(self.env)
         try:
-            provider.process_admin_request(req, 'bitten', 'configs', '')
+            provider.render_admin_panel(req, 'bitten', 'configs', '')
             self.fail('Expected RequestDone')
 
         except RequestDone:
@@ -277,7 +270,7 @@ class BuildConfigurationsAdminPageProviderTestCase(unittest.TestCase):
 
         provider = BuildConfigurationsAdminPageProvider(self.env)
         try:
-            provider.process_admin_request(req, 'bitten', 'configs', '')
+            provider.render_admin_panel(req, 'bitten', 'configs', '')
             self.fail('Expected RequestDone')
 
         except RequestDone:
@@ -303,7 +296,7 @@ class BuildConfigurationsAdminPageProviderTestCase(unittest.TestCase):
 
         provider = BuildConfigurationsAdminPageProvider(self.env)
         try:
-            provider.process_admin_request(req, 'bitten', 'configs', '')
+            provider.render_admin_panel(req, 'bitten', 'configs', '')
             self.fail('Expected RequestDone')
 
         except RequestDone:
@@ -323,7 +316,7 @@ class BuildConfigurationsAdminPageProviderTestCase(unittest.TestCase):
 
         provider = BuildConfigurationsAdminPageProvider(self.env)
         try:
-            provider.process_admin_request(req, 'bitten', 'configs', '')
+            provider.render_admin_panel(req, 'bitten', 'configs', '')
             self.fail('Expected RequestDone')
 
         except RequestDone:
@@ -338,7 +331,7 @@ class BuildConfigurationsAdminPageProviderTestCase(unittest.TestCase):
 
         provider = BuildConfigurationsAdminPageProvider(self.env)
         try:
-            provider.process_admin_request(req, 'bitten', 'configs', '')
+            provider.render_admin_panel(req, 'bitten', 'configs', '')
             self.fail('Expected TracError')
 
         except TracError, e:
@@ -351,7 +344,7 @@ class BuildConfigurationsAdminPageProviderTestCase(unittest.TestCase):
 
         provider = BuildConfigurationsAdminPageProvider(self.env)
         try:
-            provider.process_admin_request(req, 'bitten', 'configs', '')
+            provider.render_admin_panel(req, 'bitten', 'configs', '')
             self.fail('Expected TracError')
 
         except TracError, e:
@@ -370,7 +363,7 @@ class BuildConfigurationsAdminPageProviderTestCase(unittest.TestCase):
 
         provider = BuildConfigurationsAdminPageProvider(self.env)
         try:
-            provider.process_admin_request(req, 'bitten', 'configs', '')
+            provider.render_admin_panel(req, 'bitten', 'configs', '')
             self.fail('Expected TracError')
 
         except TracError, e:
@@ -387,7 +380,7 @@ class BuildConfigurationsAdminPageProviderTestCase(unittest.TestCase):
                    args={'add': '', 'name': 'bar', 'label': 'Bar'})
 
         provider = BuildConfigurationsAdminPageProvider(self.env)
-        self.assertRaises(PermissionError, provider.process_admin_request, req,
+        self.assertRaises(PermissionError, provider.render_admin_panel, req,
                           'bitten', 'configs', '')
 
     def test_process_remove_config(self):
@@ -406,7 +399,7 @@ class BuildConfigurationsAdminPageProviderTestCase(unittest.TestCase):
 
         provider = BuildConfigurationsAdminPageProvider(self.env)
         try:
-            provider.process_admin_request(req, 'bitten', 'configs', '')
+            provider.render_admin_panel(req, 'bitten', 'configs', '')
             self.fail('Expected RequestDone')
 
         except RequestDone:
@@ -430,7 +423,7 @@ class BuildConfigurationsAdminPageProviderTestCase(unittest.TestCase):
 
         provider = BuildConfigurationsAdminPageProvider(self.env)
         try:
-            provider.process_admin_request(req, 'bitten', 'configs', '')
+            provider.render_admin_panel(req, 'bitten', 'configs', '')
             self.fail('Expected RequestDone')
 
         except RequestDone:
@@ -448,7 +441,7 @@ class BuildConfigurationsAdminPageProviderTestCase(unittest.TestCase):
 
         provider = BuildConfigurationsAdminPageProvider(self.env)
         try:
-            provider.process_admin_request(req, 'bitten', 'configs', '')
+            provider.render_admin_panel(req, 'bitten', 'configs', '')
             self.fail('Expected TracError')
 
         except TracError, e:
@@ -463,7 +456,7 @@ class BuildConfigurationsAdminPageProviderTestCase(unittest.TestCase):
 
         provider = BuildConfigurationsAdminPageProvider(self.env)
         try:
-            provider.process_admin_request(req, 'bitten', 'configs', '')
+            provider.render_admin_panel(req, 'bitten', 'configs', '')
             self.fail('Expected TracError')
 
         except TracError, e:
@@ -479,7 +472,7 @@ class BuildConfigurationsAdminPageProviderTestCase(unittest.TestCase):
                    args={'remove': '', 'sel': 'bar'})
 
         provider = BuildConfigurationsAdminPageProvider(self.env)
-        self.assertRaises(PermissionError, provider.process_admin_request, req,
+        self.assertRaises(PermissionError, provider.render_admin_panel, req,
                           'bitten', 'configs', '')
 
     def test_process_update_config(self):
@@ -499,7 +492,7 @@ class BuildConfigurationsAdminPageProviderTestCase(unittest.TestCase):
 
         provider = BuildConfigurationsAdminPageProvider(self.env)
         try:
-            provider.process_admin_request(req, 'bitten', 'configs', 'foo')
+            provider.render_admin_panel(req, 'bitten', 'configs', 'foo')
             self.fail('Expected RequestDone')
 
         except RequestDone:
@@ -518,7 +511,7 @@ class BuildConfigurationsAdminPageProviderTestCase(unittest.TestCase):
 
         provider = BuildConfigurationsAdminPageProvider(self.env)
         try:
-            provider.process_admin_request(req, 'bitten', 'configs', 'foo')
+            provider.render_admin_panel(req, 'bitten', 'configs', 'foo')
             self.fail('Expected TracError')
 
         except TracError, e:
@@ -534,7 +527,7 @@ class BuildConfigurationsAdminPageProviderTestCase(unittest.TestCase):
 
         provider = BuildConfigurationsAdminPageProvider(self.env)
         try:
-            provider.process_admin_request(req, 'bitten', 'configs', 'foo')
+            provider.render_admin_panel(req, 'bitten', 'configs', 'foo')
             self.fail('Expected TracError')
 
         except TracError, e:
@@ -556,7 +549,7 @@ class BuildConfigurationsAdminPageProviderTestCase(unittest.TestCase):
 
         provider = BuildConfigurationsAdminPageProvider(self.env)
         try:
-            provider.process_admin_request(req, 'bitten', 'configs', 'foo')
+            provider.render_admin_panel(req, 'bitten', 'configs', 'foo')
             self.fail('Expected TracError')
 
         except TracError, e:
@@ -573,7 +566,7 @@ class BuildConfigurationsAdminPageProviderTestCase(unittest.TestCase):
 
         provider = BuildConfigurationsAdminPageProvider(self.env)
         try:
-            provider.process_admin_request(req, 'bitten', 'configs', 'foo')
+            provider.render_admin_panel(req, 'bitten', 'configs', 'foo')
             self.fail('Expected TracError')
 
         except TracError, e:
@@ -592,7 +585,7 @@ class BuildConfigurationsAdminPageProviderTestCase(unittest.TestCase):
 
         provider = BuildConfigurationsAdminPageProvider(self.env)
         try:
-            provider.process_admin_request(req, 'bitten', 'configs', 'foo')
+            provider.render_admin_panel(req, 'bitten', 'configs', 'foo')
             self.fail('Expected TracError')
 
         except TracError, e:
@@ -609,13 +602,13 @@ class BuildConfigurationsAdminPageProviderTestCase(unittest.TestCase):
                    args={'new': ''})
 
         provider = BuildConfigurationsAdminPageProvider(self.env)
-        template_name, content_type = provider.process_admin_request(
+        template_name, data = provider.render_admin_panel(
             req, 'bitten', 'configs', 'foo'
         )
 
-        self.assertEqual('bitten_admin_configs.cs', template_name)
-        self.assertEqual(None, content_type)
-        platform = data['admin']['platform']
+        self.assertEqual('bitten_admin_configs.html', template_name)
+        assert 'platform' in data
+        platform = data['platform']
         self.assertEqual({
             'id': None, 'exists': False, 'name': None, 'rules': [('', '')],
         }, platform)
@@ -636,7 +629,7 @@ class BuildConfigurationsAdminPageProviderTestCase(unittest.TestCase):
 
         provider = BuildConfigurationsAdminPageProvider(self.env)
         try:
-            provider.process_admin_request(req, 'bitten', 'configs', 'foo')
+            provider.render_admin_panel(req, 'bitten', 'configs', 'foo')
             self.fail('Expected RequestDone')
 
         except RequestDone:
@@ -663,7 +656,7 @@ class BuildConfigurationsAdminPageProviderTestCase(unittest.TestCase):
 
         provider = BuildConfigurationsAdminPageProvider(self.env)
         try:
-            provider.process_admin_request(req, 'bitten', 'configs', 'foo')
+            provider.render_admin_panel(req, 'bitten', 'configs', 'foo')
             self.fail('Expected RequestDone')
 
         except RequestDone:
@@ -689,7 +682,7 @@ class BuildConfigurationsAdminPageProviderTestCase(unittest.TestCase):
 
         provider = BuildConfigurationsAdminPageProvider(self.env)
         try:
-            provider.process_admin_request(req, 'bitten', 'configs', 'foo')
+            provider.render_admin_panel(req, 'bitten', 'configs', 'foo')
             self.fail('Expected RequestDone')
 
         except RequestDone:
@@ -715,7 +708,7 @@ class BuildConfigurationsAdminPageProviderTestCase(unittest.TestCase):
 
         provider = BuildConfigurationsAdminPageProvider(self.env)
         try:
-            provider.process_admin_request(req, 'bitten', 'configs', 'foo')
+            provider.render_admin_panel(req, 'bitten', 'configs', 'foo')
             self.fail('Expected TracError')
 
         except TracError, e:
@@ -727,18 +720,17 @@ class BuildConfigurationsAdminPageProviderTestCase(unittest.TestCase):
         platform = TargetPlatform(self.env, config='foo', name='any')
         platform.insert()
 
-        data = {}
-        req = Mock(method='GET', chrome={}, hdf=data, href=Href('/'),
+        req = Mock(method='GET', chrome={}, href=Href('/'),
                    perm=PermissionCache(self.env, 'joe'), args={})
 
         provider = BuildConfigurationsAdminPageProvider(self.env)
-        template_name, content_type = provider.process_admin_request(
+        template_name, data = provider.render_admin_panel(
             req, 'bitten', 'configs', 'foo/%d' % platform.id
         )
 
-        self.assertEqual('bitten_admin_configs.cs', template_name)
-        self.assertEqual(None, content_type)
-        platform = data['admin']['platform']
+        self.assertEqual('bitten_admin_configs.html', template_name)
+        assert 'platform' in data
+        platform = data['platform']
         self.assertEqual({
             'id': 1, 'exists': True, 'name': 'any', 'rules': [('', '')],
         }, platform)
@@ -761,7 +753,7 @@ class BuildConfigurationsAdminPageProviderTestCase(unittest.TestCase):
 
         provider = BuildConfigurationsAdminPageProvider(self.env)
         try:
-            provider.process_admin_request(req, 'bitten', 'configs',
+            provider.render_admin_panel(req, 'bitten', 'configs',
                                            'foo/%d' % platform.id)
             self.fail('Expected RequestDone')
 
@@ -791,7 +783,7 @@ class BuildConfigurationsAdminPageProviderTestCase(unittest.TestCase):
 
         provider = BuildConfigurationsAdminPageProvider(self.env)
         try:
-            provider.process_admin_request(req, 'bitten', 'configs',
+            provider.render_admin_panel(req, 'bitten', 'configs',
                                            'foo/%d' % platform.id)
             self.fail('Expected RequestDone')
 

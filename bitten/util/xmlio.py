@@ -20,6 +20,17 @@ except ImportError:
     from StringIO import StringIO
 from UserDict import DictMixin
 
+import cgi
+import string
+
+__trans = string.maketrans ("", "")
+__todel = ""
+for c in range (0, 256):
+    c1 = chr (c)
+    if not c1 in string.printable:
+        __todel += c1
+del c, c1
+
 __all__ = ['Fragment', 'Element', 'ParsedElement', 'parse']
 __docformat__ = 'restructuredtext en'
 
@@ -27,8 +38,7 @@ def _escape_text(text):
     """Escape special characters in the provided text so that it can be safely
     included in XML text nodes.
     """
-    return str(text).replace('&', '&amp;').replace('<', '&lt;') \
-                    .replace('>', '&gt;')
+    return cgi.escape (str(text)).translate (__trans, __todel)
 
 def _escape_attr(attr):
     """Escape special characters in the provided text so that it can be safely

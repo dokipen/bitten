@@ -78,8 +78,11 @@ class IReportSummarizer(Interface):
         """
 
     def render_summary(req, config, build, step, category):
-        """Render a summary for the given report and return the resulting HTML
-        as string.
+        """Render a summary for the given report.
+        
+        This function should return a tuple of the form `(template, data)`,
+        where `template` is the name of the template to use and `data` is the
+        data to be passed to the template.
         
         :param req: the request object
         :param config: the build configuration
@@ -94,7 +97,7 @@ class IReportSummarizer(Interface):
 
 
 class IReportChartGenerator(Interface):
-    """Extension point interface for components that generator a chart for a
+    """Extension point interface for components that generate a chart for a
     set of reports."""
 
     def get_supported_categories():
@@ -105,8 +108,9 @@ class IReportChartGenerator(Interface):
     def generate_chart_data(req, config, category):
         """Generate the data for a report chart.
         
-        This method should store the data in the HDF of the request and return
-        the name of the template that should process the data.
+        This function should return a tuple of the form `(template, data)`,
+        where `template` is the name of the template to use and `data` is the
+        data to be passed to the template.
         
         :param req: the request object
         :param config: the build configuration

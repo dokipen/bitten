@@ -56,14 +56,14 @@ ORDER BY build.rev_time, build.platform""", (config.name,))
             if status != 'success':
                 tests[-1][2] = max(num, tests[-1][2])
 
-        req.hdf['chart.title'] = 'Unit Tests'
-        req.hdf['chart.data'] = [
-            [''] + ['[%s]' % item[0] for item in tests],
-            ['Total'] + [item[1] for item in tests],
-            ['Failures'] + [item[2] for item in tests]
-        ]
+        data = {'title': 'Unit Tests',
+                'data': [
+                    [''] + ['[%s]' % item[0] for item in tests],
+                    ['Total'] + [item[1] for item in tests],
+                    ['Failures'] + [item[2] for item in tests]
+                ]}
 
-        return 'bitten_chart_tests.cs'
+        return 'bitten_chart_tests.html', data
 
 
 class TestResultsSummarizer(Component):
@@ -103,19 +103,20 @@ WHERE category='test' AND build=%s AND step=%s
 GROUP BY file, fixture
 ORDER BY fixture""", (build.id, step.name))
 
-        data = []
+        fixtures = []
         total_success, total_failure, total_error = 0, 0, 0
         for fixture, file, num_success, num_failure, num_error in cursor:
-            data.append({'name': fixture, 'num_success': num_success,
-                         'num_error': num_error, 'num_failure': num_failure})
+            fixtures.append({'name': fixture, 'num_success': num_success,
+                             'num_error': num_error,
+                             'num_failure': num_failure})
             total_success += num_success
             total_failure += num_failure
             total_error += num_error
             if file:
-                data[-1]['href'] = req.href.browser(config.path, file)
+                fixtures[-1]['href'] = req.href.browser(config.path, file)
 
-        hdf = HDFWrapper(loadpaths=Chrome(self.env).get_all_templates_dirs())
-        hdf['data'] = data
-        hdf['totals'] = {'success': total_success, 'failure': total_failure,
-                         'error': total_error}
-        return hdf.render('bitten_summary_tests.cs')
+        data = {'fixtures': fixtures,
+                'totals': {'success': total_success, 'failure': total_failure,
+                           'error': total_error}
+               }
+        return 'bitten_summary_tests.html', data

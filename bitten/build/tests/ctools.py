@@ -107,6 +107,8 @@ class GCovTestCase(unittest.TestCase):
         ctools.CommandLine = dummy.CommandLine()
         ctools.gcov(self.ctxt)
         type, category, generator, xml = self.ctxt.output.pop()
+        self.assertEqual('log', type)
+        type, category, generator, xml = self.ctxt.output.pop()
         self.assertEqual('report', type)
         self.assertEqual('coverage', category)
         self.assertEqual(0, len(xml.children))
@@ -130,6 +132,8 @@ No branches
 Calls executed:100.00% of 1
 """)
         ctools.gcov(self.ctxt)
+        type, category, generator, xml = self.ctxt.output.pop()
+        self.assertEqual('log', type)
         type, category, generator, xml = self.ctxt.output.pop()
         self.assertEqual('report', type)
         self.assertEqual('coverage', category)

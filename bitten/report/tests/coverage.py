@@ -13,7 +13,6 @@ import unittest
 
 from trac.db import DatabaseManager
 from trac.test import EnvironmentStub, Mock
-from trac.web.clearsilver import HDFWrapper
 from bitten.model import *
 from bitten.report import coverage
 from bitten.report.coverage import TestCoverageChartGenerator
@@ -39,15 +38,15 @@ class TestCoverageChartGeneratorTestCase(unittest.TestCase):
         self.assertEqual(['coverage'], generator.get_supported_categories())
 
     def test_no_reports(self):
-        req = Mock(hdf=HDFWrapper())
+        req = Mock()
         config = Mock(name='trunk')
         generator = TestCoverageChartGenerator(self.env)
-        template = generator.generate_chart_data(req, config, 'coverage')
-        self.assertEqual('bitten_chart_coverage.cs', template)
-        self.assertEqual('Test Coverage', req.hdf['chart.title'])
-        self.assertEqual('', req.hdf['chart.data.0.0'])
-        self.assertEqual('Lines of code', req.hdf['chart.data.1.0'])
-        self.assertEqual('Coverage', req.hdf['chart.data.2.0'])
+        template, data = generator.generate_chart_data(req, config, 'coverage')
+        self.assertEqual('bitten_chart_coverage.html', template)
+        self.assertEqual('Test Coverage', data['title'])
+        self.assertEqual('', data['data'][0][0])
+        self.assertEqual('Lines of code', data['data'][1][0])
+        self.assertEqual('Coverage', data['data'][2][0])
 
     def test_single_platform(self):
         config = Mock(name='trunk')
@@ -59,17 +58,17 @@ class TestCoverageChartGeneratorTestCase(unittest.TestCase):
         report.items += [{'lines': '12', 'percentage': '25'}]
         report.insert()
 
-        req = Mock(hdf=HDFWrapper())
+        req = Mock()
         generator = TestCoverageChartGenerator(self.env)
-        template = generator.generate_chart_data(req, config, 'coverage')
-        self.assertEqual('bitten_chart_coverage.cs', template)
-        self.assertEqual('Test Coverage', req.hdf['chart.title'])
-        self.assertEqual('', req.hdf['chart.data.0.0'])
-        self.assertEqual('[123]', req.hdf['chart.data.0.1'])
-        self.assertEqual('Lines of code', req.hdf['chart.data.1.0'])
-        self.assertEqual('12', req.hdf['chart.data.1.1'])
-        self.assertEqual('Coverage', req.hdf['chart.data.2.0'])
-        self.assertEqual('3', req.hdf['chart.data.2.1'])
+        template, data = generator.generate_chart_data(req, config, 'coverage')
+        self.assertEqual('bitten_chart_coverage.html', template)
+        self.assertEqual('Test Coverage', data['title'])
+        self.assertEqual('', data['data'][0][0])
+        self.assertEqual('[123]', data['data'][0][1])
+        self.assertEqual('Lines of code', data['data'][1][0])
+        self.assertEqual(12, data['data'][1][1])
+        self.assertEqual('Coverage', data['data'][2][0])
+        self.assertEqual(3, data['data'][2][1])
 
     def test_multi_platform(self):
         config = Mock(name='trunk')
@@ -88,17 +87,17 @@ class TestCoverageChartGeneratorTestCase(unittest.TestCase):
         report.items += [{'lines': '12', 'percentage': '50'}]
         report.insert()
 
-        req = Mock(hdf=HDFWrapper())
+        req = Mock()
         generator = TestCoverageChartGenerator(self.env)
-        template = generator.generate_chart_data(req, config, 'coverage')
-        self.assertEqual('bitten_chart_coverage.cs', template)
-        self.assertEqual('Test Coverage', req.hdf['chart.title'])
-        self.assertEqual('', req.hdf['chart.data.0.0'])
-        self.assertEqual('[123]', req.hdf['chart.data.0.1'])
-        self.assertEqual('Lines of code', req.hdf['chart.data.1.0'])
-        self.assertEqual('12', req.hdf['chart.data.1.1'])
-        self.assertEqual('Coverage', req.hdf['chart.data.2.0'])
-        self.assertEqual('6', req.hdf['chart.data.2.1'])
+        template, data = generator.generate_chart_data(req, config, 'coverage')
+        self.assertEqual('bitten_chart_coverage.html', template)
+        self.assertEqual('Test Coverage', data['title'])
+        self.assertEqual('', data['data'][0][0])
+        self.assertEqual('[123]', data['data'][0][1])
+        self.assertEqual('Lines of code', data['data'][1][0])
+        self.assertEqual(12, data['data'][1][1])
+        self.assertEqual('Coverage', data['data'][2][0])
+        self.assertEqual(6, data['data'][2][1])
 
 
 def suite():

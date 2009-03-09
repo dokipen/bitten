@@ -38,7 +38,7 @@ setup(
     package_data = {
         'bitten': ['htdocs/*.*',
                    'htdocs/charts_library/*.swf',
-                   'templates/*.cs']
+                   'templates/*.html']
     },
     test_suite = 'bitten.tests.suite',
     entry_points = {
@@ -62,6 +62,7 @@ setup(
             NS + 'c#configure = bitten.build.ctools:configure',
             NS + 'c#autoreconf = bitten.build.ctools:autoreconf',
             NS + 'c#cppunit = bitten.build.ctools:cppunit',
+            NS + 'c#cunit = bitten.build.ctools:cunit',
             NS + 'c#gcov = bitten.build.ctools:gcov',
             NS + 'c#make = bitten.build.ctools:make',
             NS + 'java#ant = bitten.build.javatools:ant',

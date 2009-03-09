@@ -12,7 +12,6 @@ import unittest
 
 from trac.db import DatabaseManager
 from trac.test import EnvironmentStub, Mock
-from trac.web.clearsilver import HDFWrapper
 from bitten.model import *
 from bitten.report.testing import TestResultsChartGenerator
 
@@ -35,15 +34,15 @@ class TestResultsChartGeneratorTestCase(unittest.TestCase):
         self.assertEqual(['test'], generator.get_supported_categories())
 
     def test_no_reports(self):
-        req = Mock(hdf=HDFWrapper())
+        req = Mock()
         config = Mock(name='trunk')
         generator = TestResultsChartGenerator(self.env)
-        template = generator.generate_chart_data(req, config, 'test')
-        self.assertEqual('bitten_chart_tests.cs', template)
-        self.assertEqual('Unit Tests', req.hdf['chart.title'])
-        self.assertEqual('', req.hdf['chart.data.0.0'])
-        self.assertEqual('Total', req.hdf['chart.data.1.0'])
-        self.assertEqual('Failures', req.hdf['chart.data.2.0'])
+        template, data = generator.generate_chart_data(req, config, 'test')
+        self.assertEqual('bitten_chart_tests.html', template)
+        self.assertEqual('Unit Tests', data['title'])
+        self.assertEqual('', data['data'][0][0])
+        self.assertEqual('Total', data['data'][1][0])
+        self.assertEqual('Failures', data['data'][2][0])
 
     def test_single_platform(self):
         config = Mock(name='trunk')
@@ -55,17 +54,17 @@ class TestResultsChartGeneratorTestCase(unittest.TestCase):
                          {'status': 'success'}]
         report.insert()
 
-        req = Mock(hdf=HDFWrapper())
+        req = Mock()
         generator = TestResultsChartGenerator(self.env)
-        template = generator.generate_chart_data(req, config, 'test')
-        self.assertEqual('bitten_chart_tests.cs', template)
-        self.assertEqual('Unit Tests', req.hdf['chart.title'])
-        self.assertEqual('', req.hdf['chart.data.0.0'])
-        self.assertEqual('[123]', req.hdf['chart.data.0.1'])
-        self.assertEqual('Total', req.hdf['chart.data.1.0'])
-        self.assertEqual('3', req.hdf['chart.data.1.1'])
-        self.assertEqual('Failures', req.hdf['chart.data.2.0'])
-        self.assertEqual('1', req.hdf['chart.data.2.1'])
+        template, data = generator.generate_chart_data(req, config, 'test')
+        self.assertEqual('bitten_chart_tests.html', template)
+        self.assertEqual('Unit Tests', data['title'])
+        self.assertEqual('', data['data'][0][0])
+        self.assertEqual('[123]', data['data'][0][1])
+        self.assertEqual('Total', data['data'][1][0])
+        self.assertEqual(3, data['data'][1][1])
+        self.assertEqual('Failures', data['data'][2][0])
+        self.assertEqual(1, data['data'][2][1])
 
     def test_multi_platform(self):
         config = Mock(name='trunk')
@@ -86,17 +85,17 @@ class TestResultsChartGeneratorTestCase(unittest.TestCase):
                          {'status': 'failure'}]
         report.insert()
 
-        req = Mock(hdf=HDFWrapper())
+        req = Mock()
         generator = TestResultsChartGenerator(self.env)
-        template = generator.generate_chart_data(req, config, 'test')
-        self.assertEqual('bitten_chart_tests.cs', template)
-        self.assertEqual('Unit Tests', req.hdf['chart.title'])
-        self.assertEqual('', req.hdf['chart.data.0.0'])
-        self.assertEqual('[123]', req.hdf['chart.data.0.1'])
-        self.assertEqual('Total', req.hdf['chart.data.1.0'])
-        self.assertEqual('3', req.hdf['chart.data.1.1'])
-        self.assertEqual('Failures', req.hdf['chart.data.2.0'])
-        self.assertEqual('2', req.hdf['chart.data.2.1'])
+        template, data = generator.generate_chart_data(req, config, 'test')
+        self.assertEqual('bitten_chart_tests.html', template)
+        self.assertEqual('Unit Tests', data['title'])
+        self.assertEqual('', data['data'][0][0])
+        self.assertEqual('[123]', data['data'][0][1])
+        self.assertEqual('Total', data['data'][1][0])
+        self.assertEqual(3, data['data'][1][1])
+        self.assertEqual('Failures', data['data'][2][0])
+        self.assertEqual(2, data['data'][2][1])
 
 
 def suite():
