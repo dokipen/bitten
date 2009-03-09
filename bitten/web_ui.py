@@ -141,12 +141,25 @@ class BuildConfigController(Component):
             description = config.description
             if description:
                 description = wiki_to_html(description, self.env, req)
+
+            platforms_data = []
+            for platform in TargetPlatform.select(self.env, config=config.name):
+                pd = { 'name': platform.name,
+                       'id': platform.id,
+                       'builds_pending': len(list(Build.select(self.env, config=config.name, status=Build.PENDING, platform=platform.id))),
+                       'builds_inprogress': len(list(Build.select(self.env, config=config.name, status=Build.IN_PROGRESS, platform=platform.id)))
+                }
+                platforms_data.append(pd)
+		
             config_data = {
                 'name': config.name, 'label': config.label or config.name,
                 'active': config.active, 'path': config.path,
                 'description': description,
+		'builds_pending' : len(list(Build.select(self.env, config=config.name, status=Build.PENDING))),
+		'builds_inprogress' : len(list(Build.select(self.env, config=config.name, status=Build.IN_PROGRESS))),
                 'href': req.href.build(config.name),
-                'builds': []
+                'builds': [],
+                'platforms': platforms_data
             }
             configs.append(config_data)
             if not config.active:
@@ -182,6 +195,13 @@ class BuildConfigController(Component):
 
         data['configs'] = configs
         data['page_mode'] = 'overview'
+
+        in_progress_builds = Build.select(self.env, status=Build.IN_PROGRESS)
+        pending_builds = Build.select(self.env, status=Build.PENDING)
+
+	data['builds_pending'] = len(list(pending_builds))
+	data['builds_inprogress'] = len(list(in_progress_builds))
+
         add_link(req, 'views', req.href.build(view='inprogress'),
                  'In Progress Builds')
         add_ctxtnav(req, 'In Progress Builds',
@@ -258,6 +278,10 @@ class BuildConfigController(Component):
         description = config.description
         if description:
             description = wiki_to_html(description, self.env, req)
+
+        pending_builds = list(Build.select(self.env, config=config.name, status=Build.PENDING))
+        inprogress_builds = list(Build.select(self.env, config=config.name, status=Build.IN_PROGRESS))
+
         data['config'] = {
             'name': config.name, 'label': config.label, 'path': config.path,
             'min_rev': config.min_rev,
@@ -265,13 +289,19 @@ class BuildConfigController(Component):
             'max_rev': config.max_rev,
             'max_rev_href': req.href.changeset(config.max_rev),
             'active': config.active, 'description': description,
-            'browser_href': req.href.browser(config.path)
+            'browser_href': req.href.browser(config.path),
+            'builds_pending' : len(pending_builds),
+	    'builds_inprogress' : len(inprogress_builds)
         }
 
         platforms = list(TargetPlatform.select(self.env, config=config_name,
                                                db=db))
         data['config']['platforms'] = [
-            {'name': platform.name, 'id': platform.id}
+            { 'name': platform.name,
+              'id': platform.id, 
+              'builds_pending': len(list(Build.select(self.env, config=config.name, status=Build.PENDING, platform=platform.id))),
+              'builds_inprogress': len(list(Build.select(self.env, config=config.name, status=Build.IN_PROGRESS, platform=platform.id)))
+              }
             for platform in platforms
         ]
 

@@ -39,6 +39,11 @@
  
     <div id="content" class="build">
       <h1>$title</h1><py:choose test="page_mode"><py:when test="'overview'">
+      <py:if test="builds_pending">
+	<div>$builds_pending pending build<py:if test="builds_pending > 1">s</py:if>
+       </div></py:if><py:if test="builds_inprogress">
+	<div>$builds_inprogress in-progress build<py:if test="builds_inprogress > 1">s</py:if>
+      </div></py:if>
       <form id="prefs" method="get" action="">
         <div>
           <input type="checkbox" id="showall" name="show" value="all"
@@ -51,7 +56,18 @@
       </form><py:for each="config in configs">
       <h2 class="config ${not config.active and 'deactivated' or ''}">
         <a href="$config.href">$config.label</a>
-      </h2>
+      </h2><py:if test="config.builds_pending">
+	<div>$config.builds_pending pending
+	build<py:if test="config.builds_pending > 1">s</py:if>&nbsp;<i>(<py:for each="platform in config.platforms">
+        <py:if test="platform.builds_pending">
+	$platform.name: $platform.builds_pending
+        </py:if></py:for>)</i>
+       </div></py:if><py:if test="config.builds_inprogress">
+	<div>$config.builds_inprogress in-progress
+	build<py:if test="config.builds_inprogress > 1">s</py:if>&nbsp;<i>(<py:for each="platform in config.platforms"><py:if test="platform.builds_inprogress">
+	$platform.name: $platform.builds_inprogress
+        </py:if></py:for>)</i>
+      </div></py:if>
       <div py:if="config.description" class="description">
         $config.description
       </div><py:if test="len(config.builds)">
@@ -109,6 +125,16 @@
       <div py:if="config.description" class="description">
         $config.description
       </div>
+      <py:if test="config.builds_pending">
+	<div>$config.builds_pending pending build<py:if test="config.builds_pending > 1">s</py:if>&nbsp;<i>(<py:for each="platform in config.platforms">
+        <py:if test="platform.builds_pending">
+	$platform.name: $platform.builds_pending
+        </py:if></py:for>)</i>
+       </div></py:if><py:if test="config.builds_inprogress">
+	<div>$config.builds_inprogress in-progress build<py:if test="config.builds_inprogress > 1">s</py:if>&nbsp;<i>(<py:for each="platform in config.platforms"><py:if test="platform.builds_inprogress">
+	$platform.name: $platform.builds_inprogress
+        </py:if></py:for>)</i>
+      </div></py:if>
       <div id="charts"><py:for each="chart in config.charts">
         <object type="application/x-shockwave-flash"
                 width="320" height="240"
