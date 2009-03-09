@@ -734,25 +734,30 @@ Check out a working copy from a Subversion repository.
 Parameters
 ----------
 
-+--------------+-------------------------------------------------------------+
-| Name         | Description                                                 |
-+==============+=============================================================+
-| ``url``      | URL of the repository.                                      |
-+--------------+-------------------------------------------------------------+
-| ``path``     | The path inside the repository that should be checked out.  |
-|              | You should normally set this to ``${path}`` so that the     |
-|              | path of the build configuration is used.                    |
-+--------------+-------------------------------------------------------------+
-| ``revision`` | The revision that should be checked out. You should         |
-|              | normally set this to ``${revision}`` so that the revision   |
-|              | of the build is used.                                       |
-+--------------+-------------------------------------------------------------+
-| ``dir``      | Path specifying which directory the sources should be       |
-|              | checked out to (defaults to '.').                           |
-+--------------+-------------------------------------------------------------+
-| ``verbose``  | Whether to log the list of checked out files (defaults to   |
-|              | False).                                                     |
-+--------------+-------------------------------------------------------------+
++-----------------+-------------------------------------------------------------+
+| Name            | Description                                                 |
++=================+=============================================================+
+| ``url``         | URL of the repository.                                      |
++-----------------+-------------------------------------------------------------+
+| ``path``        | The path inside the repository that should be checked out.  |
+|                 | You should normally set this to ``${path}`` so that the     |
+|                 | path of the build configuration is used.                    |
++-----------------+-------------------------------------------------------------+
+| ``revision``    | The revision that should be checked out. You should         |
+|                 | normally set this to ``${revision}`` so that the revision   |
+|                 | of the build is used.                                       |
++-----------------+-------------------------------------------------------------+
+| ``dir``         | Path specifying which directory the sources should be       |
+|                 | checked out to (defaults to '.').                           |
++-----------------+-------------------------------------------------------------+
+| ``verbose``     | Whether to log the list of checked out files (defaults to   |
+|                 | False).                                                     |
++-----------------+-------------------------------------------------------------+
+| ``shared_path`` | An optional shared directory to check the sources out in,   |
+|                 | which will be reused for each subsequent build. This is     |
+|                 | relative to the project directory, so for standard usage    |
+|                 | set it to something like ``../trunk``                       |
++-----------------+-------------------------------------------------------------+
 
 
 Examples
