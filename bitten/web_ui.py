@@ -36,6 +36,10 @@ _status_label = {Build.PENDING: 'pending',
                  Build.IN_PROGRESS: 'in progress',
                  Build.SUCCESS: 'completed',
                  Build.FAILURE: 'failed'}
+_status_title = {Build.PENDING: 'Pending',
+                 Build.IN_PROGRESS: 'In Progress',
+                 Build.SUCCESS: 'Success',
+                 Build.FAILURE: 'Failure'}
 
 def _get_build_data(env, req, build):
     data = {'id': build.id, 'name': build.slave, 'rev': build.rev,
@@ -412,10 +416,8 @@ class BuildController(Component):
 
         add_link(req, 'up', req.href.build(build.config),
                  'Build Configuration')
-        status2title = {Build.SUCCESS: 'Success', Build.FAILURE: 'Failure',
-                        Build.IN_PROGRESS: 'In Progress'}
         data = {'title': 'Build %s - %s' % (build_id,
-                                            status2title[build.status]),
+                                            _status_title[build.status]),
                 'page_mode': 'view_build',
                 'build': {}}
         config = BuildConfig.fetch(self.env, build.config, db=db)
