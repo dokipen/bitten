@@ -22,4 +22,5 @@ user interface.
  * `Installation <install.html>`_
  * `Build Recipes <recipes.html>`_
  * `Build Recipe Commands <commands.html>`_
+ * `Build Links <links.html>`_
  * `Generated API Documentation <api/index.html>`_
