@@ -23,8 +23,8 @@ log = logging.getLogger('bitten.build.ctools')
 
 __docformat__ = 'restructuredtext en'
 
-def configure(ctxt, file_='configure', enable=None, disable=None, with=None,
-              without=None, cflags=None, cxxflags=None):
+def configure(ctxt, file_='configure', enable=None, disable=None, with_=None,
+              without=None, cflags=None, cxxflags=None, **kw):
     """Run a ``configure`` script.
     
     :param ctxt: the build context
@@ -32,7 +32,7 @@ def configure(ctxt, file_='configure', enable=None, disable=None, with=None,
     :param file\_: name of the configure script
     :param enable: names of the features to enable, seperated by spaces
     :param disable: names of the features to disable, separated by spaces
-    :param with: names of external packages to include
+    :param with_: names of external packages to include
     :param without: names of external packages to exclude
     :param cflags: ``CFLAGS`` to pass to the configure script
     :param cxxflags: ``CXXFLAGS`` to pass to the configure script
@@ -42,8 +42,12 @@ def configure(ctxt, file_='configure', enable=None, disable=None, with=None,
         args += ['--enable-%s' % feature for feature in enable.split()]
     if disable:
         args += ['--disable-%s' % feature for feature in disable.split()]
-    if with:
-        for pkg in with.split():
+    # since 'with' is a reserved word in python, we need to handle the argument carefully
+    with_ = kw.pop('with', with_)
+    for key in kw:
+        raise TypeError("configure() got an unexpected keyword argument '%s'" % key)
+    if with_:
+        for pkg in with_.split():
             pkg_path = pkg + '.path'
             if pkg_path in ctxt.config:
                 args.append('--with-%s=%s' % (pkg, ctxt.config[pkg_path]))
