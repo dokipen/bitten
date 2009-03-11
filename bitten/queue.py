@@ -292,10 +292,15 @@ class BuildQueue(object):
         # Ignore pending builds for deactived build configs
         config = BuildConfig.fetch(self.env, build.config)
         if not config.active:
+            target_platform = TargetPlatform.fetch(self.env, build.platform)
+            if target_platform:
+                target_platform_name = '"%s"' % (target_platform.name,)
+            else:
+                target_platform_name = 'unknown platform "%s"' % (build.platform,)
             log.info('Dropping build of configuration "%s" at '
-                     'revision [%s] on "%s" because the configuration is '
+                     'revision [%s] on %s because the configuration is '
                      'deactivated', config.name, build.rev,
-                     TargetPlatform.fetch(self.env, build.platform).name)
+                     target_platform_name)
             return True
 
         # Stay within the revision limits of the build config
