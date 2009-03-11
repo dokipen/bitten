@@ -69,7 +69,7 @@ def transform(ctxt, src=None, dest=None, stylesheet=None):
         log.debug('Using MSXML for XSLT transformation')
         srcdoc = win32com.client.Dispatch('MSXML2.DOMDocument.3.0')
         if not srcdoc.load(ctxt.resolve(src)):
-            err = styledoc.parseError
+            err = srcdoc.parseError
             ctxt.error('Failed to parse XML source %s: %s', src, err.reason)
             return
         styledoc = win32com.client.Dispatch('MSXML2.DOMDocument.3.0')
