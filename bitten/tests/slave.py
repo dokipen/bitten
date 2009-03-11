@@ -13,15 +13,13 @@ import shutil
 import tempfile
 import unittest
 
-from trac.test import Mock
-from bitten.slave import BuildSlave
-
+from bitten.slave import BuildSlave, ExitSlave
 
 class BuildSlaveTestCase(unittest.TestCase):
 
     def setUp(self):
         self.work_dir = tempfile.mkdtemp(prefix='bitten_test')
-        self.slave = BuildSlave(None, work_dir=self.work_dir)
+        self.slave = BuildSlave([], work_dir=self.work_dir)
 
     def tearDown(self):
         shutil.rmtree(self.work_dir)
@@ -32,6 +30,8 @@ class BuildSlaveTestCase(unittest.TestCase):
         fd.close()
         return filename
 
+    def test_quit_raises(self):
+        self.assertRaises(ExitSlave, self.slave.quit)
 
 def suite():
     suite = unittest.TestSuite()
