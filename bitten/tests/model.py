@@ -15,13 +15,19 @@ from trac.test import EnvironmentStub
 from bitten.model import BuildConfig, TargetPlatform, Build, BuildStep, \
                          BuildLog, Report, schema
 import os
+import tempfile
 
 
 class BuildConfigTestCase(unittest.TestCase):
 
     def setUp(self):
         self.env = EnvironmentStub()
-        self.env.path = ''
+        self.env.path = tempfile.mkdtemp()
+        logs_dir = self.env.config.get("bitten", "logs_dir")
+        if os.path.isabs(logs_dir):
+            raise ValueError("Should not have absolute logs directory for temporary test")
+        logs_dir = os.path.join(self.env.path, logs_dir)
+        os.makedirs(logs_dir)
 
         db = self.env.get_db_cnx()
         cursor = db.cursor()
@@ -159,7 +165,12 @@ class TargetPlatformTestCase(unittest.TestCase):
 
     def setUp(self):
         self.env = EnvironmentStub()
-        self.env.path = ''
+        self.env.path = tempfile.mkdtemp()
+        logs_dir = self.env.config.get("bitten", "logs_dir")
+        if os.path.isabs(logs_dir):
+            raise ValueError("Should not have absolute logs directory for temporary test")
+        logs_dir = os.path.join(self.env.path, logs_dir)
+        os.makedirs(logs_dir)
 
         db = self.env.get_db_cnx()
         cursor = db.cursor()
@@ -216,7 +227,12 @@ class BuildTestCase(unittest.TestCase):
 
     def setUp(self):
         self.env = EnvironmentStub()
-        self.env.path = ''
+        self.env.path = tempfile.mkdtemp()
+        logs_dir = self.env.config.get("bitten", "logs_dir")
+        if os.path.isabs(logs_dir):
+            raise ValueError("Should not have absolute logs directory for temporary test")
+        logs_dir = os.path.join(self.env.path, logs_dir)
+        os.makedirs(logs_dir)
 
         db = self.env.get_db_cnx()
         cursor = db.cursor()
@@ -325,7 +341,12 @@ class BuildStepTestCase(unittest.TestCase):
 
     def setUp(self):
         self.env = EnvironmentStub()
-        self.env.path = ''
+        self.env.path = tempfile.mkdtemp()
+        logs_dir = self.env.config.get("bitten", "logs_dir")
+        if os.path.isabs(logs_dir):
+            raise ValueError("Should not have absolute logs directory for temporary test")
+        logs_dir = os.path.join(self.env.path, logs_dir)
+        os.makedirs(logs_dir)
 
         db = self.env.get_db_cnx()
         cursor = db.cursor()
@@ -427,7 +448,12 @@ class BuildLogTestCase(unittest.TestCase):
 
     def setUp(self):
         self.env = EnvironmentStub()
-        self.env.path = ''
+        self.env.path = tempfile.mkdtemp()
+        logs_dir = self.env.config.get("bitten", "logs_dir")
+        if os.path.isabs(logs_dir):
+            raise ValueError("Should not have absolute logs directory for temporary test")
+        logs_dir = os.path.join(self.env.path, logs_dir)
+        os.makedirs(logs_dir)
 
         db = self.env.get_db_cnx()
         cursor = db.cursor()
@@ -502,6 +528,9 @@ class BuildLogTestCase(unittest.TestCase):
                        "VALUES (%s,%s,%s,%s)", (1, 'test', 'distutils', '1.log'))
         id = db.get_last_id(cursor, 'bitten_log')
         logs_dir = self.env.config.get("bitten", "logsdir", "log/bitten")
+        if os.path.isabs(logs_dir):
+            raise ValueError("Should not have absolute logs directory for temporary test")
+        logs_dir = os.path.join(self.env.path, logs_dir)
         full_file = os.path.join(logs_dir, "1.log")
         open(full_file, "w").writelines(["running tests\n", "tests failed\n"])
 
@@ -528,6 +557,9 @@ class BuildLogTestCase(unittest.TestCase):
                        "VALUES (%s,%s,%s,%s)", (1, 'test', 'distutils', '1.log'))
         id = db.get_last_id(cursor, 'bitten_log')
         logs_dir = self.env.config.get("bitten", "logsdir", "log/bitten")
+        if os.path.isabs(logs_dir):
+            raise ValueError("Should not have absolute logs directory for temporary test")
+        logs_dir = os.path.join(self.env.path, logs_dir)
         full_file = os.path.join(logs_dir, "1.log")
         open(full_file, "w").writelines(["running tests\n", "tests failed\n"])
 
@@ -549,6 +581,9 @@ class BuildLogTestCase(unittest.TestCase):
                        "VALUES (%s,%s,%s,%s)", (1, 'test', 'distutils', '1.log'))
         id = db.get_last_id(cursor, 'bitten_log')
         logs_dir = self.env.config.get("bitten", "logsdir", "log/bitten")
+        if os.path.isabs(logs_dir):
+            raise ValueError("Should not have absolute logs directory for temporary test")
+        logs_dir = os.path.join(self.env.path, logs_dir)
         full_file = os.path.join(logs_dir, "1.log")
         open(full_file, "w").writelines(["running tests\n", "tests failed\n"])
 
@@ -570,7 +605,12 @@ class ReportTestCase(unittest.TestCase):
 
     def setUp(self):
         self.env = EnvironmentStub()
-        self.env.path = ''
+        self.env.path = tempfile.mkdtemp()
+        logs_dir = self.env.config.get("bitten", "logs_dir")
+        if os.path.isabs(logs_dir):
+            raise ValueError("Should not have absolute logs directory for temporary test")
+        logs_dir = os.path.join(self.env.path, logs_dir)
+        os.makedirs(logs_dir)
 
         db = self.env.get_db_cnx()
         cursor = db.cursor()

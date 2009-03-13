@@ -8,6 +8,7 @@
 # you should have received as part of this distribution. The terms
 # are also available at http://bitten.edgewall.org/wiki/License.
 
+import os
 import re
 import shutil
 from StringIO import StringIO
@@ -31,6 +32,11 @@ class BuildMasterTestCase(unittest.TestCase):
     def setUp(self):
         self.env = EnvironmentStub(enable=['trac.*', 'bitten.*'])
         self.env.path = tempfile.mkdtemp()
+        logs_dir = self.env.config.get("bitten", "logs_dir")
+        if os.path.isabs(logs_dir):
+            raise ValueError("Should not have absolute logs directory for temporary test")
+        logs_dir = os.path.join(self.env.path, logs_dir)
+        os.makedirs(logs_dir)
 
         PermissionSystem(self.env).grant_permission('hal', 'BUILD_EXEC')
 
