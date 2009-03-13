@@ -281,11 +281,66 @@ def add_error_table(env, db):
     for stmt in connector.to_sql(table):
         cursor.execute(stmt)
 
+def add_filename_to_logs(env, db):
+    """Add filename column to log table to save where log files are stored."""
+    from bitten.model import BuildLog
+    cursor = db.cursor()
+
+    cursor.execute("CREATE TEMP TABLE old_log AS "
+                   "SELECT * FROM bitten_log")
+    cursor.execute("DROP TABLE bitten_log")
+
+    connector, _ = DatabaseManager(env)._get_connector()
+    for stmt in connector.to_sql(BuildLog._schema[0]):
+        cursor.execute(stmt)
+
+    cursor.execute("INSERT INTO bitten_log (id,build,step,generator,orderno,filename) "
+                   "SELECT id,build,step,generator,orderno,'' FROM old_log")
+
+def migrate_logs_to_files(env, db):
+    """Migrates logs that are stored in the bitten_log_messages table into files."""
+    from trac.db import Table, Column
+    from bitten.model import BuildLog
+    log_table = BuildLog._schema[0]
+    logs_dir = env.config.get("bitten", "logs_dir", "log/bitten")
+    if not os.path.isabs(logs_dir):
+        logs_dir = os.path.join(env.path, logs_dir)
+    if not os.path.exists(logs_dir):
+        os.mkdir(logs_dir)
+
+    message_table = Table('bitten_log_message', key=('log', 'line'))[
+            Column('log', type='int'), Column('line', type='int'),
+            Column('level', size=1), Column('message')
+        ]
+
+    cursor = db.cursor()
+    message_cursor = db.cursor()
+    update_cursor = db.cursor()
+    cursor.execute("SELECT id FROM bitten_log")
+    for log_id, in cursor.fetchall():
+        filename = "%s.log" % (log_id,)
+        message_cursor.execute("SELECT message, level FROM bitten_log_message WHERE log=%s ORDER BY line", (log_id,))
+        full_filename = os.path.join(logs_dir, filename)
+        message_file = open(full_filename, "w")
+        level_file = open(full_filename+".level", "w")
+        for message, level in message_cursor.fetchall() or []:
+            message_file.write(message + "\n")
+            level_file.write(level + "\n")
+        message_file.close()
+        level_file.close()
+        update_cursor.execute("UPDATE bitten_log SET filename=%s WHERE id=%s", (filename, log_id))
+        env.log.info("Migrated log %s", log_id)
+    env.log_warning("Logs have been migrated from the database to files in %s. "
+        "Ensure permissions are set correctly on this file. "
+        "When you have confirmed that the migration worked correctly, "
+        "you can drop the bitten_log_message table in the database (it remains as a backup)", logs_dir)
+
 map = {
     2: [add_log_table],
     3: [add_recipe_to_config],
     4: [add_config_to_reports],
     5: [add_order_to_log, add_report_tables, xmldb_to_db],
     6: [normalize_file_paths, fixup_generators],
-    7: [add_error_table]
+    7: [add_error_table],
+    8: [add_filename_to_logs,migrate_logs_to_files],
 }

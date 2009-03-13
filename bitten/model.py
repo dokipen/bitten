@@ -11,6 +11,7 @@
 """Model classes for objects persisted in the database."""
 
 from trac.db import Table, Column, Index
+import os
 
 __docformat__ = 'restructuredtext en'
 
@@ -669,12 +670,9 @@ class BuildLog(object):
         Table('bitten_log', key='id')[
             Column('id', auto_increment=True), Column('build', type='int'),
             Column('step'), Column('generator'), Column('orderno', type='int'),
+            Column('filename'),
             Index(['build', 'step'])
         ],
-        Table('bitten_log_message', key=('log', 'line'))[
-            Column('log', type='int'), Column('line', type='int'),
-            Column('level', size=1), Column('message')
-        ]
     ]
 
     # Message levels
@@ -682,9 +680,10 @@ class BuildLog(object):
     INFO = 'I'
     WARNING = 'W'
     ERROR = 'E'
+    UNKNOWN = ''
 
     def __init__(self, env, build=None, step=None, generator=None,
-                 orderno=None):
+                 orderno=None, filename=None):
         """Initialize a new build log with the specified attributes.
 
         To actually create this build log in the database, the `insert` method
@@ -696,10 +695,20 @@ class BuildLog(object):
         self.step = step
         self.generator = generator or ''
         self.orderno = orderno and int(orderno) or 0
+        self.filename = filename or None
         self.messages = []
+        self.logs_dir = env.config.get('bitten', 'logs_dir', 'log/bitten')
+        if not os.path.isabs(self.logs_dir):
+            self.logs_dir = os.path.join(env.path, self.logs_dir)
 
     exists = property(fget=lambda self: self.id is not None,
                       doc='Whether this build log exists in the database')
+
+    def get_log_file(self, filename):
+        """Returns the full path to the log file"""
+        if filename != os.path.basename(filename):
+            raise ValueError("Filename may not contain path: %s" % (filename,))
+        return os.path.join(self.logs_dir, filename)
 
     def delete(self, db=None):
         """Remove the build log from the database."""
@@ -711,9 +720,11 @@ class BuildLog(object):
             handle_ta = False
 
         cursor = db.cursor()
-        cursor.execute("DELETE FROM bitten_log_message WHERE log=%s",
-                       (self.id,))
+        cursor.execute("SELECT filename FROM bitten_log WHERE id=%s", (self.id,))
+        log_files = cursor.fetchall() or []
         cursor.execute("DELETE FROM bitten_log WHERE id=%s", (self.id,))
+        for log_file in log_files:
+            os.remove(self.get_log_file(log_file[0]))
 
         if handle_ta:
             db.commit()
@@ -734,11 +745,13 @@ class BuildLog(object):
                        "VALUES (%s,%s,%s,%s)", (self.build, self.step,
                        self.generator, self.orderno))
         id = db.get_last_id(cursor, 'bitten_log')
+        log_file = "%s.log" % (id,)
+        cursor.execute("UPDATE bitten_log SET filename=%s WHERE id=%s", (log_file, id))
         if self.messages:
-            cursor.executemany("INSERT INTO bitten_log_message "
-                               "(log,line,level,message) VALUES (%s,%s,%s,%s)",
-                               [(id, idx, msg[0], msg[1]) for idx, msg in
-                                enumerate(self.messages)])
+            log_file_name = self.get_log_file(log_file)
+            level_file_name = log_file_name + ".levels"
+            open(log_file_name, "w").writelines([msg[1]+"\n" for msg in self.messages])
+            open(level_file_name, "w").writelines([msg[0]+"\n" for msg in self.messages])
 
         if handle_ta:
             db.commit()
@@ -750,16 +763,27 @@ class BuildLog(object):
             db = env.get_db_cnx()
 
         cursor = db.cursor()
-        cursor.execute("SELECT build,step,generator,orderno FROM bitten_log "
+        cursor.execute("SELECT build,step,generator,orderno,filename FROM bitten_log "
                        "WHERE id=%s", (id,))
         row = cursor.fetchone()
         if not row:
             return None
-        log = BuildLog(env, int(row[0]), row[1], row[2], row[3])
+        log = BuildLog(env, int(row[0]), row[1], row[2], row[3], row[4])
         log.id = id
-        cursor.execute("SELECT level,message FROM bitten_log_message "
-                       "WHERE log=%s ORDER BY line", (id,))
-        log.messages = cursor.fetchall() or []
+        if log.filename:
+            log_filename = log.get_log_file(log.filename)
+            if os.path.exists(log_filename):
+                log_lines = open(log_filename, "r").readlines()
+            else:
+                log_lines = []
+            level_filename = log.filename + ".levels"
+            if os.path.exists(level_filename):
+                log_levels = dict(enumerate(open(log.get_log_file(level_filename), "r").readlines()))
+            else:
+                log_levels = {}
+            log.messages = [(log_levels.get(line_num, BuildLog.UNKNOWN), line.rstrip("\n")) for line_num, line in enumerate(log_lines)]
+        else:
+            log.messages = []
 
         return log
 
@@ -937,4 +961,4 @@ class Report(object):
 
 schema = BuildConfig._schema + TargetPlatform._schema + Build._schema + \
          BuildStep._schema + BuildLog._schema + Report._schema
-schema_version = 7
+schema_version = 8

@@ -71,6 +71,11 @@ class BuildMasterAdminPageProvider(Component):
             self.config['bitten'].set('slave_timeout', str(slave_timeout))
             changed = True
 
+        logs_dir = req.args.get('logs_dir', None)
+        if logs_dir != master.logs_dir:
+            self.config['bitten'].set('logs_dir', str(logs_dir))
+            changed = True
+
         if changed:
             self.config.save()
 

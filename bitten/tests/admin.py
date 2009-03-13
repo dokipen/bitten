@@ -90,6 +90,7 @@ class BuildMasterAdminPageProviderTestCase(unittest.TestCase):
         self.assertEqual(0, master.stabilize_wait)
         assert not master.adjust_timestamps
         assert not master.build_all
+        self.assertEqual('log/bitten', master.logs_dir)
 
     def test_process_config_changes(self):
         redirected_to = []

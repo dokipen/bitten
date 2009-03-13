@@ -14,6 +14,7 @@ from trac.db import DatabaseManager
 from trac.test import EnvironmentStub
 from bitten.model import BuildConfig, TargetPlatform, Build, BuildStep, \
                          BuildLog, Report, schema
+import os
 
 
 class BuildConfigTestCase(unittest.TestCase):
@@ -446,7 +447,10 @@ class BuildLogTestCase(unittest.TestCase):
         self.assertEqual([], log.messages)
 
     def test_insert(self):
-        log = BuildLog(self.env, build=1, step='test', generator='distutils')
+        log = BuildLog(self.env, build=1, step='test', generator='distutils', filename='1.log')
+        full_file = log.get_log_file('1.log')
+        if os.path.exists(full_file):
+            os.remove(full_file)
         log.messages = [
             (BuildLog.INFO, 'running tests'),
             (BuildLog.ERROR, 'tests failed')
@@ -456,28 +460,33 @@ class BuildLogTestCase(unittest.TestCase):
 
         db = self.env.get_db_cnx()
         cursor = db.cursor()
-        cursor.execute("SELECT build,step,generator FROM bitten_log "
+        cursor.execute("SELECT build,step,generator,filename FROM bitten_log "
                        "WHERE id=%s", (log.id,))
-        self.assertEqual((1, 'test', 'distutils'), cursor.fetchone())
-        cursor.execute("SELECT level,message FROM bitten_log_message "
-                       "WHERE log=%s ORDER BY line", (log.id,))
-        self.assertEqual((BuildLog.INFO, 'running tests'), cursor.fetchone())
-        self.assertEqual((BuildLog.ERROR, 'tests failed'), cursor.fetchone())
+        self.assertEqual((1, 'test', 'distutils', '1.log'), cursor.fetchone())
+        lines = open(full_file, "r").readlines()
+        self.assertEqual('running tests\n', lines[0])
+        self.assertEqual('tests failed\n', lines[1])
+        if os.path.exists(full_file):
+            os.remove(full_file)
 
     def test_insert_empty(self):
-        log = BuildLog(self.env, build=1, step='test', generator='distutils')
+        log = BuildLog(self.env, build=1, step='test', generator='distutils', filename="1.log")
+        full_file = log.get_log_file('1.log')
+        if os.path.exists(full_file):
+            os.remove(full_file)
         log.messages = []
         log.insert()
         self.assertNotEqual(None, log.id)
 
         db = self.env.get_db_cnx()
         cursor = db.cursor()
-        cursor.execute("SELECT build,step,generator FROM bitten_log "
+        cursor.execute("SELECT build,step,generator,filename FROM bitten_log "
                        "WHERE id=%s", (log.id,))
-        self.assertEqual((1, 'test', 'distutils'), cursor.fetchone())
-        cursor.execute("SELECT COUNT(*) FROM bitten_log_message "
-                       "WHERE log=%s", (log.id,))
-        self.assertEqual(0, cursor.fetchone()[0])
+        self.assertEqual((1, 'test', 'distutils', '1.log'), cursor.fetchone())
+        file_exists = os.path.exists(full_file)
+        if file_exists:
+            os.remove(full_file)
+        assert not file_exists
 
     def test_insert_no_build_or_step(self):
         log = BuildLog(self.env, step='test')
@@ -489,13 +498,12 @@ class BuildLogTestCase(unittest.TestCase):
     def test_delete(self):
         db = self.env.get_db_cnx()
         cursor = db.cursor()
-        cursor.execute("INSERT INTO bitten_log (build,step,generator) "
-                       "VALUES (%s,%s,%s)", (1, 'test', 'distutils'))
+        cursor.execute("INSERT INTO bitten_log (build,step,generator,filename) "
+                       "VALUES (%s,%s,%s,%s)", (1, 'test', 'distutils', '1.log'))
         id = db.get_last_id(cursor, 'bitten_log')
-        cursor.executemany("INSERT INTO bitten_log_message "
-                           "VALUES (%s,%s,%s,%s)",
-                           [(id, 1, BuildLog.INFO, 'running tests'),
-                            (id, 2, BuildLog.ERROR, 'tests failed')])
+        logs_dir = self.env.config.get("bitten", "logsdir", "log/bitten")
+        full_file = os.path.join(logs_dir, "1.log")
+        open(full_file, "w").writelines(["running tests\n", "tests failed\n"])
 
         log = BuildLog.fetch(self.env, id=id, db=db)
         self.assertEqual(True, log.exists)
@@ -504,8 +512,10 @@ class BuildLogTestCase(unittest.TestCase):
 
         cursor.execute("SELECT * FROM bitten_log WHERE id=%s", (id,))
         self.assertEqual(True, not cursor.fetchall())
-        cursor.execute("SELECT * FROM bitten_log_message WHERE log=%s", (id,))
-        self.assertEqual(True, not cursor.fetchall())
+        file_exists = os.path.exists(full_file)
+        if os.path.exists(full_file):
+            os.remove(full_file)
+        assert not file_exists
 
     def test_delete_new(self):
         log = BuildLog(self.env, build=1, step='test', generator='foo')
@@ -514,13 +524,12 @@ class BuildLogTestCase(unittest.TestCase):
     def test_fetch(self):
         db = self.env.get_db_cnx()
         cursor = db.cursor()
-        cursor.execute("INSERT INTO bitten_log (build,step,generator) "
-                       "VALUES (%s,%s,%s)", (1, 'test', 'distutils'))
+        cursor.execute("INSERT INTO bitten_log (build,step,generator,filename) "
+                       "VALUES (%s,%s,%s,%s)", (1, 'test', 'distutils', '1.log'))
         id = db.get_last_id(cursor, 'bitten_log')
-        cursor.executemany("INSERT INTO bitten_log_message "
-                           "VALUES (%s,%s,%s,%s)",
-                           [(id, 1, BuildLog.INFO, 'running tests'),
-                            (id, 2, BuildLog.ERROR, 'tests failed')])
+        logs_dir = self.env.config.get("bitten", "logsdir", "log/bitten")
+        full_file = os.path.join(logs_dir, "1.log")
+        open(full_file, "w").writelines(["running tests\n", "tests failed\n"])
 
         log = BuildLog.fetch(self.env, id=id, db=db)
         self.assertEqual(True, log.exists)
@@ -528,19 +537,20 @@ class BuildLogTestCase(unittest.TestCase):
         self.assertEqual(1, log.build)
         self.assertEqual('test', log.step)
         self.assertEqual('distutils', log.generator)
-        self.assertEqual((BuildLog.INFO, 'running tests'), log.messages[0])
-        self.assertEqual((BuildLog.ERROR, 'tests failed'), log.messages[1])
+        self.assertEqual((BuildLog.UNKNOWN, 'running tests'), log.messages[0])
+        self.assertEqual((BuildLog.UNKNOWN, 'tests failed'), log.messages[1])
+        if os.path.exists(full_file):
+            os.remove(full_file)
 
     def test_select(self):
         db = self.env.get_db_cnx()
         cursor = db.cursor()
-        cursor.execute("INSERT INTO bitten_log (build,step,generator) "
-                       "VALUES (%s,%s,%s)", (1, 'test', 'distutils'))
+        cursor.execute("INSERT INTO bitten_log (build,step,generator,filename) "
+                       "VALUES (%s,%s,%s,%s)", (1, 'test', 'distutils', '1.log'))
         id = db.get_last_id(cursor, 'bitten_log')
-        cursor.executemany("INSERT INTO bitten_log_message "
-                           "VALUES (%s,%s,%s,%s)",
-                           [(id, 1, BuildLog.INFO, 'running tests'),
-                            (id, 2, BuildLog.ERROR, 'tests failed')])
+        logs_dir = self.env.config.get("bitten", "logsdir", "log/bitten")
+        full_file = os.path.join(logs_dir, "1.log")
+        open(full_file, "w").writelines(["running tests\n", "tests failed\n"])
 
         logs = BuildLog.select(self.env, build=1, step='test', db=db)
         log = logs.next()
@@ -549,9 +559,11 @@ class BuildLogTestCase(unittest.TestCase):
         self.assertEqual(1, log.build)
         self.assertEqual('test', log.step)
         self.assertEqual('distutils', log.generator)
-        self.assertEqual((BuildLog.INFO, 'running tests'), log.messages[0])
-        self.assertEqual((BuildLog.ERROR, 'tests failed'), log.messages[1])
+        self.assertEqual((BuildLog.UNKNOWN, 'running tests'), log.messages[0])
+        self.assertEqual((BuildLog.UNKNOWN, 'tests failed'), log.messages[1])
         self.assertRaises(StopIteration, logs.next)
+        if os.path.exists(full_file):
+            os.remove(full_file)
 
 
 class ReportTestCase(unittest.TestCase):

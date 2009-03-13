@@ -364,8 +364,8 @@ class BuildMasterTestCase(unittest.TestCase):
             self.assertEqual('http://bitten.cmlenz.net/tools/python#unittest',
                              logs[0].generator)
             self.assertEqual(2, len(logs[0].messages))
-            self.assertEqual((u'info', u'Doing stuff'), logs[0].messages[0])
-            self.assertEqual((u'error', u'Ouch that hurt'), logs[0].messages[1])
+            self.assertEqual((u'', u'Doing stuff'), logs[0].messages[0])
+            self.assertEqual((u'', u'Ouch that hurt'), logs[0].messages[1])
 
     def test_process_build_step_success_with_report(self):
         recipe = """<build>
