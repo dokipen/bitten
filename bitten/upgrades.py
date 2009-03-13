@@ -330,7 +330,7 @@ def migrate_logs_to_files(env, db):
         level_file.close()
         update_cursor.execute("UPDATE bitten_log SET filename=%s WHERE id=%s", (filename, log_id))
         env.log.info("Migrated log %s", log_id)
-    env.log_warning("Logs have been migrated from the database to files in %s. "
+    env.log.warning("Logs have been migrated from the database to files in %s. "
         "Ensure permissions are set correctly on this file. "
         "When you have confirmed that the migration worked correctly, "
         "you can drop the bitten_log_message table in the database (it remains as a backup)", logs_dir)
