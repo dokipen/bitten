@@ -561,7 +561,7 @@ class BuildLogTestCase(unittest.TestCase):
             raise ValueError("Should not have absolute logs directory for temporary test")
         logs_dir = os.path.join(self.env.path, logs_dir)
         full_file = os.path.join(logs_dir, "1.log")
-        open(full_file, "w").writelines(["running tests\n", "tests failed\n"])
+        open(full_file, "w").writelines(["running tests\n", "tests failed\n", u"test unicode\xbb\n".encode("UTF-8")])
 
         log = BuildLog.fetch(self.env, id=id, db=db)
         self.assertEqual(True, log.exists)
@@ -571,6 +571,7 @@ class BuildLogTestCase(unittest.TestCase):
         self.assertEqual('distutils', log.generator)
         self.assertEqual((BuildLog.UNKNOWN, 'running tests'), log.messages[0])
         self.assertEqual((BuildLog.UNKNOWN, 'tests failed'), log.messages[1])
+        self.assertEqual((BuildLog.UNKNOWN, u'test unicode\xbb'), log.messages[2])
         if os.path.exists(full_file):
             os.remove(full_file)
 
@@ -585,7 +586,7 @@ class BuildLogTestCase(unittest.TestCase):
             raise ValueError("Should not have absolute logs directory for temporary test")
         logs_dir = os.path.join(self.env.path, logs_dir)
         full_file = os.path.join(logs_dir, "1.log")
-        open(full_file, "w").writelines(["running tests\n", "tests failed\n"])
+        open(full_file, "w").writelines(["running tests\n", "tests failed\n", u"test unicode\xbb\n".encode("UTF-8")])
 
         logs = BuildLog.select(self.env, build=1, step='test', db=db)
         log = logs.next()
@@ -596,6 +597,7 @@ class BuildLogTestCase(unittest.TestCase):
         self.assertEqual('distutils', log.generator)
         self.assertEqual((BuildLog.UNKNOWN, 'running tests'), log.messages[0])
         self.assertEqual((BuildLog.UNKNOWN, 'tests failed'), log.messages[1])
+        self.assertEqual((BuildLog.UNKNOWN, u'test unicode\xbb'), log.messages[2])
         self.assertRaises(StopIteration, logs.next)
         if os.path.exists(full_file):
             os.remove(full_file)

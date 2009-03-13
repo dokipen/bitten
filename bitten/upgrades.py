@@ -15,6 +15,7 @@ import os
 import sys
 
 from trac.db import DatabaseManager
+from trac.util.text import to_unicode
 
 __docformat__ = 'restructuredtext en'
 
@@ -324,8 +325,8 @@ def migrate_logs_to_files(env, db):
         message_file = open(full_filename, "w")
         level_file = open(full_filename+".level", "w")
         for message, level in message_cursor.fetchall() or []:
-            message_file.write(message + "\n")
-            level_file.write(level + "\n")
+            message_file.write(to_unicode(message).encode('UTF-8') + "\n")
+            level_file.write(to_unicode(level).encode('UTF-8') + "\n")
         message_file.close()
         level_file.close()
         update_cursor.execute("UPDATE bitten_log SET filename=%s WHERE id=%s", (filename, log_id))
