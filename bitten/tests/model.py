@@ -489,7 +489,7 @@ class BuildLogTestCase(unittest.TestCase):
         cursor.execute("SELECT build,step,generator,filename FROM bitten_log "
                        "WHERE id=%s", (log.id,))
         self.assertEqual((1, 'test', 'distutils', '1.log'), cursor.fetchone())
-        lines = open(full_file, "r").readlines()
+        lines = open(full_file, "rb").readlines()
         self.assertEqual('running tests\n', lines[0])
         self.assertEqual('tests failed\n', lines[1])
         if os.path.exists(full_file):
@@ -532,7 +532,7 @@ class BuildLogTestCase(unittest.TestCase):
             raise ValueError("Should not have absolute logs directory for temporary test")
         logs_dir = os.path.join(self.env.path, logs_dir)
         full_file = os.path.join(logs_dir, "1.log")
-        open(full_file, "w").writelines(["running tests\n", "tests failed\n"])
+        open(full_file, "wb").writelines(["running tests\n", "tests failed\n"])
 
         log = BuildLog.fetch(self.env, id=id, db=db)
         self.assertEqual(True, log.exists)
@@ -561,7 +561,7 @@ class BuildLogTestCase(unittest.TestCase):
             raise ValueError("Should not have absolute logs directory for temporary test")
         logs_dir = os.path.join(self.env.path, logs_dir)
         full_file = os.path.join(logs_dir, "1.log")
-        open(full_file, "w").writelines(["running tests\n", "tests failed\n", u"test unicode\xbb\n".encode("UTF-8")])
+        open(full_file, "wb").writelines(["running tests\n", "tests failed\n", u"test unicode\xbb\n".encode("UTF-8")])
 
         log = BuildLog.fetch(self.env, id=id, db=db)
         self.assertEqual(True, log.exists)
@@ -586,7 +586,7 @@ class BuildLogTestCase(unittest.TestCase):
             raise ValueError("Should not have absolute logs directory for temporary test")
         logs_dir = os.path.join(self.env.path, logs_dir)
         full_file = os.path.join(logs_dir, "1.log")
-        open(full_file, "w").writelines(["running tests\n", "tests failed\n", u"test unicode\xbb\n".encode("UTF-8")])
+        open(full_file, "wb").writelines(["running tests\n", "tests failed\n", u"test unicode\xbb\n".encode("UTF-8")])
 
         logs = BuildLog.select(self.env, build=1, step='test', db=db)
         log = logs.next()

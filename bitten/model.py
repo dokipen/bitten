@@ -763,8 +763,8 @@ class BuildLog(object):
         if self.messages:
             log_file_name = self.get_log_file(log_file)
             level_file_name = log_file_name + ".levels"
-            open(log_file_name, "w").writelines([to_unicode(msg[1]+"\n").encode("UTF-8") for msg in self.messages])
-            open(level_file_name, "w").writelines([to_unicode(msg[0]+"\n").encode("UTF-8") for msg in self.messages])
+            codecs.open(log_file_name, "wb", "UTF-8").writelines([to_unicode(msg[1]+"\n") for msg in self.messages])
+            codecs.open(level_file_name, "wb", "UTF-8").writelines([to_unicode(msg[0]+"\n") for msg in self.messages])
 
         if handle_ta:
             db.commit()
@@ -786,12 +786,12 @@ class BuildLog(object):
         if log.filename:
             log_filename = log.get_log_file(log.filename)
             if os.path.exists(log_filename):
-                log_lines = codecs.open(log_filename, "r", "UTF-8").readlines()
+                log_lines = codecs.open(log_filename, "rb", "UTF-8").readlines()
             else:
                 log_lines = []
             level_filename = log.filename + ".levels"
             if os.path.exists(level_filename):
-                log_levels = dict(enumerate(codecs.open(log.get_log_file(level_filename), "r", "UTF-8").readlines()))
+                log_levels = dict(enumerate(codecs.open(log.get_log_file(level_filename), "rb", "UTF-8").readlines()))
             else:
                 log_levels = {}
             log.messages = [(log_levels.get(line_num, BuildLog.UNKNOWN), line.rstrip("\n")) for line_num, line in enumerate(log_lines)]
