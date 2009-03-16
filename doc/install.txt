@@ -29,7 +29,8 @@ it will by default attempt to install Bitten to the Python site-packages
 directory on your system.
 
 It's also a good idea to run the unit tests at this point, to make sure that
-the code works as expected on your platform::
+the code works as expected on your platform (please note that Trac_ needs to
+be installed for the tests to run; see below)::
 
   $ python setup.py test
 
