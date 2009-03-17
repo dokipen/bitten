@@ -76,7 +76,7 @@ class BuildSlave(object):
                  work_dir=None, build_dir="build_${build}",
                  keep_files=False, single_build=False,
                  poll_interval=300, username=None, password=None,
-                 dump_reports=False):
+                 dump_reports=False, no_loop=False):
         """Create the build slave instance.
         
         :param urls: a list of URLs of the build masters to connect to, or a
@@ -101,6 +101,8 @@ class BuildSlave(object):
         :param dump_reports: whether report data should be written to the
                              standard output, in addition to being transmitted
                              to the build master
+        :param no_loop: for this slave to just perform a single check, regardless
+                        of whether a build is done or not
         """
         self.urls = urls
         self.local = len(urls) == 1 and not urls[0].startswith('http://') \
@@ -118,6 +120,7 @@ class BuildSlave(object):
         self.build_dir = build_dir
         self.keep_files = keep_files
         self.single_build = single_build
+        self.no_loop = no_loop
         self.poll_interval = poll_interval
         self.dump_reports = dump_reports
 
@@ -175,6 +178,8 @@ class BuildSlave(object):
                         raise ExitSlave(EX_UNAVAILABLE)
             except ExitSlave, e:
                 return e.exit_code
+            if self.no_loop:
+                break
             time.sleep(self.poll_interval)
 
     def quit(self):
@@ -347,6 +352,10 @@ def main():
     group.add_option('-s', '--single', action='store_true',
                      dest='single_build',
                      help='exit after completing a single build')
+    group.add_option('', '--no-loop', action='store_true',
+                     dest='no_loop',
+                     help='exit after completing a single check and running '
+                          'the required builds')
     group.add_option('-n', '--dry-run', action='store_true', dest='dry_run',
                      help='don\'t report results back to master')
     group.add_option('-i', '--interval', dest='interval', metavar='SECONDS',
@@ -362,7 +371,7 @@ def main():
                      help='whether report data should be printed')
 
     parser.set_defaults(dry_run=False, keep_files=False,
-                        loglevel=logging.INFO, single_build=False,
+                        loglevel=logging.INFO, single_build=False, no_loop=False,
                         dump_reports=False, interval=300)
     options, args = parser.parse_args()
 
