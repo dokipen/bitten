@@ -24,7 +24,7 @@ log = logging.getLogger('bitten.build.ctools')
 __docformat__ = 'restructuredtext en'
 
 def configure(ctxt, file_='configure', enable=None, disable=None, with_=None,
-              without=None, cflags=None, cxxflags=None, **kw):
+              without=None, cflags=None, cxxflags=None, prefix=None, **kw):
     """Run a ``configure`` script.
     
     :param ctxt: the build context
@@ -36,6 +36,7 @@ def configure(ctxt, file_='configure', enable=None, disable=None, with_=None,
     :param without: names of external packages to exclude
     :param cflags: ``CFLAGS`` to pass to the configure script
     :param cxxflags: ``CXXFLAGS`` to pass to the configure script
+    :param prefix: install prefix to pass to the configure script, will be postfixed by the machine name from the build
     """
     args = []
     if enable:
@@ -59,6 +60,8 @@ def configure(ctxt, file_='configure', enable=None, disable=None, with_=None,
         args.append('CFLAGS=%s' % cflags)
     if cxxflags:
         args.append('CXXFLAGS=%s' % cxxflags)
+    if prefix:
+        args.append('--prefix=%ss' % prefix)
 
     from bitten.build import shtools
     returncode = shtools.execute(ctxt, file_=file_, args=args)
