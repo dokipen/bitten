@@ -162,6 +162,25 @@ class SourceFileLinkFormatterTestCase(unittest.TestCase):
         self.assertEqual('error in <a href="/trac/browser/trunk/foo/bar.c">'
                          'foo/bar.c</a>: bad', output)
 
+    def test_format_bad_links(self):
+        BuildConfig(self.env, name='test', path='trunk').insert()
+        build = Build(self.env, config='test', platform=1, rev=123, rev_time=42,
+                      status=Build.SUCCESS, slave='hal')
+        build.insert()
+        step = BuildStep(self.env, build=build.id, name='foo',
+                         status=BuildStep.SUCCESS)
+        step.insert()
+
+        self.repos.get_node = lambda path, rev: (path, rev)
+
+        req = Mock(method='GET', href=Href('/trac'), authname='hal')
+        comp = SourceFileLinkFormatter(self.env)
+        formatter = comp.get_formatter(req, build)
+
+        output = formatter(step, None, None, u'Linking -I../.. with ../libtool')
+        self.assertEqual(Markup, type(output))
+        self.assertEqual('Linking -I../.. with ../libtool', output)
+
     def test_format_simple_link_not_in_repos(self):
         BuildConfig(self.env, name='test', path='trunk').insert()
         build = Build(self.env, config='test', platform=1, rev=123, rev_time=42,

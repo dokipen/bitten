@@ -612,7 +612,7 @@ class SourceFileLinkFormatter(Component):
 
     implements(ILogFormatter)
 
-    _fileref_re = re.compile('(?P<path>[\w.-]+(?:/[\w.-]+)+)(?P<line>(:\d+))?')
+    _fileref_re = re.compile('(?P<prefix>-[A-Za-z])?(?P<path>[\w.-]+(?:/[\w.-]+)+)(?P<line>(:\d+))?')
 
     def get_formatter(self, req, build):
         """Return the log message formatter function."""
@@ -630,9 +630,14 @@ class SourceFileLinkFormatter(Component):
                     path = posixpath.join(path, part)
                     if path not in cache:
                         try:
-                            repos.get_node(posixpath.join(config.path, path),
-                                           build.rev)
-                            cache[path] = True
+                            full_path = posixpath.join(config.path, path)
+                            full_path = posixpath.normpath(full_path)
+                            if full_path.startswith(config.path + "/") or full_path == config.path:
+                                repos.get_node(full_path,
+                                               build.rev)
+                                cache[path] = True
+                            else:
+                                cache[path] = False
                         except TracError:
                             cache[path] = False
                     if cache[path] is False:
