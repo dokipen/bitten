@@ -38,7 +38,8 @@ setup(
     package_data = {
         'bitten': ['htdocs/*.*',
                    'htdocs/charts_library/*.swf',
-                   'templates/*.html']
+                   'templates/*.html',
+                   'templates/*.txt']
     },
     test_suite = 'bitten.tests.suite',
     entry_points = {
@@ -54,7 +55,8 @@ setup(
             'bitten.master = bitten.master',
             'bitten.web_ui = bitten.web_ui',
             'bitten.testing = bitten.report.testing',
-            'bitten.coverage = bitten.report.coverage'
+            'bitten.coverage = bitten.report.coverage',
+            'bitten.notify = bitten.notify'
         ],
         'bitten.recipe_commands': [
             NS + 'sh#exec = bitten.build.shtools:exec_',

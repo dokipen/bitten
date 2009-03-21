@@ -48,7 +48,7 @@ class BuildMasterTestCase(unittest.TestCase):
             for stmt in connector.to_sql(table):
                 cursor.execute(stmt)
 
-        self.repos = Mock()
+        self.repos = Mock(get_changeset=lambda rev: Mock(author = 'author'))
         self.env.get_repository = lambda authname=None: self.repos
 
     def tearDown(self):
