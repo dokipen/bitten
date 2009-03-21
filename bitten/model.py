@@ -791,12 +791,12 @@ class BuildLog(object):
                 log_lines = codecs.open(log_filename, "rb", "UTF-8").readlines()
             else:
                 log_lines = []
-            level_filename = log.filename + ".levels"
+            level_filename = log.get_log_file(log.filename + ".levels")
             if os.path.exists(level_filename):
-                log_levels = dict(enumerate(codecs.open(log.get_log_file(level_filename), "rb", "UTF-8").readlines()))
+                log_levels = dict(enumerate(codecs.open(level_filename, "rb", "UTF-8").readlines()))
             else:
                 log_levels = {}
-            log.messages = [(log_levels.get(line_num, BuildLog.UNKNOWN), line.rstrip("\n")) for line_num, line in enumerate(log_lines)]
+            log.messages = [(log_levels.get(line_num, BuildLog.UNKNOWN).rstrip("\n"), line.rstrip("\n")) for line_num, line in enumerate(log_lines)]
         else:
             log.messages = []
 
