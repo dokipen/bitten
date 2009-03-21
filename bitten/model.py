@@ -703,7 +703,7 @@ class BuildLog(object):
         if not os.path.isabs(self.logs_dir):
             self.logs_dir = os.path.join(env.path, self.logs_dir)
         if not os.path.exists(self.logs_dir):
-            os.mkdir(self.logs_dir)
+            os.makedirs(self.logs_dir)
 
     exists = property(fget=lambda self: self.id is not None,
                       doc='Whether this build log exists in the database')
