@@ -42,6 +42,9 @@ setup(
                    'templates/*.txt']
     },
     test_suite = 'bitten.tests.suite',
+    tests_require = [
+        'figleaf',
+    ],
     entry_points = {
         'console_scripts': [
             'bitten-slave = bitten.slave:main'
