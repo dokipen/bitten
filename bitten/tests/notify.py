@@ -119,25 +119,26 @@ class BuildInfoTest(BittenNotifyBaseTest):
 
 
 class BittenNotifyEmailTest(BittenNotifyBaseTest):
-    """unit tests for BittenNotify dispatcher class"""
+    """unit tests for BittenNotifyEmail class"""
     def setUp(self):
         BittenNotifyBaseTest.setUp(self)
         self.env.config.set('notification','smtp_enabled','true')
-        #fixture
-        self.state = [[]]
-        self.email = BittenNotifyEmail(self.env)
-        empty = lambda *a, **k : None
-        self.email.begin_send = empty
-        self.email.finish_send = empty
-        self.email.send = lambda to, cc, hdrs = {} : \
-                self.state.__setitem__(0,to)
+        self.notifications_sent_to = []
+        def send(to, cc, hdrs={}):
+            self.notifications_sent_to = to
+        def noop(*args, **kw):
+            pass
+        self.email = Mock(BittenNotifyEmail, self.env,
+                          begin_send=noop,
+                          finish_send=noop,
+                          send=send)
         self.build_info = BuildInfo(self.env, Build(self.env,
                 status = Build.SUCCESS))
         self.build_info['author'] = 'author'
 
     def test_notification_uses_default_address(self):
         self.email.notify(self.build_info)
-        self.assertTrue('author' in self.state[0],
+        self.assertTrue('author' in self.notifications_sent_to,
                 'recipient list should contain plain author')
 
     def test_notification_uses_custom_address(self):
@@ -145,7 +146,7 @@ class BittenNotifyEmailTest(BittenNotifyBaseTest):
                 'Author\'s Name',
                 'author@email.com')]
         self.email.notify(self.build_info)
-        self.assertTrue('author@email.com' in self.state[0],
+        self.assertTrue('author@email.com' in self.notifications_sent_to,
                 'recipient list should contain custom author\'s email')
 
     def test_notification_discards_invalid_address(self):
@@ -153,7 +154,7 @@ class BittenNotifyEmailTest(BittenNotifyBaseTest):
                 'Author\'s Name',
                 '')]
         self.email.notify(self.build_info)
-        self.assertTrue('author' in self.state[0],
+        self.assertTrue('author' in self.notifications_sent_to,
                 'recipient list should only use valid custom address')
 
 
