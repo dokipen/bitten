@@ -42,14 +42,10 @@ class BittenNotify(Component):
             self.email.notify(build_info)
 
     def _should_notify(self, build):
-        notify_on_failure = self.config.getbool(CONFIG_SECTION,
-                NOTIFY_ON_FAILURE)
-        notify_on_success = self.config.getbool(CONFIG_SECTION,
-                NOTIFY_ON_SUCCESS)
         build_is_failure = (build.status == Build.FAILURE)
         build_is_success = (build.status == Build.SUCCESS)
-        return (build_is_failure and notify_on_failure) or \
-                (build_is_success and notify_on_success)
+        return (build_is_failure and self.notify_on_failure) or \
+                (build_is_success and self.notify_on_success)
 
     # IBuildListener methods
 
