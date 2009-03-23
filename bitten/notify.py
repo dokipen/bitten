@@ -162,17 +162,17 @@ class BittenNotifyEmail(NotifyEmail):
 
     def get_recipients(self, resid):
         author = self.build_info.author
-        users = {}
-        [users.__setitem__(username, email) for username, name, email in self.env.get_known_users(None)]
-        if (author in users.keys() and users[author]):
-            author = users[author]
+        user_emails = dict([(username, email) for username, name, email
+                            in self.env.get_known_users(None)])
+        author = user_emails.get(author) or author
         torecipients = [author]
         ccrecipients = []
         return (torecipients, ccrecipients)
 
     def send(self, torcpts, ccrcpts, mime_headers={}):
-        mime_headers = {}
-        mime_headers['X-Trac-Build-ID'] = str(self.build_info.id)
-        mime_headers['X-Trac-Build-URL'] = self.build_info.link
+        mime_headers = {
+            'X-Trac-Build-ID': str(self.build_info.id),
+            'X-Trac-Build-URL': self.build_info.link,
+        }
         NotifyEmail.send(self, torcpts, ccrcpts, mime_headers)
 
