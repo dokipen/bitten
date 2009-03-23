@@ -40,37 +40,36 @@ class BittenNotifyTest(BittenNotifyBaseTest):
     """unit tests for BittenNotify dispatcher class"""
     def setUp(self):
         BittenNotifyBaseTest.setUp(self)
-        #fixture
-        self.state = [False]
-        self.email = Mock(notify = lambda buildInfo: \
-                self.state.__setitem__(0,True))
-        self.dispatcher = BittenNotify(self.env)
-        self.dispatcher.email = self.email
-        self.failed_build = Build(self.env, status = Build.FAILURE)
-        self.successful_build = Build(self.env, status = Build.SUCCESS)
+        self.notify_was_called = False
+        def notify(build_info):
+            self.notify_was_called = True
+        self.dispatcher = Mock(BittenNotify, self.env,
+                               email=Mock(notify=notify))
+        self.failed_build = Build(self.env, status=Build.FAILURE)
+        self.successful_build = Build(self.env, status=Build.SUCCESS)
 
     def test_do_notify_on_failed_build(self):
         self.env.config.set(CONFIG_SECTION, NOTIFY_ON_FAILURE, 'true')
         self.dispatcher.notify(self.failed_build)
-        self.assertTrue(self.state[0],
+        self.assertTrue(self.notify_was_called,
                 'notifier should be called for failed builds.')
 
     def test_do_not_notify_on_failed_build(self):
         self.env.config.set(CONFIG_SECTION, NOTIFY_ON_FAILURE, 'false')
         self.dispatcher.notify(self.failed_build)
-        self.assertFalse(self.state[0],
+        self.assertFalse(self.notify_was_called,
                 'notifier should not be called for failed build.')
 
     def test_do_notify_on_successful_build(self):
         self.env.config.set(CONFIG_SECTION, NOTIFY_ON_SUCCESS, 'true')
         self.dispatcher.notify(self.successful_build)
-        self.assertTrue(self.state[0],
+        self.assertTrue(self.notify_was_called,
                 'notifier should be called for successful builds when configured.')
 
     def test_do_not_notify_on_successful_build(self):
         self.env.config.set(CONFIG_SECTION, NOTIFY_ON_SUCCESS, 'false')
         self.dispatcher.notify(self.successful_build)
-        self.assertFalse(self.state[0],
+        self.assertFalse(self.notify_was_called,
                 'notifier shouldn\'t be called for successful build.')
 
 
