@@ -13,6 +13,7 @@ import unittest
 
 from trac.db import DatabaseManager
 from trac.test import EnvironmentStub, Mock
+from trac.web.session import DetachedSession
 from bitten.model import *
 from bitten.notify import *
 
@@ -142,20 +143,24 @@ class BittenNotifyEmailTest(BittenNotifyBaseTest):
                 'recipient list should contain plain author')
 
     def test_notification_uses_custom_address(self):
-        self.env.get_known_users = lambda cnx = None : [('author',
-                'Author\'s Name',
-                'author@email.com')]
+        self.add_known_user('author', "Author's Name", 'author@email.com')
         self.email.notify(self.build_info)
         self.assertTrue('author@email.com' in self.notifications_sent_to,
-                'recipient list should contain custom author\'s email')
+                "recipient list should contain custom author's email")
 
     def test_notification_discards_invalid_address(self):
-        self.env.get_known_users = lambda cnx = None : [('author',
-                'Author\'s Name',
-                '')]
+        self.add_known_user('author', "Author's Name", email=None)
         self.email.notify(self.build_info)
         self.assertTrue('author' in self.notifications_sent_to,
                 'recipient list should only use valid custom address')
+
+    def add_known_user(self, username, name, email):
+        session = DetachedSession(self.env, username)
+        if name is not None:
+            session['name'] = name
+        if email is not None:
+            session['email'] = email
+        session.save()
 
 
 def suite():

@@ -8,6 +8,7 @@
 
 from trac.core import *
 from trac.web.chrome import ITemplateProvider
+from trac.web.session import DetachedSession
 from trac.config import BoolOption
 from trac.notification import NotifyEmail
 from bitten.api import IBuildListener
@@ -162,9 +163,7 @@ class BittenNotifyEmail(NotifyEmail):
 
     def get_recipients(self, resid):
         author = self.build_info.author
-        user_emails = dict([(username, email) for username, name, email
-                            in self.env.get_known_users(None)])
-        author = user_emails.get(author) or author
+        author = DetachedSession(self.env, author).get('email') or author
         torecipients = [author]
         ccrecipients = []
         return (torecipients, ccrecipients)
@@ -175,4 +174,3 @@ class BittenNotifyEmail(NotifyEmail):
             'X-Trac-Build-URL': self.build_info.link,
         }
         NotifyEmail.send(self, torcpts, ccrcpts, mime_headers)
-
