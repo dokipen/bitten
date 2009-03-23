@@ -70,7 +70,7 @@ class SaneHTTPRequest(urllib2.Request):
 
 
 class BuildSlave(object):
-    """BEEP initiator implementation for the build slave."""
+    """HTTP client implementation for the build slave."""
 
     def __init__(self, urls, name=None, config=None, dry_run=False,
                  work_dir=None, build_dir="build_${build}",

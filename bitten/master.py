@@ -31,7 +31,7 @@ __docformat__ = 'restructuredtext en'
 
 
 class BuildMaster(Component):
-    """BEEP listener implementation for the build master."""
+    """Trac request handler implementation for the build master."""
 
     implements(IRequestHandler)
 
