@@ -32,21 +32,27 @@ class BittenNotify(Component):
 
     def __init__(self):
         self.log.debug('Initializing BittenNotify plugin')
-        self.email = BittenNotifyEmail(self.env)
 
-    def notify(self, build = None):
+    def notify(self, build=None):
         self.log.info('BittenNotify invoked for build %r' % build)
         self.log.debug('build status: %s' % build.status)
-        if self._should_notify(build):
-            self.log.info('Sending notification for build %r' % build)
-            build_info = BuildInfo(self.env, build)
-            self.email.notify(build_info)
+        if not self._should_notify(build):
+            return
+        self.log.info('Sending notification for build %r' % build)
+        try:
+            email = BittenNotifyEmail(self.env)
+            email.notify(BuildInfo(self.env, build))
+        except Exception, e:
+            self.log.exception("Failure sending notification for build "
+                               "%s: %s", build.id, e)
 
     def _should_notify(self, build):
-        build_is_failure = (build.status == Build.FAILURE)
-        build_is_success = (build.status == Build.SUCCESS)
-        return (build_is_failure and self.notify_on_failure) or \
-                (build_is_success and self.notify_on_success)
+        if build.status == Build.FAILURE:
+            return self.notify_on_failure
+        elif build.status == Build.SUCCESS:
+            return self.notify_on_success
+        else:
+            return False
 
     # IBuildListener methods
 
