@@ -20,6 +20,9 @@ NOTIFY_ON_SUCCESS = 'notify_on_successful_build'
 
 
 class BittenNotify(Component):
+    """Sends notifications on build status by mail."""
+    implements(IBuildListener, ITemplateProvider)
+
     notify_on_failure = BoolOption(CONFIG_SECTION, NOTIFY_ON_FAILURE, 'true',
             """Notify if bitten build fails.""")
 
@@ -28,15 +31,6 @@ class BittenNotify(Component):
 
     def __init__(self):
         self.log.debug('Initializing BittenNotify plugin')
-
-
-class BittenNotifyDispatcher(Component):
-    """Sends notifications on build status by mail."""
-
-    implements(IBuildListener, ITemplateProvider)
-
-    def __init__(self):
-        self.log.debug('Initializing BittenNotify Dispatcher')
         self.email = BittenNotifyEmail(self.env)
 
     def notify(self, build = None):

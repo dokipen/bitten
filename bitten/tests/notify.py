@@ -37,7 +37,7 @@ class BittenNotifyBaseTest(unittest.TestCase):
                 cursor.execute(stmt)
         db.commit()
 
-class BittenNotifyDispatcherTest(BittenNotifyBaseTest):
+class BittenNotifyTest(BittenNotifyBaseTest):
     """unit tests for BittenNotify dispatcher class"""
     def setUp(self):
         BittenNotifyBaseTest.setUp(self)
@@ -45,7 +45,7 @@ class BittenNotifyDispatcherTest(BittenNotifyBaseTest):
         self.state = [False]
         self.email = Mock(notify = lambda buildInfo: \
                 self.state.__setitem__(0,True))
-        self.dispatcher = BittenNotifyDispatcher(self.env)
+        self.dispatcher = BittenNotify(self.env)
         self.dispatcher.email = self.email
         self.failed_build = Build(self.env, status = Build.FAILURE)
         self.successful_build = Build(self.env, status = Build.SUCCESS)
@@ -161,7 +161,7 @@ class BittenNotifyEmailTest(BittenNotifyBaseTest):
 
 def suite():
     suite = unittest.TestSuite()
-    suite.addTest(unittest.makeSuite(BittenNotifyDispatcherTest,'test'))
+    suite.addTest(unittest.makeSuite(BittenNotifyTest,'test'))
     suite.addTest(unittest.makeSuite(BuildInfoTest,'test'))
     suite.addTest(unittest.makeSuite(BittenNotifyEmailTest,'test'))
     return suite
