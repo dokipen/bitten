@@ -16,15 +16,13 @@ from trac.test import EnvironmentStub, Mock
 from bitten.model import *
 from bitten.notify import *
 
-ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
 
 class BittenNotifyBaseTest(unittest.TestCase):
     def setUp(self):
         self.set_up_env()
 
     def set_up_env(self):
-        self.env = EnvironmentStub()
-        self.env.get_templates_dir = lambda *args: os.path.join(ROOT, 'bitten', 'templates')
+        self.env = EnvironmentStub(enable=['trac.*', 'bitten.notify.*'])
         self.env.path = ''
         self.repos = Mock(get_changeset=lambda rev: Mock(author = 'author'))
         self.env.get_repository = lambda authname = None: self.repos
@@ -36,6 +34,7 @@ class BittenNotifyBaseTest(unittest.TestCase):
             for stmt in connector.to_sql(table):
                 cursor.execute(stmt)
         db.commit()
+
 
 class BittenNotifyTest(BittenNotifyBaseTest):
     """unit tests for BittenNotify dispatcher class"""
