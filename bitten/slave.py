@@ -399,6 +399,7 @@ def main():
                        build_dir=options.build_dir,
                        keep_files=options.keep_files,
                        single_build=options.single_build,
+                       no_loop=options.no_loop,
                        poll_interval=options.interval,
                        username=options.username, password=options.password,
                        dump_reports=options.dump_reports)
