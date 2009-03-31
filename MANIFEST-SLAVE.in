@@ -1,7 +1,7 @@
-prune bitten/htdocs/
-prune bitten/templates/
+prune bitten/htdocs
+prune bitten/templates
 prune doc
-prune scripts/
+prune scripts
 exclude bitten/*.py
 exclude bitten/build/*.py
 exclude bitten/build/*.py
