@@ -127,6 +127,11 @@ class BuildSlave(object):
         if not self.local:
             self.opener = urllib2.build_opener(SaneHTTPErrorProcessor)
             password_mgr = urllib2.HTTPPasswordMgrWithDefaultRealm()
+            if not username:
+                username = self.config['authentication.username']
+            if not password:
+                password = self.config['authentication.password']
+            self.config.packages.pop('authentication', None)
             if username and password:
                 log.debug('Enabling authentication with username %r', username)
                 password_mgr.add_password(None, urls, username, password)
