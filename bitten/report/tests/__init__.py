@@ -10,11 +10,12 @@
 
 import unittest
 
-from bitten.report.tests import coverage, testing
+from bitten.report.tests import coverage, lint, testing
 
 def suite():
     suite = unittest.TestSuite()
     suite.addTest(coverage.suite())
+    suite.addTest(lint.suite())
     suite.addTest(testing.suite())
     return suite
 

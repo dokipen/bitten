@@ -59,6 +59,7 @@ setup(
             'bitten.web_ui = bitten.web_ui',
             'bitten.testing = bitten.report.testing',
             'bitten.coverage = bitten.report.coverage',
+            'bitten.lint = bitten.report.lint',
             'bitten.notify = bitten.notify'
         ],
         'bitten.recipe_commands': [
