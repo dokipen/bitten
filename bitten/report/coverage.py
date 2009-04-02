@@ -10,8 +10,7 @@
 
 from trac.core import *
 from trac.mimeview.api import IHTMLPreviewAnnotator
-from trac.web.chrome import Chrome, add_stylesheet
-from trac.web.clearsilver import HDFWrapper
+from trac.web.chrome import add_stylesheet
 from bitten.api import IReportChartGenerator, IReportSummarizer
 from bitten.model import BuildConfig, Build, Report
 

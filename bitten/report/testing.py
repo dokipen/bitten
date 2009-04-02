@@ -9,8 +9,6 @@
 # are also available at http://bitten.edgewall.org/wiki/License.
 
 from trac.core import *
-from trac.web.chrome import Chrome
-from trac.web.clearsilver import HDFWrapper
 from bitten.api import IReportChartGenerator, IReportSummarizer
 
 __docformat__ = 'restructuredtext en'
