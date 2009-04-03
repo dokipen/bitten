@@ -40,11 +40,14 @@ temp_net_errors = [errno.ENETUNREACH, errno.ENETDOWN, errno.ETIMEDOUT,
                    errno.ECONNREFUSED]
 
 def _rmtree(root):
-    """Catch shutil.rmtree failures on Windows when files are read-only."""
+    """Catch shutil.rmtree failures on Windows when files are read-only, and only remove if root exists."""
     def _handle_error(fn, path, excinfo):
        os.chmod(path, 0666)
        fn(path)
-    return shutil.rmtree(root, onerror=_handle_error) 
+    if os.path.exists(root):
+        return shutil.rmtree(root, onerror=_handle_error) 
+    else:
+        return False
 
 class SaneHTTPErrorProcessor(urllib2.HTTPErrorProcessor):
     "The HTTPErrorProcessor defined in urllib needs some love."
