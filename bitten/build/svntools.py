@@ -84,6 +84,8 @@ def checkout(ctxt, url, path=None, revision=None, dir_='.', verbose=False, share
         args += ['-r', revision]
     if path:
         final_url = posixpath.join(url, path.lstrip('/'))
+    else:
+        final_url = url
     args += [final_url, dir_]
 
     cofilter = None
