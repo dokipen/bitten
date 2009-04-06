@@ -71,6 +71,7 @@ setup(
             NS + 'c#cunit = bitten.build.ctools:cunit',
             NS + 'c#gcov = bitten.build.ctools:gcov',
             NS + 'c#make = bitten.build.ctools:make',
+            NS + 'mono#nunit = bitten.build.monotools:nunit',
             NS + 'java#ant = bitten.build.javatools:ant',
             NS + 'java#junit = bitten.build.javatools:junit',
             NS + 'java#cobertura = bitten.build.javatools:cobertura',

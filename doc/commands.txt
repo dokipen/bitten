@@ -428,6 +428,43 @@ that match the pattern `TEST-*.xml`. Also, maps the class names in the results
 files to Java source files in the directory `src/tests`.
 
 
+Mono Tools
+==========
+
+A bundle of recipe commands that support tools commonly used by Mono/.NET projects.
+
+:Namespace: ``http://bitten.cmlenz.net/tools/mono``
+:Common prefix: ``mono``
+
+----------------
+``<mono:nunit>``
+----------------
+
+Extracts information about unit test results from a files in NUnit_ XML format.
+
+.. _nunit: http://nunit.org/
+
+Parameters
+----------
+
++----------------+-----------------------------------------------------------+
+| Name           | Description                                               |
++================+===========================================================+
+| ``file``       | Path to the NUnit XML test results file. This can include |
+|                | wildcards, in which case all the file matching the        |
+|                | pattern will be included.                                 |
++----------------+-----------------------------------------------------------+
+
+The ``file`` attribute is required.
+
+Examples
+--------
+
+.. code-block:: xml
+
+  <mono:nunit file="build/tests/TestResult.xml" />
+
+
 PHP Tools
 =========
 
