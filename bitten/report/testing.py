@@ -42,7 +42,7 @@ ORDER BY build.rev_time, build.platform""", (config.name,))
         tests = []
         for rev, platform, status, num in cursor:
             if rev != prev_rev:
-                tests.append([rev, 0, 0])
+                tests.append([rev, 0, 0, 0])
                 prev_rev = rev
                 platform_total = 0
             if platform != prev_platform:
@@ -51,14 +51,19 @@ ORDER BY build.rev_time, build.platform""", (config.name,))
 
             platform_total += num
             tests[-1][1] = max(platform_total, tests[-1][1])
-            if status != 'success':
+            if status == 'success':
+                pass
+            elif status == 'ignore':
+                tests[-1][3] = max(num, tests[-1][3])
+            else:
                 tests[-1][2] = max(num, tests[-1][2])
 
         data = {'title': 'Unit Tests',
                 'data': [
                     [''] + ['[%s]' % item[0] for item in tests],
                     ['Total'] + [item[1] for item in tests],
-                    ['Failures'] + [item[2] for item in tests]
+                    ['Failures'] + [item[2] for item in tests],
+                    ['Ignored'] + [item[3] for item in tests],
                 ]}
 
         return 'bitten_chart_tests.html', data
@@ -80,6 +85,7 @@ class TestResultsSummarizer(Component):
         cursor.execute("""
 SELECT item_fixture.value AS fixture, item_file.value AS file,
        COUNT(item_success.value) AS num_success,
+       COUNT(item_ignore.value) AS num_ignore,
        COUNT(item_failure.value) AS num_failure,
        COUNT(item_error.value) AS num_error
 FROM bitten_report AS report
@@ -91,6 +97,9 @@ FROM bitten_report AS report
  LEFT OUTER JOIN bitten_report_item AS item_success
   ON (item_success.report=report.id AND item_success.item=item_fixture.item AND
       item_success.name='status' AND item_success.value='success')
+ LEFT OUTER JOIN bitten_report_item AS item_ignore
+  ON (item_ignore.report=report.id AND item_ignore.item=item_fixture.item AND
+      item_ignore.name='status' AND item_ignore.value='ignore')
  LEFT OUTER JOIN bitten_report_item AS item_failure
   ON (item_failure.report=report.id AND item_failure.item=item_fixture.item AND
       item_failure.name='status' AND item_failure.value='failure')
@@ -102,19 +111,24 @@ GROUP BY file, fixture
 ORDER BY fixture""", (build.id, step.name))
 
         fixtures = []
-        total_success, total_failure, total_error = 0, 0, 0
-        for fixture, file, num_success, num_failure, num_error in cursor:
-            fixtures.append({'name': fixture, 'num_success': num_success,
+        total_success, total_ignore, total_failure, total_error = 0, 0, 0, 0
+        for fixture, file, num_success, num_ignore, num_failure, num_error in cursor:
+            fixtures.append({'name': fixture, 
+                             'num_success': num_success,
+                             'num_ignore': num_ignore,
                              'num_error': num_error,
                              'num_failure': num_failure})
             total_success += num_success
+            total_ignore += num_ignore
             total_failure += num_failure
             total_error += num_error
             if file:
                 fixtures[-1]['href'] = req.href.browser(config.path, file)
 
         data = {'fixtures': fixtures,
-                'totals': {'success': total_success, 'failure': total_failure,
+                'totals': {'success': total_success, 
+                           'ignore': total_ignore,
+                           'failure': total_failure,
                            'error': total_error}
                }
         return 'bitten_summary_tests.html', data

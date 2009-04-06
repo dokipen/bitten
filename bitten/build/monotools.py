@@ -79,7 +79,7 @@ def nunit(ctxt, file_=None):
                             else:
                                 test.attr['status'] = 'success'
                         else:
-                            test.attr['status'] = 'ignored'                            
+                            test.attr['status'] = 'ignore'
 
                         results.append(test)
                         total += 1
