@@ -20,7 +20,9 @@ from trac.web import IRequestHandler, HTTPBadRequest, HTTPConflict, \
                      HTTPForbidden, HTTPMethodNotAllowed, HTTPNotFound, \
                      RequestDone
 
-from bitten.model import BuildConfig, Build, BuildStep, BuildLog, Report
+from bitten.model import BuildConfig, Build, BuildStep, BuildLog, Report, \
+                     TargetPlatform
+
 from bitten.main import BuildSystem
 from bitten.queue import BuildQueue
 from bitten.recipe import Recipe
@@ -177,6 +179,8 @@ class BuildMaster(Component):
         xml.attr['revision'] = build.rev
         xml.attr['config'] = config.name
         xml.attr['build'] = str(build.id)
+        target_platform = TargetPlatform.fetch(self.env, build.platform)
+        xml.attr['platform'] = target_platform.name
         body = str(xml)
 
         self.log.info('Build slave %r initiated build %d', build.slave,
