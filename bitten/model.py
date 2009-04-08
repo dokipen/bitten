@@ -219,6 +219,9 @@ class TargetPlatform(object):
         else:
             handle_ta = False
 
+        for build in Build.select(self.env, platform=self.id, status=Build.PENDING, db=db):
+            build.delete()
+
         cursor = db.cursor()
         cursor.execute("DELETE FROM bitten_rule WHERE id=%s", (self.id,))
         cursor.execute("DELETE FROM bitten_platform WHERE id=%s", (self.id,))

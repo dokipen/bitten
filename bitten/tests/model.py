@@ -773,6 +773,40 @@ class ReportTestCase(unittest.TestCase):
         self.assertEqual(1, idx)
 
 
+class PlatformBuildTestCase(unittest.TestCase):
+    """Tests that involve Builds, TargetPlatforms and BuildSteps"""
+
+    def setUp(self):
+        self.env = EnvironmentStub()
+        self.env.path = tempfile.mkdtemp()
+        logs_dir = self.env.config.get("bitten", "logs_dir")
+        if os.path.isabs(logs_dir):
+            raise ValueError("Should not have absolute logs directory for temporary test")
+        logs_dir = os.path.join(self.env.path, logs_dir)
+        os.makedirs(logs_dir)
+
+        db = self.env.get_db_cnx()
+        cursor = db.cursor()
+        connector, _ = DatabaseManager(self.env)._get_connector()
+        for schema in [Build._schema, TargetPlatform._schema, BuildStep._schema]: 
+            for table in schema:
+                for stmt in connector.to_sql(table):
+                    cursor.execute(stmt)
+        db.commit()
+
+    def test_delete_platform_with_pending_builds(self):
+        """Check that deleting a platform with pending builds removes those pending builds"""
+        db = self.env.get_db_cnx()
+        platform = TargetPlatform(self.env, config='test', name='Linux')
+        platform.insert()
+        build = Build(self.env, config='test', platform=platform.id, rev='42', rev_time=12039)
+        build.insert()
+
+        platform.delete()
+        pending = list(build.select(self.env, config='test', status=Build.PENDING))
+        self.assertEqual(0, len(pending))
+
+
 def suite():
     suite = unittest.TestSuite()
     suite.addTest(unittest.makeSuite(BuildConfigTestCase, 'test'))
@@ -781,6 +815,7 @@ def suite():
     suite.addTest(unittest.makeSuite(BuildStepTestCase, 'test'))
     suite.addTest(unittest.makeSuite(BuildLogTestCase, 'test'))
     suite.addTest(unittest.makeSuite(ReportTestCase, 'test'))
+    suite.addTest(unittest.makeSuite(PlatformBuildTestCase, 'test'))
     return suite
 
 if __name__ == '__main__':
