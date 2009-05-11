@@ -67,7 +67,8 @@ def copytree(src, dst, symlinks=False):
     if errors:
         raise Error, errors
 
-def checkout(ctxt, url, path=None, revision=None, dir_='.', verbose=False, shared_path=None):
+def checkout(ctxt, url, path=None, revision=None, dir_='.', verbose=False, shared_path=None,
+        username=None, password=None):
     """Perform a checkout from a Subversion repository.
     
     :param ctxt: the build context
@@ -78,6 +79,8 @@ def checkout(ctxt, url, path=None, revision=None, dir_='.', verbose=False, share
     :param dir_: the name of a local subdirectory to check out into
     :param verbose: whether to log the list of checked out files
     :param shared_path: a shared directory to do the checkout in, before copying to dir_
+    :param username: a username of the repository
+    :param password: a password of the repository
     """
     args = ['checkout']
     if revision:
@@ -86,6 +89,10 @@ def checkout(ctxt, url, path=None, revision=None, dir_='.', verbose=False, share
         final_url = posixpath.join(url, path.lstrip('/'))
     else:
         final_url = url
+    if username:
+        args += ['--username', username]
+    if password:
+        args += ['--password', password]
     args += [final_url, dir_]
 
     cofilter = None
@@ -106,7 +113,7 @@ def checkout(ctxt, url, path=None, revision=None, dir_='.', verbose=False, share
     if returncode != 0:
         ctxt.error('svn checkout failed (%s)' % returncode)
 
-def export(ctxt, url, path=None, revision=None, dir_='.'):
+def export(ctxt, url, path=None, revision=None, dir_='.', username=None, password=None):
     """Perform an export from a Subversion repository.
     
     :param ctxt: the build context
@@ -115,12 +122,18 @@ def export(ctxt, url, path=None, revision=None, dir_='.'):
     :param path: the path inside the repository
     :param revision: the revision to check out
     :param dir_: the name of a local subdirectory to export out into
+    :param username: a username of the repository
+    :param password: a password of the repository
     """
     args = ['export', '--force']
     if revision:
         args += ['-r', revision]
     if path:
         url = posixpath.join(url, path)
+    if username:
+        args += ['--username', username]
+    if password:
+        args += ['--password', password]
     args += [url, dir_]
 
     from bitten.build import shtools

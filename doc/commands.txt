@@ -795,6 +795,10 @@ Parameters
 |                 | relative to the project directory, so for standard usage    |
 |                 | set it to something like ``../trunk``                       |
 +-----------------+-------------------------------------------------------------+
+| ``username``    | Username to pass for authentication (optional)              |
++-----------------+-------------------------------------------------------------+
+| ``password``    | Password to pass for authentication (optional)              |
++-----------------+-------------------------------------------------------------+
 
 
 Examples
@@ -835,6 +839,10 @@ Parameters
 +--------------+-------------------------------------------------------------+
 | ``dir``      | Path specifying which directory the sources should be       |
 |              | exported to (defaults to '.')                               |
++--------------+-------------------------------------------------------------+
+| ``username`` | Username to pass for authentication (optional)              |
++--------------+-------------------------------------------------------------+
+| ``password`` | Password to pass for authentication (optional)              |
 +--------------+-------------------------------------------------------------+
 
 Examples
