@@ -206,6 +206,7 @@ class BuildConfigurationsAdminPageProvider(Component):
             data['configs'] = configs
 
         add_stylesheet(req, 'bitten/admin.css')
+        add_script(req, 'common/js/suggest.js')
         return 'bitten_admin_configs.html', data
 
     # Internal methods

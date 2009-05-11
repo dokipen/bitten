@@ -7,6 +7,11 @@
   <xi:include href="admin.html" />
   <head>
     <title>Manage Build Configurations</title>
+    <script type="text/javascript">
+      jQuery(document).ready(function($) {
+        $("input[name='path']").suggest("${href.diff()}");
+      });
+    </script>
   </head>
   <body>
     <h2>Manage Build Configurations</h2>
