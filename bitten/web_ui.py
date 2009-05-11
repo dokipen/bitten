@@ -180,6 +180,14 @@ class BuildConfigController(Component):
 
         configs = []
         for config in BuildConfig.select(self.env, include_inactive=show_all):
+
+            repos = self.env.get_repository(req.authname)
+            if hasattr(repos, 'sync'):
+                repos.sync()
+
+            if not repos.authz.has_permission(config.path):
+                continue
+
             description = config.description
             if description:
                 description = wiki_to_html(description, self.env, req)
@@ -206,10 +214,6 @@ class BuildConfigController(Component):
             configs.append(config_data)
             if not config.active:
                 continue
-
-            repos = self.env.get_repository(req.authname)
-            if hasattr(repos, 'sync'):
-                repos.sync()
 
             prev_rev = None
             for platform, rev, build in collect_changes(repos, config):
