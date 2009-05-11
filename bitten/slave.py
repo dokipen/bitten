@@ -50,7 +50,7 @@ def _rmtree(root):
         return False
 
 # Python 2.3 doesn't include HTTPErrorProcessor in urllib2. So instead of deriving we just make our own one
-class SaneHTTPErrorProcessor(HTTPErrorProcessor):
+class SaneHTTPErrorProcessor(urllib2.BaseHandler):
     "The HTTPErrorProcessor defined in urllib needs some love."
 
     handler_order = 1000
