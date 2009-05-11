@@ -88,6 +88,7 @@ setup(
             NS + 'svn#checkout = bitten.build.svntools:checkout',
             NS + 'svn#export = bitten.build.svntools:export',
             NS + 'svn#update = bitten.build.svntools:update',
+            NS + 'hg#pull = bitten.build.hgtools:pull',
             NS + 'xml#transform = bitten.build.xmltools:transform'
         ]
     },
