@@ -194,3 +194,17 @@
 #mainnav .bittenpending, #mainnav .bittenpending :hover {
   border-right: 4px hidden !important;
 }
+.step-toc {
+ padding: .5em 1em;
+ margin: 1em 3em 2em 1em;
+ float: right;
+ border: 1px outset #ddc;
+ background: #ffd;
+ font-size: 85%;
+ position: relative;
+}
+.step-toc h4 { font-size: 12px; margin: 0 }
+.step-toc ul, .step-toc ol { list-style: none; padding: 0 0 0 1.2em; margin: 0 }
+.step-toc li { margin: 0; padding: 0 }
+.step-toc .active { background: #ff9; position: relative; }
+.step-toc li.failed a { color: #a00; font-weight: bold; }

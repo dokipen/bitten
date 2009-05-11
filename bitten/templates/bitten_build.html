@@ -11,6 +11,12 @@
   <body>
     <div id="content" class="build">
       <h1>$title</h1>
+      <div class="step-toc"><h4 id="step-toc-qj">Build steps</h4><ol>
+          <py:for each="step in build.steps">
+          <li class="${step.failed and 'failed' or 'success'}"><a 
+              href="#step_${step.name}">$step.name</a></li>
+          </py:for></ol>
+      </div>
       <dl id="overview" py:with="slave = build.slave">
         <dt class="config">Configuration:</dt>
         <dd class="config">
