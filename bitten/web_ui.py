@@ -22,12 +22,13 @@ from trac.timeline import ITimelineEventProvider
 from trac.util import escape, pretty_timedelta, format_datetime, shorten_line, \
                       Markup
 from trac.util.html import html
-from trac.web import IRequestHandler
+from trac.web import IRequestHandler, IRequestFilter
 from trac.web.chrome import INavigationContributor, ITemplateProvider, \
                             add_link, add_stylesheet, add_ctxtnav, \
                             prevnext_nav, add_script
 from trac.wiki import wiki_to_html, wiki_to_oneliner
 from bitten.api import ILogFormatter, IReportChartGenerator, IReportSummarizer
+from bitten.master import BuildMaster
 from bitten.model import BuildConfig, TargetPlatform, Build, BuildStep, \
                          BuildLog, Report
 from bitten.queue import collect_changes
@@ -86,8 +87,34 @@ class BittenChrome(Component):
         """Return the navigation item for access the build status overview from
         the Trac navigation bar."""
         if 'BUILD_VIEW' in req.perm:
+            status = ''
+            if BuildMaster(self.env).quick_status:
+                repos = self.env.get_repository(req.authname)
+                if hasattr(repos, 'sync'):
+                    repos.sync()
+                for config in BuildConfig.select(self.env, 
+                                                 include_inactive=False):
+                    prev_rev = None
+                    for platform, rev, build in collect_changes(repos, config):
+                        if rev != prev_rev:
+                            if prev_rev is not None:
+                               break
+                            prev_rev = rev
+                        if build:
+                            build_data = _get_build_data(self.env, req, build)
+                            if build_data['status'] == 'failed':
+                                status='bittenfailed'
+                                break
+                            if build_data['status'] == 'in progress':
+                                status='bitteninprogress'
+                            elif not status:
+                                if (build_data['status'] == 'completed'):
+                                    status='bittencompleted'  
+                if not status:
+                    status='bittenpending'
             yield ('mainnav', 'build',
-                   tag.a('Builds Status', href=req.href.build(), accesskey=5))
+                   tag.a('Builds Status', href=req.href.build(), accesskey=5, 
+                         class_=status))
 
     # ITemplatesProvider methods
 
@@ -103,7 +130,7 @@ class BittenChrome(Component):
 class BuildConfigController(Component):
     """Implements the web interface for build configurations."""
 
-    implements(IRequestHandler)
+    implements(IRequestHandler, IRequestFilter)
 
     # IRequestHandler methods
 
@@ -131,6 +158,17 @@ class BuildConfigController(Component):
         add_stylesheet(req, 'bitten/bitten.css')
         return 'bitten_config.html', data, None
 
+    # IRequestHandler methods
+    
+    def pre_process_request(self, req, handler):
+        return handler
+
+    def post_process_request(self, req, template, data, content_type):
+        if template:
+            add_stylesheet(req, 'bitten/bitten.css')
+        
+        return template, data, content_type
+        
     # Internal methods
 
     def _render_overview(self, req):

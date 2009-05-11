@@ -60,6 +60,10 @@ class BuildMaster(Component):
     logs_dir = PathOption('bitten', 'logs_dir', "log/bitten", doc=
          """The directory on the server in which client log files will be stored.""")
 
+    quick_status = BoolOption('bitten', 'quick_status', False, doc=
+         """Whether to show the current build status withing the Trac main 
+            navigation bar""")
+
     # IRequestHandler methods
 
     def match_request(self, req):

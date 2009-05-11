@@ -181,3 +181,16 @@
 #content.build table.listing :link, #content.build table.listing :visited {
   border: none;
 }
+#mainnav .bitteninprogress, #mainnav .bitteninprogress :hover {
+  border-right: 4px solid #edd400 !important;
+}
+#mainnav .bittencompleted, #mainnav .bittencompleted :hover {
+  border-right: 4px solid #0b0 !important;
+}
+#mainnav .bittenfailed, #mainnav .bittenfailed :hover {
+  border-right: 4px hidden !important;
+  background-color: #d99;
+}
+#mainnav .bittenpending, #mainnav .bittenpending :hover {
+  border-right: 4px hidden !important;
+}

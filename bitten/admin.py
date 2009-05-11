@@ -14,7 +14,7 @@ import re
 
 from trac.core import *
 from trac.admin import IAdminPanelProvider
-from trac.web.chrome import add_stylesheet
+from trac.web.chrome import add_stylesheet, add_script
 
 from bitten.model import BuildConfig, TargetPlatform
 from bitten.recipe import Recipe, InvalidRecipeError
@@ -69,6 +69,12 @@ class BuildMasterAdminPageProvider(Component):
         slave_timeout = int(req.args.get('slave_timeout', 0))
         if slave_timeout != master.slave_timeout:
             self.config['bitten'].set('slave_timeout', str(slave_timeout))
+            changed = True
+
+        quick_status = 'quick_status' in req.args
+        if quick_status != master.quick_status:
+            self.config['bitten'].set('quick_status',
+                                      quick_status and 'yes' or 'no')
             changed = True
 
         logs_dir = req.args.get('logs_dir', None)
