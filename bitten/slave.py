@@ -49,8 +49,11 @@ def _rmtree(root):
     else:
         return False
 
-class SaneHTTPErrorProcessor(urllib2.HTTPErrorProcessor):
+# Python 2.3 doesn't include HTTPErrorProcessor in urllib2. So instead of deriving we just make our own one
+class SaneHTTPErrorProcessor(HTTPErrorProcessor):
     "The HTTPErrorProcessor defined in urllib needs some love."
+
+    handler_order = 1000
 
     def http_response(self, request, response):
         code, msg, hdrs = response.code, response.msg, response.info()
@@ -59,6 +62,7 @@ class SaneHTTPErrorProcessor(urllib2.HTTPErrorProcessor):
                 'http', request, response, code, msg, hdrs)
         return response
 
+    https_response = http_response
 
 class SaneHTTPRequest(urllib2.Request):
 
@@ -145,7 +149,10 @@ class BuildSlave(object):
         log.debug('Sending %s request to %r', method, url)
         req = SaneHTTPRequest(method, url, body, headers or {})
         try:
-            return self.opener.open(req)
+            resp = self.opener.open(req)
+            if not hasattr(resp, 'code'):
+                resp.code = 200
+            return resp
         except urllib2.HTTPError, e:
             if e.code >= 300:
                 log.warning('Server returned error %d: %s', e.code, e.msg)
@@ -212,7 +219,7 @@ class BuildSlave(object):
         body = str(xml)
         log.debug('Sending slave configuration: %s', body)
         resp = self.request('POST', url, body, {
-            'Content-Length': len(body),
+            'Content-Length': str(len(body)),
             'Content-Type': 'application/x-bitten+xml'
         })
 
