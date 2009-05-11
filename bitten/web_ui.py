@@ -178,13 +178,12 @@ class BuildConfigController(Component):
             show_all = True
         data['show_all'] = show_all
 
+        repos = self.env.get_repository(req.authname)
+        if hasattr(repos, 'sync'):
+            repos.sync()
+
         configs = []
         for config in BuildConfig.select(self.env, include_inactive=show_all):
-
-            repos = self.env.get_repository(req.authname)
-            if hasattr(repos, 'sync'):
-                repos.sync()
-
             if not repos.authz.has_permission(config.path):
                 continue
 
@@ -260,8 +259,15 @@ class BuildConfigController(Component):
 
         db = self.env.get_db_cnx()
 
+        repos = self.env.get_repository(req.authname)
+        if hasattr(repos, 'sync'):
+            repos.sync()
+
         configs = []
         for config in BuildConfig.select(self.env, include_inactive=False):
+            if not repos.authz.has_permission(config.path):
+                continue
+
             self.log.debug(config.name)
             if not config.active:
                 continue
@@ -317,6 +323,12 @@ class BuildConfigController(Component):
         db = self.env.get_db_cnx()
 
         config = BuildConfig.fetch(self.env, config_name, db=db)
+
+        repos = self.env.get_repository(req.authname)
+        if hasattr(repos, 'sync'):
+            repos.sync()
+        repos.authz.assert_permission(config.path)
+
         data = {'title': 'Build Configuration "%s"' \
                           % config.label or config.name,
                 'page_mode': 'view_config'}
@@ -493,6 +505,7 @@ class BuildController(Component):
         data['build']['can_delete'] = ('BUILD_DELETE' in req.perm)
 
         repos = self.env.get_repository(req.authname)
+        repos.authz.assert_permission(config.path)
         chgset = repos.get_changeset(build.rev)
         data['build']['chgset_author'] = chgset.author
 
@@ -527,10 +540,18 @@ class BuildController(Component):
                        "AND b.status IN (%s, %s) ORDER BY b.stopped",
                        (start, stop, Build.SUCCESS, Build.FAILURE))
 
+        repos = self.env.get_repository(req.authname)
+        if hasattr(repos, 'sync'):
+            repos.sync()
+
         event_kinds = {Build.SUCCESS: 'successbuild',
                        Build.FAILURE: 'failedbuild'}
         for id, config, label, rev, platform, stopped, status in cursor:
 
+            config_object = BuildConfig.fetch(self.env, config, db=db)
+            if not repos.authz.has_permission(config_object.path):
+                continue
+            
             errors = []
             if status == Build.FAILURE:
                 for step in BuildStep.select(self.env, build=id,

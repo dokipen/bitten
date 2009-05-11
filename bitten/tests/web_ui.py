@@ -46,8 +46,9 @@ class BuildConfigControllerTestCase(unittest.TestCase):
             get_node=lambda path, rev=None: Mock(get_history=lambda: [],
                                                  isdir=True),
             normalize_path=lambda path: path,
-            sync=lambda: None
+            sync=lambda: None,
         )
+        self.repos.authz = Mock(has_permission=lambda path: True, assert_permission=lambda path: None)
         self.env.get_repository = lambda authname=None: self.repos
 
     def tearDown(self):
@@ -57,7 +58,7 @@ class BuildConfigControllerTestCase(unittest.TestCase):
         PermissionSystem(self.env).grant_permission('joe', 'BUILD_VIEW')
         req = Mock(method='GET', base_path='', cgi_location='',
                    path_info='/build', href=Href('/trac'), args={}, chrome={},
-                   perm=PermissionCache(self.env, 'joe'))
+                   perm=PermissionCache(self.env, 'joe'), authname='joe')
 
         module = BuildConfigController(self.env)
         assert module.match_request(req)
@@ -82,6 +83,7 @@ class BuildConfigControllerTestCase(unittest.TestCase):
                                           range(123, 111, -1)])
         self.repos = Mock(get_node=lambda path, rev=None: root,
                           sync=lambda: None, normalize_path=lambda path: path)
+        self.repos.authz = Mock(has_permission=lambda path: True, assert_permission=lambda path: None)
 
         module = BuildConfigController(self.env)
         assert module.match_request(req)
@@ -107,6 +109,7 @@ class BuildConfigControllerTestCase(unittest.TestCase):
                                           range(123, 110, -1)])
         self.repos = Mock(get_node=lambda path, rev=None: root,
                           sync=lambda: None, normalize_path=lambda path: path)
+        self.repos.authz = Mock(has_permission=lambda path: True, assert_permission=lambda path: None)
 
         module = BuildConfigController(self.env)
         assert module.match_request(req)
@@ -137,6 +140,7 @@ class SourceFileLinkFormatterTestCase(unittest.TestCase):
             normalize_path=lambda path: path,
             sync=lambda: None
         )
+        self.repos.authz = Mock(has_permission=lambda path: True, assert_permission=lambda path: None)
         self.env.get_repository = lambda authname=None: self.repos
 
     def tearDown(self):
