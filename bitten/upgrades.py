@@ -337,6 +337,23 @@ def migrate_logs_to_files(env, db):
         "When you have confirmed that the migration worked correctly, "
         "you can drop the bitten_log_message table in the database (it remains as a backup)", logs_dir)
 
+def recreate_rule_with_int_id(env, db):
+        """Recreates the bitten_rule table with an integer id column rather than a text one."""
+        from trac.db import Table, Column
+        from bitten.model import TargetPlatform
+        cursor = db.cursor()
+        connector, _ = DatabaseManager(env)._get_connector()
+
+        for table in TargetPlatform._schema:
+            if table.name is 'bitten_rule':
+                env.log.info("Migrating bitten_rule table to integer ids")
+                cursor.execute("CREATE TEMPORARY TABLE old_rule AS SELECT * FROM bitten_rule")
+                cursor.execute("DROP TABLE bitten_rule")
+                for stmt in connector.to_sql(table):
+                    cursor.execute(stmt)
+                cursor.execute("INSERT INTO bitten_rule (id,propname,pattern,orderno) SELECT %s,propname,pattern,orderno FROM old_rule" % db.cast('id', 'int'))
+
+
 map = {
     2: [add_log_table],
     3: [add_recipe_to_config],
@@ -345,4 +362,5 @@ map = {
     6: [normalize_file_paths, fixup_generators],
     7: [add_error_table],
     8: [add_filename_to_logs,migrate_logs_to_files],
+    9: [recreate_rule_with_int_id],
 }

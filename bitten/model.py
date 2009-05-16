@@ -188,7 +188,7 @@ class TargetPlatform(object):
             Column('id', auto_increment=True), Column('config'), Column('name')
         ],
         Table('bitten_rule', key=('id', 'propname'))[
-            Column('id'), Column('propname'), Column('pattern'),
+            Column('id', type='int'), Column('propname'), Column('pattern'),
             Column('orderno', type='int')
         ]
     ]
@@ -979,4 +979,4 @@ class Report(object):
 
 schema = BuildConfig._schema + TargetPlatform._schema + Build._schema + \
          BuildStep._schema + BuildLog._schema + Report._schema
-schema_version = 8
+schema_version = 9
