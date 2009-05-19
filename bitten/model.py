@@ -500,7 +500,7 @@ class Build(object):
         if config is not None:
             where_clauses.append(("config=%s", config))
         if rev is not None:
-            where_clauses.append(("rev=%s", str(rev))
+            where_clauses.append(("rev=%s", str(rev)))
         if platform is not None:
             where_clauses.append(("platform=%s", platform))
         if slave is not None:
