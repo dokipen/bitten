@@ -132,8 +132,7 @@ class BuildSlave(object):
         self.dump_reports = dump_reports
 
         if not self.local:
-            self.opener = urllib2.build_opener(SaneHTTPErrorProcessor)
-            password_mgr = urllib2.HTTPPasswordMgrWithDefaultRealm()
+            self.password_mgr = urllib2.HTTPPasswordMgrWithDefaultRealm()
             if not username:
                 username = self.config['authentication.username']
             if not password:
@@ -141,9 +140,14 @@ class BuildSlave(object):
             self.config.packages.pop('authentication', None)
             if username and password:
                 log.debug('Enabling authentication with username %r', username)
-                password_mgr.add_password(None, urls, username, password)
-            self.opener.add_handler(urllib2.HTTPBasicAuthHandler(password_mgr))
-            self.opener.add_handler(urllib2.HTTPDigestAuthHandler(password_mgr))
+                self.password_mgr.add_password(None, urls, username, password)
+
+    def _get_opener(self):
+        opener = urllib2.build_opener(SaneHTTPErrorProcessor)
+        opener.add_handler(urllib2.HTTPBasicAuthHandler(self.password_mgr))
+        opener.add_handler(urllib2.HTTPDigestAuthHandler(self.password_mgr))
+        return opener
+    opener = property(_get_opener)
 
     def request(self, method, url, body=None, headers=None):
         log.debug('Sending %s request to %r', method, url)
