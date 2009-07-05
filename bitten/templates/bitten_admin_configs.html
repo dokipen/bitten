@@ -227,10 +227,12 @@
           </td>
           <td class="path"><code>$config.path</code></td>
           <td class="active">
-            <input type="checkbox" name="active"
+            <input py:if="config.recipe"
+                   type="checkbox" name="active"
                    value="$config.name"
                    checked="${config.active and 'checked'
                               or None}" />
+            ${config.recipe == False and 'No recipe' or ''}
           </td>
         </tr>
       </tbody></table>

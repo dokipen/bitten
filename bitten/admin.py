@@ -202,6 +202,7 @@ class BuildConfigurationsAdminPageProvider(Component):
                     'active': config.active, 'path': config.path,
                     'min_rev': config.min_rev, 'max_rev': config.max_rev,
                     'href': req.href.admin('bitten', 'configs', config.name),
+                    'recipe': config.recipe and True or False
                 })
             data['configs'] = configs
 
