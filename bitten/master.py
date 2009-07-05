@@ -64,6 +64,10 @@ class BuildMaster(Component):
          """Whether to show the current build status withing the Trac main 
             navigation bar""")
 
+    def __init__(self):
+        self.env.systeminfo.append(('Bitten',
+                __import__('bitten', ['__version__']).__version__))
+
     # IRequestHandler methods
 
     def match_request(self, req):
