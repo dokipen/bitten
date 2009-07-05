@@ -514,7 +514,7 @@ class Build(object):
 
         cursor = db.cursor()
         cursor.execute("SELECT id FROM bitten_build %s "
-                       "ORDER BY config,rev_time DESC,slave"
+                       "ORDER BY rev_time,config DESC,slave"
                        % where, [wc[1] for wc in where_clauses])
         for (id,) in cursor:
             yield Build.fetch(env, id)
