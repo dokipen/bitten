@@ -197,12 +197,12 @@ class BuildConfigurationsAdminPageProviderTestCase(unittest.TestCase):
         self.assertEqual({
             'name': 'bar', 'href': '/admin/bitten/configs/bar',
             'label': 'Bar', 'min_rev': '123', 'max_rev': '456',
-            'path': 'branches/bar', 'active': False
+            'path': 'branches/bar', 'active': False, 'recipe': False
         }, configs[0])
         self.assertEqual({
             'name': 'foo', 'href': '/admin/bitten/configs/foo',
             'label': 'Foo', 'min_rev': None, 'max_rev': None,
-            'path': 'branches/foo', 'active': True
+            'path': 'branches/foo', 'active': True, 'recipe': False
         }, configs[1])
 
     def test_process_view_config(self):
