@@ -17,13 +17,15 @@ from trac.db import DatabaseManager
 from trac.perm import PermissionCache, PermissionSystem
 from trac.test import EnvironmentStub, Mock
 from trac.util.html import Markup
+from trac.web.api import HTTPNotFound
 from trac.web.href import Href
 from bitten.main import BuildSystem
 from bitten.model import Build, BuildConfig, BuildStep, TargetPlatform, schema
-from bitten.web_ui import BuildConfigController, SourceFileLinkFormatter
+from bitten.web_ui import BuildConfigController, BuildController, \
+                          SourceFileLinkFormatter
 
 
-class BuildConfigControllerTestCase(unittest.TestCase):
+class AbstractWebUITestCase(unittest.TestCase):
 
     def setUp(self):
         self.env = EnvironmentStub(enable=['trac.*', 'bitten.*'])
@@ -53,6 +55,9 @@ class BuildConfigControllerTestCase(unittest.TestCase):
 
     def tearDown(self):
         shutil.rmtree(self.env.path)
+
+
+class BuildConfigControllerTestCase(AbstractWebUITestCase):
 
     def test_overview(self):
         PermissionSystem(self.env).grant_permission('joe', 'BUILD_VIEW')
@@ -119,32 +124,46 @@ class BuildConfigControllerTestCase(unittest.TestCase):
             self.assertEqual('/trac/build/test?page=2',
                              req.chrome['links']['next'][0]['href'])
 
+    def test_raise_404(self):
+        PermissionSystem(self.env).grant_permission('joe', 'BUILD_VIEW')
+        module = BuildConfigController(self.env)
+        req = Mock(method='GET', base_path='', cgi_location='',
+                   path_info='/build/nonexisting', href=Href('/trac'), args={},
+                   chrome={}, authname='joe',
+                   perm=PermissionCache(self.env, 'joe'))
+        self.failUnless(module.match_request(req))
+        try:
+            module.process_request(req)
+        except Exception, e:
+            self.failUnless(isinstance(e, HTTPNotFound))
+            self.assertEquals(str(e), "404 Not Found (Build configuration "
+                                      "'nonexisting' does not exist.)")
+            return
+        self.fail("This should have raised HTTPNotFound")
 
-class SourceFileLinkFormatterTestCase(unittest.TestCase):
 
-    def setUp(self):
-        self.env = EnvironmentStub(enable=['trac.*', 'bitten.*'])
+class BuildControllerTestCase(AbstractWebUITestCase):
 
-        # Create tables
-        db = self.env.get_db_cnx()
-        cursor = db.cursor()
-        connector, _ = DatabaseManager(self.env)._get_connector()
-        for table in schema:
-            for stmt in connector.to_sql(table):
-                cursor.execute(stmt)
+    def test_raise_404(self):
+        PermissionSystem(self.env).grant_permission('joe', 'BUILD_VIEW')
+        module = BuildController(self.env)
+        config = BuildConfig(self.env, name='existing', path='trunk')
+        config.insert()
+        req = Mock(method='GET', base_path='', cgi_location='',
+                   path_info='/build/existing/42', href=Href('/trac'), args={},
+                   chrome={}, authname='joe',
+                   perm=PermissionCache(self.env, 'joe'))
+        self.failUnless(module.match_request(req))
+        try:
+            module.process_request(req)
+        except Exception, e:
+            self.failUnless(isinstance(e, HTTPNotFound))
+            self.assertEquals(str(e),
+                    "404 Not Found (Build '42' does not exist.)")
+            return
+        self.fail("This should have raised HTTPNotFound")
 
-        # Hook up a dummy repository
-        self.repos = Mock(
-            get_node=lambda path, rev=None: Mock(get_history=lambda: [],
-                                                 isdir=True),
-            normalize_path=lambda path: path,
-            sync=lambda: None
-        )
-        self.repos.authz = Mock(has_permission=lambda path: True, assert_permission=lambda path: None)
-        self.env.get_repository = lambda authname=None: self.repos
-
-    def tearDown(self):
-        pass
+class SourceFileLinkFormatterTestCase(AbstractWebUITestCase):
 
     def test_format_simple_link_in_repos(self):
         BuildConfig(self.env, name='test', path='trunk').insert()
@@ -251,6 +270,7 @@ class SourceFileLinkFormatterTestCase(unittest.TestCase):
 def suite():
     suite = unittest.TestSuite()
     suite.addTest(unittest.makeSuite(BuildConfigControllerTestCase, 'test'))
+    suite.addTest(unittest.makeSuite(BuildControllerTestCase, 'test'))
     suite.addTest(unittest.makeSuite(SourceFileLinkFormatterTestCase, 'test'))
     return suite
 
