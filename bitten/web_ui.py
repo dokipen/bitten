@@ -22,7 +22,7 @@ from trac.timeline import ITimelineEventProvider
 from trac.util import escape, pretty_timedelta, format_datetime, shorten_line, \
                       Markup
 from trac.util.html import html
-from trac.web import IRequestHandler, IRequestFilter
+from trac.web import IRequestHandler, IRequestFilter, HTTPNotFound
 from trac.web.chrome import INavigationContributor, ITemplateProvider, \
                             add_link, add_stylesheet, add_ctxtnav, \
                             prevnext_nav, add_script
@@ -323,6 +323,9 @@ class BuildConfigController(Component):
         db = self.env.get_db_cnx()
 
         config = BuildConfig.fetch(self.env, config_name, db=db)
+        if not config:
+            raise HTTPNotFound("Build configuration '%s' does not exist." \
+                                % config_name)
 
         repos = self.env.get_repository(req.authname)
         if hasattr(repos, 'sync'):
@@ -461,7 +464,9 @@ class BuildController(Component):
         db = self.env.get_db_cnx()
         build_id = int(req.args.get('id'))
         build = Build.fetch(self.env, build_id, db=db)
-        assert build, 'Build %s does not exist' % build_id
+        if not build:
+            raise HTTPNotFound("Build '%s' does not exist." \
+                                % build_id)
 
         if req.method == 'POST':
             if req.args.get('action') == 'invalidate':
