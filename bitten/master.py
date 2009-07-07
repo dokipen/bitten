@@ -14,7 +14,7 @@ import calendar
 import re
 import time
 
-from trac.config import BoolOption, IntOption, PathOption
+from trac.config import BoolOption, IntOption, Option
 from trac.core import *
 from trac.web import IRequestHandler, HTTPBadRequest, HTTPConflict, \
                      HTTPForbidden, HTTPMethodNotAllowed, HTTPNotFound, \
@@ -57,7 +57,7 @@ class BuildMaster(Component):
         """The time in seconds after which a build is cancelled if the slave
         does not report progress.""")
 
-    logs_dir = PathOption('bitten', 'logs_dir', "log/bitten", doc=
+    logs_dir = Option('bitten', 'logs_dir', "log/bitten", doc=
          """The directory on the server in which client log files will be stored.""")
 
     quick_status = BoolOption('bitten', 'quick_status', False, doc=
