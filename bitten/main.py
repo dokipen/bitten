@@ -92,7 +92,11 @@ class BuildSystem(Component):
 
     def get_link_resolvers(self):
         def _format_link(formatter, ns, name, label):
-            build = Build.fetch(self.env, int(name))
+            try:
+                name = int(name)
+            except ValueError:
+                return label
+            build = Build.fetch(self.env, name)
             if build:
                 config = BuildConfig.fetch(self.env, build.config)
                 title = 'Build %d ([%s] of %s) by %s' % (build.id, build.rev,
