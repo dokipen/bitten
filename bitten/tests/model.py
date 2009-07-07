@@ -18,7 +18,11 @@ import os
 import tempfile
 
 
-class BuildConfigTestCase(unittest.TestCase):
+class BaseModelTestCase(unittest.TestCase):
+    """ Inheritable base for model test case classes. """
+
+    # Override with iterable containing required schemas
+    schemas = None
 
     def setUp(self):
         self.env = EnvironmentStub()
@@ -32,10 +36,18 @@ class BuildConfigTestCase(unittest.TestCase):
         db = self.env.get_db_cnx()
         cursor = db.cursor()
         connector, _ = DatabaseManager(self.env)._get_connector()
-        for table in schema:
-            for stmt in connector.to_sql(table):
-                cursor.execute(stmt)
+        for schema in self.schemas:
+            for table in schema:
+                for stmt in connector.to_sql(table):
+                    cursor.execute(stmt)
         db.commit()
+
+    def tearDown(self):
+        pass
+
+class BuildConfigTestCase(BaseModelTestCase):
+
+    schemas = [schema]
 
     def test_new(self):
         config = BuildConfig(self.env, name='test')
@@ -161,24 +173,9 @@ class BuildConfigTestCase(unittest.TestCase):
         self.assertRaises(AssertionError, config.delete)
 
 
-class TargetPlatformTestCase(unittest.TestCase):
+class TargetPlatformTestCase(BaseModelTestCase):
 
-    def setUp(self):
-        self.env = EnvironmentStub()
-        self.env.path = tempfile.mkdtemp()
-        logs_dir = self.env.config.get("bitten", "logs_dir")
-        if os.path.isabs(logs_dir):
-            raise ValueError("Should not have absolute logs directory for temporary test")
-        logs_dir = os.path.join(self.env.path, logs_dir)
-        os.makedirs(logs_dir)
-
-        db = self.env.get_db_cnx()
-        cursor = db.cursor()
-        connector, _ = DatabaseManager(self.env)._get_connector()
-        for table in TargetPlatform._schema:
-            for stmt in connector.to_sql(table):
-                cursor.execute(stmt)
-        db.commit()
+    schemas = [TargetPlatform._schema]
 
     def test_new(self):
         platform = TargetPlatform(self.env)
@@ -223,24 +220,9 @@ class TargetPlatformTestCase(unittest.TestCase):
         self.assertEqual(2, len(platforms))
 
 
-class BuildTestCase(unittest.TestCase):
+class BuildTestCase(BaseModelTestCase):
 
-    def setUp(self):
-        self.env = EnvironmentStub()
-        self.env.path = tempfile.mkdtemp()
-        logs_dir = self.env.config.get("bitten", "logs_dir")
-        if os.path.isabs(logs_dir):
-            raise ValueError("Should not have absolute logs directory for temporary test")
-        logs_dir = os.path.join(self.env.path, logs_dir)
-        os.makedirs(logs_dir)
-
-        db = self.env.get_db_cnx()
-        cursor = db.cursor()
-        connector, _ = DatabaseManager(self.env)._get_connector()
-        for table in Build._schema:
-            for stmt in connector.to_sql(table):
-                cursor.execute(stmt)
-        db.commit()
+    schemas = [Build._schema]
 
     def test_new(self):
         build = Build(self.env)
@@ -337,24 +319,9 @@ class BuildTestCase(unittest.TestCase):
         build.update()
 
 
-class BuildStepTestCase(unittest.TestCase):
+class BuildStepTestCase(BaseModelTestCase):
 
-    def setUp(self):
-        self.env = EnvironmentStub()
-        self.env.path = tempfile.mkdtemp()
-        logs_dir = self.env.config.get("bitten", "logs_dir")
-        if os.path.isabs(logs_dir):
-            raise ValueError("Should not have absolute logs directory for temporary test")
-        logs_dir = os.path.join(self.env.path, logs_dir)
-        os.makedirs(logs_dir)
-
-        db = self.env.get_db_cnx()
-        cursor = db.cursor()
-        connector, _ = DatabaseManager(self.env)._get_connector()
-        for table in BuildStep._schema:
-            for stmt in connector.to_sql(table):
-                cursor.execute(stmt)
-        db.commit()
+    schemas = [BuildStep._schema]
 
     def test_new(self):
         step = BuildStep(self.env)
@@ -444,24 +411,9 @@ class BuildStepTestCase(unittest.TestCase):
         self.assertEqual(BuildStep.FAILURE, steps[1].status)
 
 
-class BuildLogTestCase(unittest.TestCase):
+class BuildLogTestCase(BaseModelTestCase):
 
-    def setUp(self):
-        self.env = EnvironmentStub()
-        self.env.path = tempfile.mkdtemp()
-        logs_dir = self.env.config.get("bitten", "logs_dir")
-        if os.path.isabs(logs_dir):
-            raise ValueError("Should not have absolute logs directory for temporary test")
-        logs_dir = os.path.join(self.env.path, logs_dir)
-        os.makedirs(logs_dir)
-
-        db = self.env.get_db_cnx()
-        cursor = db.cursor()
-        connector, _ = DatabaseManager(self.env)._get_connector()
-        for table in BuildLog._schema:
-            for stmt in connector.to_sql(table):
-                cursor.execute(stmt)
-        db.commit()
+    schemas = [BuildLog._schema]
 
     def test_new(self):
         log = BuildLog(self.env)
@@ -603,24 +555,9 @@ class BuildLogTestCase(unittest.TestCase):
             os.remove(full_file)
 
 
-class ReportTestCase(unittest.TestCase):
+class ReportTestCase(BaseModelTestCase):
 
-    def setUp(self):
-        self.env = EnvironmentStub()
-        self.env.path = tempfile.mkdtemp()
-        logs_dir = self.env.config.get("bitten", "logs_dir")
-        if os.path.isabs(logs_dir):
-            raise ValueError("Should not have absolute logs directory for temporary test")
-        logs_dir = os.path.join(self.env.path, logs_dir)
-        os.makedirs(logs_dir)
-
-        db = self.env.get_db_cnx()
-        cursor = db.cursor()
-        connector, _ = DatabaseManager(self.env)._get_connector()
-        for table in Report._schema:
-            for stmt in connector.to_sql(table):
-                cursor.execute(stmt)
-        db.commit()
+    schemas = [Report._schema]
 
     def test_delete(self):
         db = self.env.get_db_cnx()
@@ -773,26 +710,10 @@ class ReportTestCase(unittest.TestCase):
         self.assertEqual(1, idx)
 
 
-class PlatformBuildTestCase(unittest.TestCase):
+class PlatformBuildTestCase(BaseModelTestCase):
     """Tests that involve Builds, TargetPlatforms and BuildSteps"""
 
-    def setUp(self):
-        self.env = EnvironmentStub()
-        self.env.path = tempfile.mkdtemp()
-        logs_dir = self.env.config.get("bitten", "logs_dir")
-        if os.path.isabs(logs_dir):
-            raise ValueError("Should not have absolute logs directory for temporary test")
-        logs_dir = os.path.join(self.env.path, logs_dir)
-        os.makedirs(logs_dir)
-
-        db = self.env.get_db_cnx()
-        cursor = db.cursor()
-        connector, _ = DatabaseManager(self.env)._get_connector()
-        for schema in [Build._schema, TargetPlatform._schema, BuildStep._schema]: 
-            for table in schema:
-                for stmt in connector.to_sql(table):
-                    cursor.execute(stmt)
-        db.commit()
+    schemas = [Build._schema, TargetPlatform._schema, BuildStep._schema]
 
     def test_delete_platform_with_pending_builds(self):
         """Check that deleting a platform with pending builds removes those pending builds"""
