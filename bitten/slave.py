@@ -430,8 +430,8 @@ def main():
     except ExitSlave, e:
         exit_code = e.exit_code
 
-    if not options.keep_files:
-        log.debug('Removing temporary directory %s' % slave.work_dir)
+    if not (options.work_dir or options.keep_files):
+        log.debug('Removing working directory %s' % slave.work_dir)
         _rmtree(slave.work_dir)
     return exit_code
 
