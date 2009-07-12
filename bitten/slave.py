@@ -253,6 +253,7 @@ class BuildSlave(object):
     def _execute_build(self, build_url, fileobj):
         build_id = build_url and int(build_url.split('/')[-1]) or 0
         xml = xmlio.parse(fileobj)
+        basedir = ''
         try:
             recipe = Recipe(xml, os.path.join(self.work_dir, self.build_dir), 
                             self.config)
@@ -271,7 +272,7 @@ class BuildSlave(object):
             if self.dry_run:
                 self._cancel_build(build_url)
         finally:
-            if not self.keep_files:
+            if not self.keep_files and os.path.isdir(basedir):
                 log.debug('Removing build directory %s' % basedir)
                 _rmtree(basedir)
             if self.single_build:
