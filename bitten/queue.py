@@ -25,7 +25,6 @@ import logging
 import re
 import time
 
-from trac.versioncontrol import NoSuchNode
 from bitten.model import BuildConfig, TargetPlatform, Build, BuildStep
 
 __docformat__ = 'restructuredtext en'
@@ -50,9 +49,9 @@ def collect_changes(repos, config, db=None):
         db = env.get_db_cnx()
     try:
         node = repos.get_node(config.path)
-    except NoSuchNode, e:
-        env.log.warn('Node for configuration %r not found', config.name,
-                     exc_info=True)
+    except Exception, e:
+        env.log.warn('Error accessing path %r for configuration %r',
+                    config.path, config.name, exc_info=True)
         return
 
     for path, rev, chg in node.get_history():
