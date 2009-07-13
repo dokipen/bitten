@@ -138,4 +138,4 @@ More Information
 
 For further documentation, please see the Bitten website at:
 
-  <http://bitten.cmlenz.net/>
+  <http://bitten.edgewall.org/>
