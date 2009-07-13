@@ -481,7 +481,7 @@ class BuildController(Component):
                 'build': {}}
         config = BuildConfig.fetch(self.env, build.config, db=db)
         data['build']['config'] = {
-            'name': config.label,
+            'name': config.label or config.name,
             'href': req.href.build(config.name)
         }
 
