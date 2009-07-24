@@ -18,6 +18,7 @@ import unittest
 from trac.db import DatabaseManager
 from trac.perm import PermissionCache, PermissionSystem
 from trac.test import EnvironmentStub, Mock
+from trac.util.datefmt import to_datetime, utc
 from trac.web.api import HTTPBadRequest, HTTPMethodNotAllowed, HTTPNotFound, \
                          HTTPForbidden, RequestDone
 from trac.web.href import Href
@@ -67,7 +68,7 @@ class BuildMasterTestCase(unittest.TestCase):
                                      ('somepath', 121, 'edit'),
                                      ('somepath', 120, 'edit')]
             ),
-            get_changeset=lambda rev: Mock(date=42),
+            get_changeset=lambda rev: Mock(date=to_datetime(42, utc)),
             normalize_path=lambda path: path,
             rev_older_than=lambda rev1, rev2: rev1 < rev2
         )

@@ -19,11 +19,12 @@ the next pending build, and to match build slaves against configured target
 platforms.
 """
 
-from datetime import datetime
 from itertools import ifilter
 import logging
 import re
 import time
+
+from trac.util.datefmt import to_timestamp
 
 from bitten.model import BuildConfig, TargetPlatform, Build, BuildStep
 
@@ -234,10 +235,7 @@ class BuildQueue(object):
                                   'revision [%s] on %s', config.name, rev,
                                   platform.name)
 
-                    rev_time = repos.get_changeset(rev).date
-                    if isinstance(rev_time, datetime): # Trac>=0.11
-                        from trac.util.datefmt import to_timestamp
-                        rev_time = to_timestamp(rev_time)
+                    rev_time = to_timestamp(repos.get_changeset(rev).date)
                     age = int(time.time()) - rev_time
                     if self.stabilize_wait and age < self.stabilize_wait:
                         self.log.info('Delaying build of revision %s until %s '

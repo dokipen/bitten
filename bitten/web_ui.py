@@ -10,7 +10,6 @@
 
 """Implementation of the Bitten web interface."""
 
-from datetime import datetime
 import posixpath
 import re
 from StringIO import StringIO
@@ -21,6 +20,7 @@ from trac.core import *
 from trac.timeline import ITimelineEventProvider
 from trac.util import escape, pretty_timedelta, format_datetime, shorten_line, \
                       Markup
+from trac.util.datefmt import to_timestamp, to_datetime, utc
 from trac.util.html import html
 from trac.web import IRequestHandler, IRequestFilter, HTTPNotFound
 from trac.web.chrome import INavigationContributor, ITemplateProvider, \
@@ -292,8 +292,8 @@ class BuildConfigController(Component):
                     build_data['steps'].append({
                         'name': step.name,
                         'description': step.description,
-                        'duration': datetime.fromtimestamp(step.stopped) - \
-                                    datetime.fromtimestamp(step.started),
+                        'duration': to_datetime(step.stopped, utc) - \
+                                    to_datetime(step.started, utc),
                         'failed': not step.successful,
                         'errors': step.errors,
                         'href': build_data['href'] + '#step_' + step.name
@@ -409,8 +409,8 @@ class BuildConfigController(Component):
                         build_data['steps'].append({
                             'name': step.name,
                             'description': step.description,
-                            'duration': datetime.fromtimestamp(step.stopped) - \
-                                        datetime.fromtimestamp(step.started),
+                            'duration': to_datetime(step.stopped, utc) - \
+                                        to_datetime(step.started, utc),
                             'failed': not step.successful,
                             'errors': step.errors,
                             'href': build_data['href'] + '#step_' + step.name
@@ -528,10 +528,8 @@ class BuildController(Component):
         if 'build' not in filters:
             return
 
-        if isinstance(start, datetime): # Trac>=0.11
-            from trac.util.datefmt import to_timestamp
-            start = to_timestamp(start)
-            stop = to_timestamp(stop)
+        start = to_timestamp(start)
+        stop = to_timestamp(stop)
 
         add_stylesheet(req, 'bitten/bitten.css')
 

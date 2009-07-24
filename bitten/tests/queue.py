@@ -16,6 +16,7 @@ import unittest
 
 from trac.db import DatabaseManager
 from trac.test import EnvironmentStub, Mock
+from trac.util.datefmt import to_datetime, utc
 from bitten.model import BuildConfig, TargetPlatform, Build, schema
 from bitten.queue import BuildQueue, collect_changes
 
@@ -192,7 +193,7 @@ class BuildQueueTestCase(unittest.TestCase):
 
     def test_populate_not_build_all(self):
         self.env.get_repository = lambda authname=None: Mock(
-            get_changeset=lambda rev: Mock(date=rev * 1000),
+            get_changeset=lambda rev: Mock(date=to_datetime(rev * 1000, utc)),
             get_node=lambda path, rev=None: Mock(
                 get_entries=lambda: [Mock(), Mock()],
                 get_history=lambda: [('somepath', 123, 'edit'),
@@ -223,7 +224,7 @@ class BuildQueueTestCase(unittest.TestCase):
 
     def test_populate_build_all(self):
         self.env.get_repository = lambda authname=None: Mock(
-            get_changeset=lambda rev: Mock(date=rev * 1000),
+            get_changeset=lambda rev: Mock(date=to_datetime(rev * 1000, utc)),
             get_node=lambda path, rev=None: Mock(
                 get_entries=lambda: [Mock(), Mock()],
                 get_history=lambda: [('somepath', 123, 'edit'),
