@@ -938,3 +938,49 @@ Examples
 
 This applies the stylesheet in ``util/convert.xsl`` to the source file
 ``src.xml``, and writes the resulting XML document to ``dest.xml``.
+
+
+Mercurial Tools
+===============
+
+A collection of recipe commands for working with Mercurial_ (hg) repositories.
+
+.. _mercurial: http://mercurial.selenic.com/
+
+
+:Namespace: ``http://bitten.cmlenz.net/tools/hg``
+:Common prefix: ``hg``
+
+
+-------------
+``<hg:pull>``
+-------------
+
+Pull changesets and updates a local Mercurial repository.
+
+As the command depends on a pre-existing repository, bitten-slave must be
+started with ``--build-dir=`` option for locating and working with the
+repository.
+
+Parameters
+----------
+
++----------------+-----------------------------------------------------------+
+| Name           | Description                                               |
++================+===========================================================+
+| ``revision``   | The revision to update to (optional, defaults to tip).    |
++----------------+-----------------------------------------------------------+
+| ``dir``        | Local subdirectory with repository (optional,             |
+|                | defaults to '.').                                         |
++----------------+-----------------------------------------------------------+
+
+Paths are interpreted relative to the project source directory.
+
+Examples
+--------
+
+.. code-block:: xml
+
+  <hg:pull revision="${revision}" dir="src" />
+
+This updates the repository in ``src`` to the revision of the current build.
