@@ -358,6 +358,11 @@ def main():
                       help='the username to use for authentication')
     parser.add_option('-p', '--password', dest='password',
                       help='the password to use when authenticating')
+    def _ask_password(option, opt_str, value, parser):
+        from getpass import getpass
+        parser.values.password = getpass('Passsword: ')
+    parser.add_option('-P', '--ask-password', action='callback',
+                      callback=_ask_password, help='Prompt for password')
 
     group = parser.add_option_group('building')
     group.add_option('-d', '--work-dir', action='store', dest='work_dir',
