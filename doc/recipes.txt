@@ -66,3 +66,20 @@ See `Build Recipe Commands`_ for a comprehensive reference of the commands
 available by default.
 
 .. _`build recipe commands`: commands.html
+
+As the recipe needs to be valid XML, any reserved characters in attributes must
+be quoted using regular XML entities:
+
++-----------+------------+
+| Character | Quoted     |
++===========+============+
+| ``"``     | ``&quot;`` |
++-----------+------------+
+| ``<``     | ``&lt;``   |
++-----------+------------+  
+| ``>``     | ``&gt;``   |
++-----------+------------+
+| ``&``     | ``&amp;``  |
++-----------+------------+
+| ``'``     | ``&apos;`` |
++-----------+------------+
