@@ -83,10 +83,13 @@ name = OS
 
             self.assertEqual('MACHINE', config['machine'])
             self.assertEqual('OS', config['os'])
-            # Make sure other options are set to some default value
-            self.failUnless(config['processor'])
-            self.failUnless(config['family'])
-            self.failUnless(config['version'])
+            # Remaining options should be set to default value
+            system, release, version = platform.system_alias(platform.system(),
+                                                         platform.release(),
+                                                         platform.version())
+            self.assertEqual(platform.processor(), config['processor'])
+            self.assertEqual(os.name, config['family'])
+            self.assertEqual(release, config['version'])
         finally:
             os.remove(ininame)
 
