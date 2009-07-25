@@ -64,7 +64,7 @@ class Configuration(object):
                    'family': ('os', 'family'),
                    'version': ('os', 'version')}
         for key, (section, option) in mapping.items():
-            if parser.has_section(section):
+            if parser.has_option(section, option):
                 value = parser.get(section, option)
                 if value is not None:
                     self.properties[key] = value
@@ -81,6 +81,10 @@ class Configuration(object):
                 continue
             package = {}
             for option in parser.options(section):
+                if option == 'name':
+                    log.warning("Reserved configuration option 'name' used "
+                            "for package/section '%s'. Skipping." % section)
+                    continue
                 package[option] = parser.get(section, option)
             self.packages[section] = package
 
@@ -88,6 +92,10 @@ class Configuration(object):
             for key, value in properties.items():
                 if '.' in key:
                     package, propname = key.split('.', 1)
+                    if propname == 'name':
+                        log.warning("Reserved configuration option 'name' "
+                                "used for property '%s'. Skipping." % key)
+                        continue
                     if package not in self.packages:
                         self.packages[package] = {}
                     self.packages[package][propname] = value

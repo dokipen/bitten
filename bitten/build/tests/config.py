@@ -68,14 +68,39 @@ version = VERSION
         finally:
             os.remove(ininame)
 
+    def test_sysinfo_configfile_partial_override(self):
+        inifd, ininame = tempfile.mkstemp(prefix='bitten_test')
+        try:
+            os.write(inifd, """
+[machine]
+name = MACHINE
+
+[os]
+name = OS
+""")
+            os.close(inifd)
+            config = Configuration(ininame)
+
+            self.assertEqual('MACHINE', config['machine'])
+            self.assertEqual('OS', config['os'])
+            # Make sure other options are set to some default value
+            self.failUnless(config['processor'])
+            self.failUnless(config['family'])
+            self.failUnless(config['version'])
+        finally:
+            os.remove(ininame)
+
     def test_package_properties(self):
         config = Configuration(properties={
             'python.version': '2.3.5',
-            'python.path': '/usr/local/bin/python2.3'
+            'python.path': '/usr/local/bin/python2.3',
+            'python.name': 'invalid option'
         })
         self.assertEqual(True, 'python' in config.packages)
         self.assertEqual('/usr/local/bin/python2.3', config['python.path'])
         self.assertEqual('2.3.5', config['python.version'])
+        self.failIf('name' in config.packages['python'],
+                        "Invalid option 'name' should not be included...")
 
     def test_package_configfile(self):
         inifd, ininame = tempfile.mkstemp(prefix='bitten_test')
@@ -84,6 +109,7 @@ version = VERSION
 [python]
 path = /usr/local/bin/python2.3
 version = 2.3.5
+name = invalid option
 """)
             os.close(inifd)
             config = Configuration(ininame)
@@ -91,6 +117,8 @@ version = 2.3.5
             self.assertEqual(True, 'python' in config.packages)
             self.assertEqual('/usr/local/bin/python2.3', config['python.path'])
             self.assertEqual('2.3.5', config['python.version'])
+            self.failIf('name' in config.packages['python'],
+                        "Invalid option 'name' should not be included...")
         finally:
             os.remove(ininame)
 
