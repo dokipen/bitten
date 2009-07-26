@@ -198,17 +198,25 @@ class BuildConfigController(Component):
             for platform in TargetPlatform.select(self.env, config=config.name):
                 pd = { 'name': platform.name,
                        'id': platform.id,
-                       'builds_pending': len(list(Build.select(self.env, config=config.name, status=Build.PENDING, platform=platform.id))),
-                       'builds_inprogress': len(list(Build.select(self.env, config=config.name, status=Build.IN_PROGRESS, platform=platform.id)))
+                       'builds_pending': len(list(Build.select(self.env,
+                                config=config.name, status=Build.PENDING,
+                                platform=platform.id))),
+                       'builds_inprogress': len(list(Build.select(self.env,
+                                config=config.name, status=Build.IN_PROGRESS,
+                                platform=platform.id)))
                 }
                 platforms_data.append(pd)
-		
+
             config_data = {
                 'name': config.name, 'label': config.label or config.name,
                 'active': config.active, 'path': config.path,
                 'description': description,
-		'builds_pending' : len(list(Build.select(self.env, config=config.name, status=Build.PENDING))),
-		'builds_inprogress' : len(list(Build.select(self.env, config=config.name, status=Build.IN_PROGRESS))),
+                'builds_pending' : len(list(Build.select(self.env,
+                                                config=config.name,
+                                                status=Build.PENDING))),
+                'builds_inprogress' : len(list(Build.select(self.env,
+                                                config=config.name,
+                                                status=Build.IN_PROGRESS))),
                 'href': req.href.build(config.name),
                 'builds': [],
                 'platforms': platforms_data
@@ -247,8 +255,8 @@ class BuildConfigController(Component):
         in_progress_builds = Build.select(self.env, status=Build.IN_PROGRESS)
         pending_builds = Build.select(self.env, status=Build.PENDING)
 
-	data['builds_pending'] = len(list(pending_builds))
-	data['builds_inprogress'] = len(list(in_progress_builds))
+        data['builds_pending'] = len(list(pending_builds))
+        data['builds_inprogress'] = len(list(in_progress_builds))
 
         add_link(req, 'views', req.href.build(view='inprogress'),
                  'In Progress Builds')
@@ -343,8 +351,10 @@ class BuildConfigController(Component):
         if description:
             description = wiki_to_html(description, self.env, req)
 
-        pending_builds = list(Build.select(self.env, config=config.name, status=Build.PENDING))
-        inprogress_builds = list(Build.select(self.env, config=config.name, status=Build.IN_PROGRESS))
+        pending_builds = list(Build.select(self.env,
+                                config=config.name, status=Build.PENDING))
+        inprogress_builds = list(Build.select(self.env,
+                                config=config.name, status=Build.IN_PROGRESS))
 
         data['config'] = {
             'name': config.name, 'label': config.label, 'path': config.path,
@@ -355,7 +365,7 @@ class BuildConfigController(Component):
             'active': config.active, 'description': description,
             'browser_href': req.href.browser(config.path),
             'builds_pending' : len(pending_builds),
-	    'builds_inprogress' : len(inprogress_builds)
+            'builds_inprogress' : len(inprogress_builds)
         }
 
         platforms = list(TargetPlatform.select(self.env, config=config_name,
@@ -363,8 +373,14 @@ class BuildConfigController(Component):
         data['config']['platforms'] = [
             { 'name': platform.name,
               'id': platform.id, 
-              'builds_pending': len(list(Build.select(self.env, config=config.name, status=Build.PENDING, platform=platform.id))),
-              'builds_inprogress': len(list(Build.select(self.env, config=config.name, status=Build.IN_PROGRESS, platform=platform.id)))
+              'builds_pending': len(list(Build.select(self.env,
+                                                    config=config.name,
+                                                    status=Build.PENDING,
+                                                    platform=platform.id))),
+              'builds_inprogress': len(list(Build.select(self.env,
+                                                    config=config.name,
+                                                    status=Build.IN_PROGRESS,
+                                                    platform=platform.id)))
               }
             for platform in platforms
         ]
@@ -701,7 +717,8 @@ class SourceFileLinkFormatter(Component):
                         try:
                             full_path = posixpath.join(config.path, path)
                             full_path = posixpath.normpath(full_path)
-                            if full_path.startswith(config.path + "/") or full_path == config.path:
+                            if full_path.startswith(config.path + "/") \
+                                        or full_path == config.path:
                                 repos.get_node(full_path,
                                                build.rev)
                                 cache[path] = True
