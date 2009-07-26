@@ -180,10 +180,16 @@ class SourceFileLinkFormatterTestCase(AbstractWebUITestCase):
         comp = SourceFileLinkFormatter(self.env)
         formatter = comp.get_formatter(req, build)
 
+        # posix
         output = formatter(step, None, None, u'error in foo/bar.c: bad')
         self.assertEqual(Markup, type(output))
         self.assertEqual('error in <a href="/trac/browser/trunk/foo/bar.c">'
                          'foo/bar.c</a>: bad', output)
+        # windows
+        output = formatter(step, None, None, u'error in foo\\win.c: bad')
+        self.assertEqual(Markup, type(output))
+        self.assertEqual(r'error in <a href="/trac/browser/trunk/foo/win.c">'
+                         'foo\win.c</a>: bad', output)
 
     def test_format_bad_links(self):
         BuildConfig(self.env, name='test', path='trunk').insert()
@@ -240,10 +246,16 @@ class SourceFileLinkFormatterTestCase(AbstractWebUITestCase):
         comp = SourceFileLinkFormatter(self.env)
         formatter = comp.get_formatter(req, build)
 
+        # posix
         output = formatter(step, None, None, u'error in foo/bar.c:123: bad')
         self.assertEqual(Markup, type(output))
         self.assertEqual('error in <a href="/trac/browser/trunk/foo/bar.c#L123">'
                          'foo/bar.c:123</a>: bad', output)
+        # windows
+        output = formatter(step, None, None, u'error in foo\\win.c:123: bad')
+        self.assertEqual(Markup, type(output))
+        self.assertEqual(r'error in <a href="/trac/browser/trunk/foo/win.c#L123">'
+                         'foo\win.c:123</a>: bad', output)
 
     def test_format_link_not_in_repos_with_line(self):
         BuildConfig(self.env, name='test', path='trunk').insert()

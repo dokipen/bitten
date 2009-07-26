@@ -698,7 +698,7 @@ class SourceFileLinkFormatter(Component):
 
     implements(ILogFormatter)
 
-    _fileref_re = re.compile('(?P<prefix>-[A-Za-z])?(?P<path>[\w.-]+(?:/[\w.-]+)+)(?P<line>(:\d+))?')
+    _fileref_re = re.compile(r'(?P<prefix>-[A-Za-z])?(?P<path>[\w.-]+(?:[\\/][\w.-]+)+)(?P<line>:\d+)?')
 
     def get_formatter(self, req, build):
         """Return the log message formatter function."""
