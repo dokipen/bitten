@@ -526,7 +526,8 @@ class BuildController(Component):
                                                 step)
             })
         data['build']['steps'] = steps
-        data['build']['can_delete'] = ('BUILD_DELETE' in req.perm)
+        data['build']['can_delete'] = ('BUILD_DELETE' in req.perm \
+                                   and build.status != build.PENDING)
 
         repos = self.env.get_repository(req.authname)
         repos.authz.assert_permission(config.path)
