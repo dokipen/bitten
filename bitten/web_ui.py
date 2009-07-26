@@ -76,12 +76,7 @@ class BittenChrome(Component):
     # INavigationContributor methods
 
     def get_active_navigation_item(self, req):
-        """Called by Trac to determine which navigation item should be marked
-        as active.
-        
-        :param req: the request object
-        """
-        return 'build'
+        pass
 
     def get_navigation_items(self, req):
         """Return the navigation item for access the build status overview from
@@ -130,7 +125,15 @@ class BittenChrome(Component):
 class BuildConfigController(Component):
     """Implements the web interface for build configurations."""
 
-    implements(IRequestHandler, IRequestFilter)
+    implements(IRequestHandler, IRequestFilter, INavigationContributor)
+
+    # INavigationContributor methods
+
+    def get_active_navigation_item(self, req):
+        return 'build'
+
+    def get_navigation_items(self, req):
+        return []
 
     # IRequestHandler methods
 
