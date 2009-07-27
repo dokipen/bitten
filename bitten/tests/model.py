@@ -73,10 +73,6 @@ class BuildConfigTestCase(BaseModelTestCase):
         configs = BuildConfig.select(self.env)
         self.assertRaises(StopIteration, configs.next)
 
-    def test_select_none(self):
-        configs = BuildConfig.select(self.env)
-        self.assertRaises(StopIteration, configs.next)
-
     def test_insert(self):
         config = BuildConfig(self.env, name='test', path='trunk', label='Test')
         config.insert()
