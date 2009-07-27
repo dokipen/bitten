@@ -7,7 +7,7 @@
 }
 
 #content.build h2.config, #content.build h2.step { background: #f7f7f7;
-  border-bottom: 1px solid #d7d7d7; margin: 2em 0 0;
+  border-bottom: 1px solid #d7d7d7; margin: 2em 0 0; clear: both;
 }
 #content.build h2.config :link, #content.build h2.config :visited {
   color: #b00; display: block; border-bottom: none;
