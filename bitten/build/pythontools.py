@@ -152,10 +152,11 @@ def pylint(ctxt, file_=None):
                     category = msg_categories.get(msg_type[0])
                     if len(msg_type) == 1:
                         msg_type = None
-                    filename = os.path.realpath(match.group('file'))
-                    if filename.startswith(ctxt.basedir):
+                    filename = match.group('file')
+                    if os.path.isabs(filename) \
+                            and filename.startswith(ctxt.basedir):
                         filename = filename[len(ctxt.basedir) + 1:]
-                    filename = filename.replace(os.sep, '/')
+                    filename = filename.replace('\\', '/')
                     lineno = int(match.group('line'))
                     tag = match.group('tag')
                     problems.append(xmlio.Element('problem', category=category,

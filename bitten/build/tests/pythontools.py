@@ -200,6 +200,54 @@ lines   cov%   module   (path)
         self.assertEqual('test/module.py', child.attr['file'])
 
 
+class PyLintTestCase(unittest.TestCase):
+
+    def setUp(self):
+        self.basedir = os.path.realpath(tempfile.mkdtemp())
+        self.ctxt = Context(self.basedir)
+        self.summary = open(os.path.join(self.basedir, '.lint'), 'w')
+
+    def tearDown(self):
+        shutil.rmtree(self.basedir)
+
+    def test_summary_with_absolute_path(self):
+        # One posix + one windows path to normalize
+        self.summary.write("""
+%s/module/file1.py:42: [C] Missing docstring
+%s\\module\\file2.py:42: [C] Missing docstring
+""" % (self.ctxt.basedir, self.ctxt.basedir))
+        self.summary.close()
+        pythontools.pylint(self.ctxt, file_=self.summary.name)
+        type, category, generator, xml = self.ctxt.output.pop()
+        self.assertEqual(Recipe.REPORT, type)
+        self.assertEqual('lint', category)
+        self.assertEqual(2, len(xml.children))
+        child = xml.children[0]
+        self.assertEqual('problem', child.name)
+        self.assertEqual('module/file1.py', child.attr['file'])
+        child = xml.children[1]
+        self.assertEqual('problem', child.name)
+        self.assertEqual('module/file2.py', child.attr['file'])
+
+    def test_summary_with_relative_path(self):
+        # One posix + one windows path to normalize
+        self.summary.write("""
+module/file1.py:42: [C] Missing docstring
+module\\file2.py:42: [C] Missing docstring
+""")
+        self.summary.close()
+        pythontools.pylint(self.ctxt, file_=self.summary.name)
+        type, category, generator, xml = self.ctxt.output.pop()
+        self.assertEqual(Recipe.REPORT, type)
+        self.assertEqual('lint', category)
+        self.assertEqual(2, len(xml.children))
+        child = xml.children[0]
+        self.assertEqual('problem', child.name)
+        self.assertEqual('module/file1.py', child.attr['file'])
+        child = xml.children[1]
+        self.assertEqual('problem', child.name)
+        self.assertEqual('module/file2.py', child.attr['file'])
+
 class FigleafTestCase(unittest.TestCase):
 
     def setUp(self):
@@ -404,6 +452,7 @@ def suite():
     suite = unittest.TestSuite()
     suite.addTest(unittest.makeSuite(CoverageTestCase, 'test'))
     suite.addTest(unittest.makeSuite(TraceTestCase, 'test'))
+    suite.addTest(unittest.makeSuite(PyLintTestCase, 'test'))
     suite.addTest(unittest.makeSuite(FigleafTestCase, 'test'))
     suite.addTest(unittest.makeSuite(FilenameNormalizationTestCase, 'test'))
     suite.addTest(unittest.makeSuite(UnittestTestCase, 'test'))
