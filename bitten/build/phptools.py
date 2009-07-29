@@ -35,36 +35,45 @@ def phing(ctxt, file_=None, target=None, executable=None, args=None):
 def phpunit(ctxt, file_=None):
     """Extract test results from a PHPUnit XML report."""
     assert file_, 'Missing required attribute "file"'
+
+    def _process_testsuite(testsuite, results, parent_file=''):
+        for testcase in testsuite.children():
+            if testcase.name == 'testsuite':
+                _process_testsuite(testcase, results,
+                        parent_file=testcase.attr.get('file', parent_file))
+                continue
+            test = xmlio.Element('test')
+            test.attr['fixture'] = testsuite.attr['name']
+            test.attr['name'] = testcase.attr['name']
+            test.attr['duration'] = testcase.attr['time']
+            result = list(testcase.children())
+            if result:
+                test.append(xmlio.Element('traceback')[
+                    result[0].gettext()
+                ])
+                test.attr['status'] = result[0].name
+            else:
+                test.attr['status'] = 'success'
+            if 'file' in testsuite.attr or parent_file:
+                testfile = os.path.realpath(
+                                    testsuite.attr.get('file', parent_file))
+                if testfile.startswith(ctxt.basedir):
+                    testfile = testfile[len(ctxt.basedir) + 1:]
+                testfile = testfile.replace(os.sep, '/')
+                test.attr['file'] = testfile
+            results.append(test)
+
     try:
         total, failed = 0, 0
         results = xmlio.Fragment()
         fileobj = file(ctxt.resolve(file_), 'r')
         try:
-            for testsuit in xmlio.parse(fileobj).children('testsuite'):
-                total += int(testsuit.attr['tests'])
-                failed += int(testsuit.attr['failures']) + \
-                            int(testsuit.attr['errors'])
+            for testsuite in xmlio.parse(fileobj).children('testsuite'):
+                total += int(testsuite.attr['tests'])
+                failed += int(testsuite.attr['failures']) + \
+                            int(testsuite.attr['errors'])
 
-                for testcase in testsuit.children():
-                    test = xmlio.Element('test')
-                    test.attr['fixture'] = testcase.attr['class']
-                    test.attr['name'] = testcase.attr['name']
-                    test.attr['duration'] = testcase.attr['time']
-                    result = list(testcase.children())
-                    if result:
-                        test.append(xmlio.Element('traceback')[
-                            result[0].gettext()
-                        ])
-                        test.attr['status'] = result[0].name
-                    else:
-                        test.attr['status'] = 'success'
-                    if 'file' in testsuit.attr:
-                        testfile = os.path.realpath(testsuit.attr['file'])
-                        if testfile.startswith(ctxt.basedir):
-                            testfile = testfile[len(ctxt.basedir) + 1:]
-                        testfile = testfile.replace(os.sep, '/')
-                        test.attr['file'] = testfile
-                    results.append(test)
+                _process_testsuite(testsuite, results)
         finally:
             fileobj.close()
         if failed:
@@ -77,33 +86,67 @@ def phpunit(ctxt, file_=None):
         ctxt.log('Error parsing PHPUnit results file (%s)' % e)
 
 def coverage(ctxt, file_=None):
-    """Extract data from a Phing code coverage report."""
+    """Extract data from Phing or PHPUnit code coverage report."""
     assert file_, 'Missing required attribute "file"'
+
+    def _process_phing_coverage(ctxt, element, coverage):
+        for cls in element.children('class'):
+            statements = float(cls.attr['statementcount'])
+            covered = float(cls.attr['statementscovered'])
+            if statements:
+                percentage = covered / statements * 100
+            else:
+                percentage = 100
+            class_coverage = xmlio.Element('coverage',
+                name=cls.attr['name'],
+                lines=int(statements),
+                percentage=percentage
+            )
+            source = list(cls.children())[0]
+            if 'sourcefile' in source.attr:
+                sourcefile = os.path.realpath(source.attr['sourcefile'])
+                if sourcefile.startswith(ctxt.basedir):
+                    sourcefile = sourcefile[len(ctxt.basedir) + 1:]
+                sourcefile = sourcefile.replace(os.sep, '/')
+                class_coverage.attr['file'] = sourcefile
+            coverage.append(class_coverage)
+
+    def _process_phpunit_coverage(ctxt, element, coverage):
+        for cls in element._node.getElementsByTagName('class'):
+            sourcefile = cls.parentNode.getAttribute('name')
+            if not os.path.isabs(sourcefile):
+                sourcefile = os.path.join(ctxt.basedir, sourcefile)
+            if sourcefile.startswith(ctxt.basedir):
+                loc, ncloc = 0, 0.0
+                for line in cls.parentNode.getElementsByTagName('line'):
+                    if str(line.getAttribute('type')) == 'stmt':
+                        loc += 1
+                        if int(line.getAttribute('count')) == 0:
+                            ncloc += 1
+                if loc > 0:
+                    percentage = 100 - (ncloc / loc * 100)
+                else:
+                    percentage = 100
+
+                if sourcefile.startswith(ctxt.basedir):
+                    sourcefile = sourcefile[len(ctxt.basedir) + 1:]
+                class_coverage = xmlio.Element('coverage',
+                                    name=cls.getAttribute('name'),
+                                    lines=int(loc),
+                                    percentage=int(percentage),
+                                    file=sourcefile.replace(os.sep, '/'))
+                coverage.append(class_coverage)
+
     try:
         summary_file = file(ctxt.resolve(file_), 'r')
+        summary = xmlio.parse(summary_file)
+        coverage = xmlio.Fragment()
         try:
-            coverage = xmlio.Fragment()
-            for package in xmlio.parse(summary_file).children('package'):
-                for cls in package.children('class'):
-                    statements = float(cls.attr['statementcount'])
-                    covered = float(cls.attr['statementscovered'])
-                    if statements:
-                        percentage = covered / statements * 100
-                    else:
-                        percentage = 100
-                    class_coverage = xmlio.Element('coverage',
-                        name=cls.attr['name'],
-                        lines=int(statements),
-                        percentage=percentage
-                    )
-                    source = list(cls.children())[0]
-                    if 'sourcefile' in source.attr:
-                        sourcefile = os.path.realpath(source.attr['sourcefile'])
-                        if sourcefile.startswith(ctxt.basedir):
-                            sourcefile = sourcefile[len(ctxt.basedir) + 1:]
-                        sourcefile = sourcefile.replace(os.sep, '/')
-                        class_coverage.attr['file'] = sourcefile
-                    coverage.append(class_coverage)
+            for element in summary.children():
+                if element.name == 'package':
+                    _process_phing_coverage(ctxt, element, coverage)
+                elif element.name == 'project':
+                    _process_phpunit_coverage(ctxt, element, coverage)
         finally:
             summary_file.close()
         ctxt.report('coverage', coverage)

@@ -545,8 +545,8 @@ Extracts the test results from the XML file located at
 ``<php:coverage>``
 ------------------
 
-Extracts coverage information Phing_'s code coverage task recorded in an XML
-file.
+Extracts coverage information from Phing_'s code coverage task XML file or
+from PHPUnit_ coverage-clover XML file.
 
 Parameters
 ----------

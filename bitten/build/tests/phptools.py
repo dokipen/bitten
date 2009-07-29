@@ -77,14 +77,14 @@ class PhpCodeCoverageTestCase(unittest.TestCase):
     def test_missing_param_file(self):
         self.assertRaises(AssertionError, phptools.coverage, self.ctxt)
 
-    def test_sample_code_coverage(self):
+    def test_sample_phing_code_coverage(self):
         coverage_xml = file(self.ctxt.resolve('phpcoverage.xml'), 'w')
         coverage_xml.write("""<?xml version="1.0" encoding="UTF-8"?>
 <snapshot methodcount="4" methodscovered="2" statementcount="11" statementscovered="5" totalcount="15" totalcovered="7">
   <package name="default" methodcount="4" methodscovered="2" statementcount="11" statementscovered="5" totalcount="15" totalcovered="7">
     <class name="Foo" methodcount="1" methodscovered="1" statementcount="7" statementscovered="3" totalcount="8" totalcovered="4">
       <sourcefile name="Foo.php" sourcefile="xxxx/Foo.php">
-	  ...
+        ...
       </sourcefile>
     </class>
     <class name="Foo2" methodcount="2" methodscovered="1" statementcount="4" statementscovered="2" totalcount="6" totalcovered="3">
@@ -120,6 +120,128 @@ class PhpCodeCoverageTestCase(unittest.TestCase):
         self.assertEqual(100.0, coverage[2].attr['percentage'])
         self.assertEqual('Bar', coverage[2].attr['name'])
         self.assert_('xxxx/Bar.php' in coverage[2].attr['file'])
+
+    def test_sample_phpunit_code_coverage(self):
+        coverage_xml = file(self.ctxt.resolve('phpcoverage.xml'), 'w')
+        coverage_xml.write("""<?xml version="1.0" encoding="UTF-8"?>
+<coverage generated="1248813201" phpunit="3.3.17">
+  <project name="All Tests" timestamp="1248813201">
+    <file name="%s/Foo/classes/Foo.php">
+      <class name="Foo" namespace="global">
+        <metrics methods="0" coveredmethods="0" statements="0"
+          coveredstatements="0" elements="0" coveredelements="0"/>
+      </class>
+      <line num="3" type="stmt" count="1"/>
+      <line num="6" type="stmt" count="1"/>
+      <metrics loc="5" ncloc="3" classes="1" methods="0" coveredmethods="0"
+        statements="2" coveredstatements="2" elements="2" coveredelements="2"/>
+    </file>
+    <file name="%s/Foo/tests/environment.config.php">
+      <line num="0" type="stmt" count="2"/>
+      <line num="4" type="stmt" count="2"/>
+      <line num="5" type="stmt" count="2"/>
+      <metrics loc="6" ncloc="6" classes="0" methods="0" coveredmethods="0"
+        statements="3" coveredstatements="3" elements="3" coveredelements="3"/>
+    </file>
+    <file name="%s/Foo/tests/Foo/AllTests.php">
+      <class name="All_Foo_Tests" namespace="global" fullPackage="All.Foo">
+        <metrics methods="2" coveredmethods="0" statements="4"
+          coveredstatements="0" elements="6" coveredelements="0"/>
+      </class>
+      <line num="7" type="method" count="0"/>
+      <line num="9" type="stmt" count="0"/>
+      <line num="10" type="stmt" count="0"/>
+      <line num="12" type="method" count="0"/>
+      <line num="14" type="stmt" count="0"/>
+      <line num="15" type="stmt" count="0"/>
+      <line num="16" type="stmt" count="0"/>
+      <metrics loc="19" ncloc="19" classes="1" methods="2" coveredmethods="0"
+        statements="5" coveredstatements="0" elements="7" coveredelements="0"/>
+    </file>
+    <file name="%s/Foo/tests/AllTests.php">
+      <class name="AllTests" namespace="global">
+        <metrics methods="2" coveredmethods="0" statements="5"
+          coveredstatements="0" elements="7" coveredelements="0"/>
+      </class>
+      <line num="8" type="method" count="0"/>
+      <line num="10" type="stmt" count="0"/>
+      <line num="11" type="stmt" count="0"/>
+      <line num="13" type="method" count="0"/>
+      <line num="15" type="stmt" count="0"/>
+      <line num="16" type="stmt" count="0"/>
+      <line num="17" type="stmt" count="0"/>
+      <line num="18" type="stmt" count="0"/>
+      <metrics loc="22" ncloc="22" classes="1" methods="2" coveredmethods="0"
+        statements="6" coveredstatements="0" elements="8" coveredelements="0"/>
+    </file>
+    <file name="%s/Foo/tests/Bar/AllTests.php">
+      <class name="All_Bar_Tests" namespace="global" fullPackage="All.Bar">
+        <metrics methods="2" coveredmethods="0" statements="5"
+          coveredstatements="0" elements="7" coveredelements="0"/>
+      </class>
+      <line num="8" type="method" count="0"/>
+      <line num="10" type="stmt" count="0"/>
+      <line num="11" type="stmt" count="0"/>
+      <line num="13" type="method" count="0"/>
+      <line num="15" type="stmt" count="0"/>
+      <line num="16" type="stmt" count="0"/>
+      <line num="17" type="stmt" count="0"/>
+      <line num="18" type="stmt" count="0"/>
+      <metrics loc="20" ncloc="20" classes="1" methods="2" coveredmethods="0"
+        statements="6" coveredstatements="0" elements="8" coveredelements="0"/>
+    </file>
+    <file name="%s/Foo/tests/Bar/Nested/AllTests.php">
+      <class name="All_Bar_Nested_Tests" namespace="global" fullPackage="All.Bar.Nested">
+        <metrics methods="2" coveredmethods="0" statements="5"
+          coveredstatements="0" elements="7" coveredelements="0"/>
+      </class>
+      <line num="8" type="method" count="0"/>
+      <line num="10" type="stmt" count="0"/>
+      <line num="11" type="stmt" count="0"/>
+      <line num="13" type="method" count="0"/>
+      <line num="15" type="stmt" count="0"/>
+      <line num="16" type="stmt" count="0"/>
+      <line num="17" type="stmt" count="0"/>
+      <line num="18" type="stmt" count="0"/>
+      <metrics loc="21" ncloc="21" classes="1" methods="2" coveredmethods="0"
+        statements="6" coveredstatements="0" elements="8" coveredelements="0"/>
+    </file>
+    <file name="Foo/classes/Bar.php">
+      <class name="Bar" namespace="global">
+        <metrics methods="0" coveredmethods="0" statements="0"
+          coveredstatements="0" elements="0" coveredelements="0"/>
+      </class>
+      <line num="3" type="stmt" count="1"/>
+      <line num="6" type="stmt" count="1"/>
+      <metrics loc="5" ncloc="3" classes="1" methods="0" coveredmethods="0"
+        statements="2" coveredstatements="2" elements="2" coveredelements="2"/>
+    </file>
+    <metrics files="7" loc="98" ncloc="94" classes="6" methods="8" coveredmethods="0"
+      statements="30" coveredstatements="7" elements="38" coveredelements="7"/>
+  </project>
+</coverage>""" % ((self.basedir,)*6)) # One relative path, remaining is absolute
+        coverage_xml.close()
+        phptools.coverage(self.ctxt, file_='phpcoverage.xml')
+        type, category, generator, xml = self.ctxt.output.pop()
+        self.assertEqual(Recipe.REPORT, type)
+        self.assertEqual('coverage', category)
+
+        coverage = list(xml.children)
+        self.assertEqual(6, len(coverage))
+
+        self.assertEqual(27, sum([int(c.attr['lines']) for c in coverage]))
+        self.assertEqual(['Foo', 'All_Foo_Tests', 'AllTests', 'All_Bar_Tests',
+                            'All_Bar_Nested_Tests', 'Bar'],
+                        [c.attr['name'] for c in coverage])
+        self.assertEqual(['Foo/classes/Foo.php',
+                                'Foo/tests/Foo/AllTests.php',
+                                'Foo/tests/AllTests.php',
+                                'Foo/tests/Bar/AllTests.php',
+                                'Foo/tests/Bar/Nested/AllTests.php',
+                                'Foo/classes/Bar.php'],
+                        [c.attr['file'] for c in coverage])
+        self.assertEqual([100, 0, 0, 0, 0, 100],
+                        [c.attr['percentage'] for c in coverage])
 
 def suite():
     suite = unittest.TestSuite()
