@@ -11,5 +11,9 @@
 __docformat__ = 'restructuredtext en'
 try:
     __version__ = __import__('pkg_resources').get_distribution('Bitten').version
-except ImportError:
-    pass
+except:
+    try:
+        __version__ = __import__('pkg_resources').get_distribution(
+                                                    'Bitten-Slave').version
+    except:
+        pass
