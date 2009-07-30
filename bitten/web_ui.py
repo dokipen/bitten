@@ -10,7 +10,7 @@
 
 """Implementation of the Bitten web interface."""
 
-import posixpath
+import os
 import re
 from StringIO import StringIO
 
@@ -708,16 +708,16 @@ class SourceFileLinkFormatter(Component):
         cache = {}
 
         def _replace(m):
-            filepath = posixpath.normpath(m.group('path').replace('\\', '/'))
+            filepath = os.path.normpath(m.group('path').replace('\\', '/'))
             if not cache.get(filepath) is True:
                 parts = filepath.split('/')
                 path = ''
                 for part in parts:
-                    path = posixpath.join(path, part)
+                    path = os.path.join(path, part)
                     if path not in cache:
                         try:
-                            full_path = posixpath.join(config.path, path)
-                            full_path = posixpath.normpath(full_path)
+                            full_path = os.path.join(config.path, path)
+                            full_path = os.path.normpath(full_path)
                             if full_path.startswith(config.path + "/") \
                                         or full_path == config.path:
                                 repos.get_node(full_path,

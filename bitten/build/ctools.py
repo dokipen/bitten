@@ -13,7 +13,6 @@
 import logging
 import re
 import os
-import posixpath
 import shlex
 
 from bitten.build import CommandLine, FileSet
@@ -172,7 +171,7 @@ def cppunit(ctxt, file_=None, srcdir=None):
                         for file_elem in location.children('File'):
                             filepath = file_elem.gettext()
                             if srcdir is not None:
-                                filepath = posixpath.join(srcdir, filepath)
+                                filepath = os.path.join(srcdir, filepath)
                             test.attr['file'] = filepath
                             break
                         for line_elem in location.children('Line'):

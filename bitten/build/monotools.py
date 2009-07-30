@@ -15,7 +15,6 @@
 from glob import glob
 import logging
 import os
-import posixpath
 import shlex
 import tempfile
 
