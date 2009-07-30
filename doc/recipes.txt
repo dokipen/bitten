@@ -36,6 +36,10 @@ A ``<step>`` element will consist of any number of commands and reports. Most of
 these elements are declared in XML namespaces, where the namespace URI defines
 a collection of related commands.
 
+A ``<step>```element can additionally have a ``onerror`` attribute with possible
+values of ``fail`` (terminate after step, default behaviour), or ``continue``
+(fail, but run next step), or ``ignore`` (errors are unimportant, continue).
+
 Commonly, the first step of any build recipe will perform the checkout from the
 repository.
 
@@ -66,6 +70,24 @@ See `Build Recipe Commands`_ for a comprehensive reference of the commands
 available by default.
 
 .. _`build recipe commands`: commands.html
+
+Recipes supports variables that can be interpolated into recipes, and using
+`Slave Configuration`_ further custom properties can be used. Bitten supports
+these pre-defined properties:
+
+.. _`slave configuration`: slaveconfig.html
+
++-----------------+----------------------------------------------------------+
+| Constant        | Value                                                    |
++=================+==========================================================+
+| ``${path}``     | Repository path from the build configuration             |
++-----------------+----------------------------------------------------------+
+| ``${config}``   | The build configuration name                             |
++-----------------+----------------------------------------------------------+
+| ``${build}``    | The index of this build request                          |
++-----------------+----------------------------------------------------------+
+| ``${revision}`` | The repository revision being tested                     |
++-----------------+----------------------------------------------------------+
 
 As the recipe needs to be valid XML, any reserved characters in attributes must
 be quoted using regular XML entities:

@@ -5,11 +5,13 @@ Build Recipe Commands
 =====================
 
 `Build recipes`_ are represented by XML documents. This page describes what
-commands are generally available in recipes. Please note, though, that
+commands are generally available in recipes, and any `runtime configuration`_
+supported by these commands. Please note, though, that
 third-party packages can add additional commands, which would then be
 documented by that third party.
 
 .. _`build recipes`: recipes.html
+.. _`runtime configuration`: configure.html
 
 .. contents:: Contents
    :depth: 2
@@ -213,6 +215,15 @@ feature, and passing ``-O`` as ``CFLAGS``. This is equivalent to::
 
   ./configure --enable-threadsafe CFLAGS="-O"
 
+Configuration
+-------------
+
+Parameter ``with`` will expand any package found in slave configuration:
+
+.. code-block:: ini
+
+  [mylib]
+  path = /path/to/mylib
 
 ------------
 ``<c:gcov>``
@@ -269,7 +280,6 @@ Parameters
 |                | ``"parameter1=value1 parameter2=value2"``.                |
 +----------------+-----------------------------------------------------------+
 
-
 Examples
 --------
 
@@ -286,6 +296,14 @@ Runs the target "compile" of the ``Makefile`` located in the sub-directory
 
 Same as previous but execute the command in the ``work`` directory and call
 the makefile with the command line argument ``coverage=1``.
+
+Configuration
+-------------
+
+.. code-block:: ini
+
+  [make]
+  path = /path/to/(c|n)make
 
 ---------------
 ``<c:cppunit>``
@@ -362,6 +380,17 @@ Examples
 
 Executes the target ``compile`` of the ``build.xml`` buildfile at the top of the
 project source directory.
+
+Configuration
+-------------
+
+.. code-block:: ini
+
+  [ant]
+  home = /path/to/ant/dir
+  
+  [java]
+  home = /path/to/java/dir
 
 
 --------------------
@@ -616,6 +645,14 @@ Examples
 Executes Pylint_ on the module/package ``myproj`` and stores the output into a
 file named ``pylint-report.txt``.
 
+Configuration
+-------------
+
+.. code-block:: ini
+
+  [python]
+  path = /path/to/python
+
 
 ----------------------
 ``<python:distutils>``
@@ -656,6 +693,14 @@ Instructs `distutils` to produce a source distribution.
 Instructs `distutils` to run the ``unittest`` command (which is provided by
 Bitten), and passes the options needed to determine the output paths for test
 results and code coverage reports.
+
+Configuration
+-------------
+
+.. code-block:: ini
+
+  [python]
+  path = /path/to/python
 
 
 ---------------------

@@ -1,0 +1,209 @@
+.. -*- mode: rst; encoding: utf-8 -*-
+
+=============
+Configuration
+=============
+
+While the `Recipe`_ contains the instructions for how to build,
+configurations are used to determine what gets built and any runtime
+parameters used when building.
+
+.. _recipe: recipe.html
+
+.. contents:: Contents
+   :depth: 2
+.. sectnum::
+
+Target platforms
+================
+
+A target platform is something like 'NetBSD x86' or 'Win32 Java 1.4'.
+
+Technically, a target platform is a named set of rules against which the
+properties of build slaves are matched. Each rule is a regular expression
+matching a particular slave property, such as the operating system
+or the processor. When a slave connects to the build master, it sends a
+registration message that includes information about the slave.
+
+A build configuration must have at least one target platform assigned to
+it before it becomes fully active. 
+
+Slave Properties
+================
+
+By default, the following properties are included:
+
+:`family`:    The basic type of operating system, typically “posix” for
+              Unix-like systems and “nt” for Win32 systems.
+:`os`:        The name of the operating system (for example “Darwin”,
+              “Linux” or “Windows”).
+:`version`:   The operating system version.
+:`machine`:   The hardware platform (for example “i686” or “Power Macintosh”).
+:`processor`: The processor architecture (for example “athlon” or “powerpc”).
+
+Note that not all of these properties may be available for all platforms,
+depending on OS and Python version.
+
+Examples
+--------
+
+To set up a target platform, create rules that are checked against the
+properties of the slave. For example, a target platform that matches slave
+running Linux on x86 would look like this:
+
++------------+------------------------------------+
++ Property   | Expression                         |
++============+====================================+
+| `os`       | `^Linux`                           |
++------------+------------------------------------+
+| `machine`  | `^[xi]\d?86$`                      |
++------------+------------------------------------+
+
+A target platform that matches any slaves running on Windows might look
+like this:
+
++------------+------------------------------------+
++ Property   | Expression                         |
++============+====================================+
+| `family`   | `^nt$`                             |
++------------+------------------------------------+
+
+The build master will request a build from at most one slave for every
+target platform. So, for example, if there are three slaves connected that
+are matching 'NetBSD x86', only one of them will perform the build of a
+specific revision. Slaves that match a particular target platform are
+treated as if they were completely interchangable.
+
+If a slave connects that doesn't match any of the configured target platforms,
+the build master will reject its registration.
+
+Slave Configuration
+===================
+
+When a build slave registers with a build master, it sends information about
+the machine the slave is running on, and what software it has available.
+While some of this information can be automatically discovered by the slave,
+other information may need to be configured explicitly. Also, a slave instance
+may want to override some of the automatically computed attributes,
+for example to enable cross-compilation.
+
+There are three categories of information that can be configured for a slave:
+
+:`os`:       Properties of the operating system
+:`machine`:  Properties of the underlying hardware
+:`packages`: Various pieces of software, like a language runtime or a library
+
+Configuration File Format
+-------------------------
+
+For simple manual editing, the slave configuration file will be based on
+the ``'INI'`` file format known from Windows, which is also frequently used by
+Python applications.
+
+The file is included at runtime using a slave command-line option::
+
+  bitten-slave -f config.ini
+
+A configuration file is partitioned into named sections. There are two
+predefined sections named ``[machine]`` and ``[os]``. If you supply them in
+your configuration file they should include the following sections.
+
+.. code-block:: ini
+
+  [os]
+  name = Darwin
+  version = 8.1.0
+  family = posix
+  
+  [machine]
+  name = levi
+  processor = Power Macintosh
+
+There may be any number of additional sections, where each section corresponds
+to a software package. For example:
+
+.. code-block:: ini
+
+  [dbxml]
+  version = 2.1.8
+  
+  [python]
+  version = 2.3.5
+  path = /usr/bin/python2.3
+
+The build slave sends this package information as part of the build initiation,
+which when using verbose logging (``bitten-slave -v``) will display a debug
+message 'Sending slave configuration:' followed by:
+
+.. code-block:: xml
+
+  <slave name="host.domain">
+    <platform processor="Power Macintosh">levi</platform>
+    <os version="8.1.0" family="posix">Darwin</os>
+    <package name="dbxml" version="2.1.8" />
+    <package name="python" version="2.3.5" path="/usr/bin/python23" />
+  </slave>
+
+The name of the slave can only be set as command-line option::
+
+  bitten-slave --name=myhost
+
+Commands using Properties
+-------------------------
+
+A number of commands_ support runtime settings using a slave configuration
+file. The example of ``python.path`` above is one such example, where all
+Python commands will use the specified executable for running commands.
+
+The documentation for commands_ should include information about all
+runtime settings.
+
+.. _commands: commands.html
+
+Properties in Build Configurations
+----------------------------------
+
+Defined properties can be used in a build configuration to match slaves
+against target platforms. For example, the following rule would match any slave
+providing 'Berkeley DB XML' version 2.x::
+
+  dbxml.version ~= /^2\.\d\.\d.*/
+
+The properties are accessible in dotted notation, where the part before the dot
+is the package name, and the part after the dot is the name of the property.  
+
+Property Interpolation in Build Recipes
+---------------------------------------
+
+Property values can be interpolated into build recipes_ as well, so individual
+slaves can parameterize how their build is perfomed. For example, given the
+following build recipe excerpt:
+
+.. code-block:: xml
+
+  <svn:checkout url="http://svn.example.org/repos/myproject/"
+    path="${repository.branch}" revision="${revision}"/>
+
+.. _recipes: recipes.html
+
+Slaves may control which part of the repository is checked out and tested
+with a configuration file excerpt like this one:
+
+.. code-block:: ini
+
+  [repository]
+  branch = /branches/0.3-testing
+
+Authentication
+==============
+
+Authentication information can also be included in slave configuration file:
+
+.. code-block:: ini
+
+  [authentication]
+  username = myusername
+  password = mypassword
+
+The authentication information will be removed as soon as it is read
+by the slave, and will not be passed to the master as active configuration.

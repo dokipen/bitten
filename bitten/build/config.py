@@ -30,7 +30,6 @@ class Configuration(object):
     information and stores them as properties. These defaults can be
     overridden (useful for cross-compilation).
     """
-    # TODO: document mapping from config file to property names
 
     def __init__(self, filename=None, properties=None):
         """Create the configuration object.
