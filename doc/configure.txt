@@ -194,7 +194,7 @@ with a configuration file excerpt like this one:
   [repository]
   branch = /branches/0.3-testing
 
-Default slave properties are also available for use in recipes::
+Default slave properties are also available for use in recipes:
 
 .. code-block:: xml
 
