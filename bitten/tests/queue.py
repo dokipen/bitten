@@ -261,6 +261,75 @@ class BuildQueueTestCase(unittest.TestCase):
         self.assertEqual(platform2.id, builds[5].platform)
         self.assertEqual('120', builds[5].rev)
 
+    def test_should_delete_build_platform_dont_exist(self):
+        messages = []
+        self.env.log = Mock(info=lambda msg, *args: messages.append(msg))
+        config = BuildConfig(self.env, 'test', active=True)
+        config.insert()
+        build = Build(self.env, config=config.name, rev=42,
+                        platform="no-stuff", rev_time=123456)
+        build.insert()
+        queue = BuildQueue(self.env, build_all=True)
+
+        self.assertEqual(True, queue.should_delete_build(build, self.repos))
+        self.assert_("platform no longer exists" in messages[0])
+
+    def test_should_delete_build_config_deactivated(self):
+        messages = []
+        self.env.log = Mock(info=lambda msg, *args: messages.append(msg))
+        config = BuildConfig(self.env, 'test', active=False)
+        config.insert()
+        platform = TargetPlatform(self.env, config='test', name='stuff')
+        platform.insert()
+        build = Build(self.env, config=config.name, rev=42,
+                        platform=platform.id, rev_time=123456)
+        build.insert()
+        queue = BuildQueue(self.env, build_all=True)
+
+        self.assertEqual(True, queue.should_delete_build(build, self.repos))
+        self.assert_("configuration is deactivated" in messages[0])
+
+    def test_should_delete_build_outside_revision_range(self):
+        messages = []
+        self.env.log = Mock(info=lambda msg, *args: messages.append(msg))
+        self.repos.rev_older_than = lambda rev1, rev2: rev1 < rev2
+        config = BuildConfig(self.env, 'test', active=True, min_rev=120,
+                                max_rev=123)
+        config.insert()
+        platform = TargetPlatform(self.env, config='test', name='stuff')
+        platform.insert()
+        build1 = Build(self.env, config=config.name, rev=42,
+                        platform=platform.id, rev_time=123456)
+        build1.insert()
+        build2 = Build(self.env, config=config.name, rev=10042,
+                        platform=platform.id, rev_time=123456)
+        build2.insert()
+        queue = BuildQueue(self.env, build_all=True)
+
+        self.assertEqual(True, queue.should_delete_build(build1, self.repos))
+        self.assertEqual(True, queue.should_delete_build(build2, self.repos))        
+        self.assert_("outside of the revision range" in messages[0])
+        self.assert_("outside of the revision range" in messages[1])
+
+    def test_should_delete_build_old_with_not_buildall(self):
+        messages = []
+        self.env.log = Mock(info=lambda msg, *args: messages.append(msg))
+        config = BuildConfig(self.env, 'test', active=True)
+        config.insert()
+        platform = TargetPlatform(self.env, config='test', name='stuff')
+        platform.insert()
+        build1 = Build(self.env, config=config.name, rev=42,
+                        platform=platform.id, rev_time=123456)
+        build1.insert()
+        build2 = Build(self.env, config=config.name, rev=43,
+                        platform=platform.id, rev_time=123457,
+                        slave='slave')
+        build2.insert()
+        queue = BuildQueue(self.env, build_all=False)
+
+        self.assertEqual(True, queue.should_delete_build(build1, self.repos))
+        self.assert_("more recent build exists" in messages[0])
+
     def test_reset_orphaned_builds(self):
         BuildConfig(self.env, 'test').insert()
         platform = TargetPlatform(self.env, config='test', name='Foo')

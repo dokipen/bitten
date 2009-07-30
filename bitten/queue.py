@@ -20,7 +20,6 @@ platforms.
 """
 
 from itertools import ifilter
-import logging
 import re
 import time
 
@@ -29,8 +28,6 @@ from trac.util.datefmt import to_timestamp
 from bitten.model import BuildConfig, TargetPlatform, Build, BuildStep
 
 __docformat__ = 'restructuredtext en'
-
-log = logging.getLogger('bitten.queue')
 
 
 def collect_changes(repos, config, db=None):
@@ -127,7 +124,7 @@ class BuildQueue(object):
         :return: the allocated build, or `None` if no build was found
         :rtype: `Build`
         """
-        log.debug('Checking for pending builds...')
+        self.log.debug('Checking for pending builds...')
 
         db = self.env.get_db_cnx()
         repos = self.env.get_repository()
@@ -286,18 +283,25 @@ class BuildQueue(object):
         db.commit()
 
     def should_delete_build(self, build, repos):
-        # Ignore pending builds for deactived build configs
         config = BuildConfig.fetch(self.env, build.config)
+
+        platform = TargetPlatform.fetch(self.env, build.platform)
+        # Platform may or may not exist anymore - get safe name for logging
+        platform_name = platform and platform.name \
+                        or 'unknown platform "%s"' % build.platform
+
+        # Drop build if platform no longer exists
+        if not platform:
+            self.log.info('Dropping build of configuration "%s" at '
+                     'revision [%s] on %s because the platform no longer '
+                     'exists', config.name, build.rev, platform_name)
+            return True
+
+        # Ignore pending builds for deactived build configs
         if not config.active:
-            target_platform = TargetPlatform.fetch(self.env, build.platform)
-            if target_platform:
-                target_platform_name = '"%s"' % (target_platform.name,)
-            else:
-                target_platform_name = 'unknown platform "%s"' % (build.platform,)
-            log.info('Dropping build of configuration "%s" at '
+            self.log.info('Dropping build of configuration "%s" at '
                      'revision [%s] on %s because the configuration is '
-                     'deactivated', config.name, build.rev,
-                     target_platform_name)
+                     'deactivated', config.name, build.rev, platform_name)
             return True
 
         # Stay within the revision limits of the build config
@@ -305,12 +309,18 @@ class BuildQueue(object):
                                                     config.min_rev)) \
         or (config.max_rev and repos.rev_older_than(config.max_rev,
                                                     build.rev)):
-            # This minimum and/or maximum revision has changed since
-            # this build was enqueued, so drop it
-            log.info('Dropping build of configuration "%s" at revision [%s] on '
+            self.log.info('Dropping build of configuration "%s" at revision [%s] on '
                      '"%s" because it is outside of the revision range of the '
-                     'configuration', config.name, build.rev,
-                     TargetPlatform.fetch(self.env, build.platform).name)
+                     'configuration', config.name, build.rev, platform_name)
+            return True
+
+        # If not 'build_all', drop if a more recent revision is available
+        if not self.build_all and \
+                len(list(Build.select(self.env, config=build.config,
+                min_rev_time=build.rev_time, platform=build.platform))) > 1:
+            self.log.info('Dropping build of configuration "%s" at revision [%s] '
+                     'on "%s" because a more recent build exists',
+                         config.name, build.rev, platform_name)
             return True
 
         return False

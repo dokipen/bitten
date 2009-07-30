@@ -489,7 +489,7 @@ class Build(object):
     fetch = classmethod(fetch)
 
     def select(cls, env, config=None, rev=None, platform=None, slave=None,
-               status=None, db=None):
+               status=None, db=None, min_rev_time=None, max_rev_time=None):
         """Retrieve existing builds from the database that match the specified
         criteria.
         """
@@ -507,6 +507,10 @@ class Build(object):
             where_clauses.append(("slave=%s", slave))
         if status is not None:
             where_clauses.append(("status=%s", status))
+        if min_rev_time is not None:
+            where_clauses.append(("rev_time>=%s", min_rev_time))
+        if max_rev_time is not None:
+            where_clauses.append(("rev_time<=%s", max_rev_time))
         if where_clauses:
             where = "WHERE " + " AND ".join([wc[0] for wc in where_clauses])
         else:
