@@ -14,6 +14,7 @@
 from glob import glob
 import logging
 import os
+import posixpath
 import shlex
 import tempfile
 
@@ -119,7 +120,7 @@ def junit(ctxt, file_=None, srcdir=None):
                         test.attr['duration'] = testcase.attr['time']
                     if srcdir is not None:
                         cls = testcase.attr['classname'].split('.')
-                        test.attr['file'] = os.path.join(srcdir, *cls) + \
+                        test.attr['file'] = posixpath.join(srcdir, *cls) + \
                                             '.java'
 
                     result = list(testcase.children())
@@ -216,7 +217,7 @@ def cobertura(ctxt, file_=None):
     for filename, name in class_names.iteritems():
         counter = counters[filename]
         module = xmlio.Element('coverage', name=name,
-                               file=os.path.join(srcdir, filename),
+                               file=posixpath.join(srcdir, filename),
                                lines=counter.num_lines,
                                percentage=counter.percentage)
         module.append(xmlio.Element('line_hits')[counter.line_hits])

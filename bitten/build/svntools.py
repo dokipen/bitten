@@ -11,6 +11,7 @@
 """Recipe commands for Subversion."""
 
 import logging
+import posixpath
 import re
 import shutil
 import os
@@ -85,7 +86,7 @@ def checkout(ctxt, url, path=None, revision=None, dir_='.', verbose=False, share
     if revision:
         args += ['-r', revision]
     if path:
-        final_url = os.path.join(url, path.lstrip('/'))
+        final_url = posixpath.join(url, path.lstrip('/'))
     else:
         final_url = url
     if username:
@@ -128,7 +129,7 @@ def export(ctxt, url, path=None, revision=None, dir_='.', username=None, passwor
     if revision:
         args += ['-r', revision]
     if path:
-        url = os.path.join(url, path)
+        url = posixpath.join(url, path)
     if username:
         args += ['--username', username]
     if password:
