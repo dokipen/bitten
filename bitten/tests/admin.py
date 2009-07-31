@@ -593,28 +593,24 @@ class BuildConfigurationsAdminPageProviderTestCase(unittest.TestCase):
             self.assertEqual('Steps must have an "id" attribute', e.message)
             self.assertEqual('Invalid Recipe', e.title)
 
-    def test_process_new_platform(self):
+    def test_process_new_platform_no_name(self):
         BuildConfig(self.env, name='foo', label='Foo', path='branches/foo',
                     active=True).insert()
 
         data = {}
         req = Mock(method='POST', chrome={}, hdf=data, href=Href('/'),
                    perm=PermissionCache(self.env, 'joe'),
-                   args={'new': ''})
+                   args={'new': '', 'platform_name': ''})
 
         provider = BuildConfigurationsAdminPageProvider(self.env)
-        template_name, data = provider.render_admin_panel(
-            req, 'bitten', 'configs', 'foo'
-        )
+        try:
+            provider.render_admin_panel(req, 'bitten', 'configs', 'foo')
+            self.fail("No TracError?")
+        except Exception, e:
+            self.assertEquals(e.message, 'Missing required field "name"')
+            self.assertEquals(e.title, 'Missing field')
 
-        self.assertEqual('bitten_admin_configs.html', template_name)
-        assert 'platform' in data
-        platform = data['platform']
-        self.assertEqual({
-            'id': None, 'exists': False, 'name': None, 'rules': [('', '')],
-        }, platform)
-
-    def test_process_add_platform(self):
+    def test_process_new_platform(self):
         BuildConfig(self.env, name='foo', label='Foo', path='branches/foo',
                     active=True).insert()
 
@@ -625,8 +621,7 @@ class BuildConfigurationsAdminPageProviderTestCase(unittest.TestCase):
         req = Mock(method='POST', perm=PermissionCache(self.env, 'joe'),
                    abs_href=Href('http://example.org/'), redirect=redirect,
                    authname='joe',
-                   args={'add': '', 'new': '', 'name': 'Test',
-                         'property_0': 'family', 'pattern_0': 'posix'})
+                   args={'add': '', 'new': '', 'platform_name': 'Test'})
 
         provider = BuildConfigurationsAdminPageProvider(self.env)
         try:
@@ -634,37 +629,12 @@ class BuildConfigurationsAdminPageProviderTestCase(unittest.TestCase):
             self.fail('Expected RequestDone')
 
         except RequestDone:
-            self.assertEqual('http://example.org/admin/bitten/configs/foo',
+            self.assertEqual('http://example.org/admin/bitten/configs/foo/1',
                              redirected_to[0])
             platforms = list(TargetPlatform.select(self.env, config='foo'))
             self.assertEqual(1, len(platforms))
             self.assertEqual('Test', platforms[0].name)
-            self.assertEqual([('family', 'posix')], platforms[0].rules)
-
-    def test_process_add_platform_cancel(self):
-        BuildConfig(self.env, name='foo', label='Foo', path='branches/foo',
-                    active=True).insert()
-
-        redirected_to = []
-        def redirect(url):
-            redirected_to.append(url)
-            raise RequestDone
-        req = Mock(method='POST', perm=PermissionCache(self.env, 'joe'),
-                   abs_href=Href('http://example.org/'), redirect=redirect,
-                   authname='joe',
-                   args={'cancel': '', 'new': '', 'name': 'Test',
-                         'property_0': 'family', 'pattern_0': 'posix'})
-
-        provider = BuildConfigurationsAdminPageProvider(self.env)
-        try:
-            provider.render_admin_panel(req, 'bitten', 'configs', 'foo')
-            self.fail('Expected RequestDone')
-
-        except RequestDone:
-            self.assertEqual('http://example.org/admin/bitten/configs/foo',
-                             redirected_to[0])
-            platforms = list(TargetPlatform.select(self.env, config='foo'))
-            self.assertEqual(0, len(platforms))
+            self.assertEqual([], platforms[0].rules)
 
     def test_process_remove_platforms(self):
         BuildConfig(self.env, name='foo', label='Foo', path='branches/foo',

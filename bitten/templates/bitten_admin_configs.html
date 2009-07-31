@@ -74,6 +74,15 @@
       </div>
       <div class="platforms">
         <h3>Target Platforms</h3>
+        <fieldset id="newplatform">
+          <legend>New Target Platform</legend>
+          <div class="field"><label>Name:
+            <input type="text" name="platform_name" value="" />
+            </label></div>
+          <div class="buttons">
+            <input type="submit" name="new" value="Add platform" />
+          </div>
+        </fieldset>
         <table class="listing" id="platformlist">
           <thead>
             <tr><th class="sel">&nbsp;</th>
@@ -105,8 +114,6 @@
           </tbody>
         </table>
         <div class="buttons">
-          <input type="submit" name="new"
-                 value="Add platform" />
           <input type="submit" name="remove"
                  value="Delete selected platforms" />
         </div>

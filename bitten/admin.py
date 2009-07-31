@@ -124,16 +124,9 @@ class BuildConfigurationsAdminPageProvider(Component):
                             req.redirect(req.abs_href.admin(cat, page,
                                                             config_name))
                 else: # creating target platform
-                    if req.method == 'POST':
-                        if 'add' in req.args:
-                            self._create_platform(req, config_name)
-                            req.redirect(req.abs_href.admin(cat, page,
-                                                            config_name))
-                        elif 'cancel' in req.args:
-                            req.redirect(req.abs_href.admin(cat, page,
-                                                            config_name))
-
-                    platform = TargetPlatform(self.env, config=config_name)
+                    platform = self._create_platform(req, config_name)
+                    req.redirect(req.abs_href.admin(cat, page,
+                                            config_name, platform.id))
 
                 # Set up template variables
                 data['platform'] = {
@@ -151,11 +144,7 @@ class BuildConfigurationsAdminPageProvider(Component):
                                                        config=config.name))
 
                 if req.method == 'POST':
-                    if 'add' in req.args: # Add target platform
-                        platform = self._create_platform(req, config)
-                        req.redirect(req.abs_href.admin(cat, page, config.name))
-
-                    elif 'remove' in req.args: # Remove selected platforms
+                    if 'remove' in req.args: # Remove selected platforms
                         self._remove_platforms(req)
                         req.redirect(req.abs_href.admin(cat, page, config.name))
 
@@ -298,12 +287,12 @@ class BuildConfigurationsAdminPageProvider(Component):
     def _create_platform(self, req, config_name):
         req.perm.assert_permission('BUILD_MODIFY')
 
-        name = req.args.get('name')
+        name = req.args.get('platform_name')
         if not name:
             raise TracError('Missing required field "name"', 'Missing field')
 
         platform = TargetPlatform(self.env, config=config_name, name=name)
-        self._update_platform(req, platform)
+        platform.insert()
         return platform
 
     def _remove_platforms(self, req):
