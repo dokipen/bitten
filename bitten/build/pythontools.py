@@ -301,7 +301,8 @@ def trace(ctxt, summary=None, coverdir=None, include=None, exclude=None):
 
             elem.append(xmlio.Element('line_hits')[' '.join(lines)])
 
-        num_lines = len(code_lines)
+        num_lines = not lines and len(code_lines) or \
+                len([l for l in lines if l != '-'])
         if num_lines:
             percentage = int(round(num_covered * 100 / num_lines))
         else:
