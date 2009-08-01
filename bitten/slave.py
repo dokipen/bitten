@@ -419,6 +419,9 @@ def main():
         handler.setFormatter(formatter)
         logger.addHandler(handler)
 
+    log.info("Slave launched at %s" % \
+                datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
+
     slave = BuildSlave(urls, name=options.name, config=options.config,
                        dry_run=options.dry_run, work_dir=options.work_dir,
                        build_dir=options.build_dir,
@@ -439,6 +442,10 @@ def main():
     if not (options.work_dir or options.keep_files):
         log.debug('Removing working directory %s' % slave.work_dir)
         _rmtree(slave.work_dir)
+
+    log.info("Slave exited at %s" % \
+                datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
+
     return exit_code
 
 if __name__ == '__main__':
