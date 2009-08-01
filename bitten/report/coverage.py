@@ -147,12 +147,12 @@ if hasattr(IHTMLPreviewAnnotator, 'get_annotation_data'):
         >>> req = Mock(href=Href('/'), perm=MockPerm(), chrome={})
 
         Version in the branch should not match:
-        >>> context = Context.from_request(req, 'source', 'branches/blah/foo.py', 123)
+        >>> context = Context.from_request(req, 'source', '/branches/blah/foo.py', 123)
         >>> ann.get_annotation_data(context)
         []
 
         Version in the trunk should match:
-        >>> context = Context.from_request(req, 'source', 'trunk/foo.py', 123)
+        >>> context = Context.from_request(req, 'source', '/trunk/foo.py', 123)
         >>> data = ann.get_annotation_data(context)
         >>> print data
         [u'5', u'-', u'0']
@@ -184,20 +184,23 @@ if hasattr(IHTMLPreviewAnnotator, 'get_annotation_data'):
             reports = []
             for build in builds:
                 config = BuildConfig.fetch(self.env, build.config)
-                if not resource.id.startswith(config.path):
+                if not resource.id.startswith('/' + config.path.lstrip('/')):
                     continue
                 reports = Report.select(self.env, build=build.id,
                                         category='coverage')
-                path_in_config = resource.id[len(config.path):].lstrip('/')
+                path_in_config = resource.id[len(config.path)+1:].lstrip('/')
                 for report in reports:
                     for item in report.items:
                         if item.get('file') == path_in_config:
-                            # TODO should aggregate coverage across builds
-                            return item.get('line_hits', '').split()
+                            coverage = item.get('line_hits', '').split()
+                            if coverage:
+                                # Return first result with line data
+                                self.log.debug("Coverage annotate for %s: %s" \
+                                            % (resource.id, coverage))
+                                return coverage
             return []
 
         def annotate_row(self, context, row, lineno, line, data):
-            self.log.debug('%s', data)
             from genshi.builder import tag
             lineno -= 1 # 0-based index for data
             if lineno >= len(data):

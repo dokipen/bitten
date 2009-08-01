@@ -1,4 +1,4 @@
 /* Code coverage file annotations */
 table.code th.coverage { width: 4em; }
-table.code th.covered { background-color: #0f0; }
-table.code th.uncovered { background-color: #f00; }
+table.code th.covered { background-color: #6F6; }
+table.code th.uncovered { background-color: #f66; }
