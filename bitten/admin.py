@@ -320,8 +320,8 @@ class BuildConfigurationsAdminPageProvider(Component):
         patterns = [int(key[8:]) for key in req.args.keys()
                     if key.startswith('pattern_')]
         patterns.sort()
-        platform.rules = [(req.args.get('property_%d' % property),
-                           req.args.get('pattern_%d' % pattern))
+        platform.rules = [(req.args.get('property_%d' % property).strip(),
+                           req.args.get('pattern_%d' % pattern).strip())
                           for property, pattern in zip(properties, patterns)
                           if req.args.get('property_%d' % property)]
 
