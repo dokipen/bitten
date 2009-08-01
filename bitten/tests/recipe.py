@@ -28,10 +28,11 @@ class ContextTestCase(unittest.TestCase):
 
     def test_vars_basedir(self):
         config = Configuration(properties={'foo.bar': 'baz'})
-        ctxt = Context('/foo/${path}/${foo.bar}', config,
-                        {'path': 'bar'})
+        ctxt = Context('%s/${path}/${foo.bar}' % os.path.realpath('/foo'),
+                        config, {'path': 'bar'})
 
-        self.assertEquals('/foo/bar/baz', ctxt.vars['basedir'])
+        self.assertEquals(os.path.realpath('/foo/bar/baz'),
+                        ctxt.vars['basedir'])
 
 
 class RecipeTestCase(unittest.TestCase):
