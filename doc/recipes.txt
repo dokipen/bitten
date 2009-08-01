@@ -36,9 +36,9 @@ A ``<step>`` element will consist of any number of commands and reports. Most of
 these elements are declared in XML namespaces, where the namespace URI defines
 a collection of related commands.
 
-A ``<step>```element can additionally have a ``onerror`` attribute with possible
-values of ``fail`` (terminate after step, default behaviour), or ``continue``
-(fail, but run next step), or ``ignore`` (errors are unimportant, continue).
+A ``<step>`` element can additionally have an ``onerror`` attribute with
+value of ``fail`` (terminate after step, default behaviour) or ``ignore``
+(fail, but run next step).
 
 Commonly, the first step of any build recipe will perform the checkout from the
 repository.
@@ -75,7 +75,7 @@ Recipes supports variables that can be interpolated into recipes, and using
 `Slave Configuration`_ further custom properties can be used. Bitten supports
 these pre-defined properties:
 
-.. _`slave configuration`: slaveconfig.html
+.. _`slave configuration`: configure.html
 
 +-----------------+----------------------------------------------------------+
 | Constant        | Value                                                    |
@@ -87,6 +87,13 @@ these pre-defined properties:
 | ``${build}``    | The index of this build request                          |
 +-----------------+----------------------------------------------------------+
 | ``${revision}`` | The repository revision being tested                     |
++-----------------+----------------------------------------------------------+
+| ``${platform}`` | The name of the target platform being built              |
++-----------------+----------------------------------------------------------+
+| ``${name}``     | The name of the build slave                              |
++-----------------+----------------------------------------------------------+
+| ``${basedir}``  | The absolute path of the build location, joining         |
+|                 | ``work-dir`` (absolute) with ``build-dir`` (relative)    |
 +-----------------+----------------------------------------------------------+
 
 As the recipe needs to be valid XML, any reserved characters in attributes must

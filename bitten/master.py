@@ -189,6 +189,7 @@ class BuildMaster(Component):
         xml.attr['build'] = str(build.id)
         target_platform = TargetPlatform.fetch(self.env, build.platform)
         xml.attr['platform'] = target_platform.name
+        xml.attr['name'] = build.slave
         body = str(xml)
 
         self.log.info('Build slave %r initiated build %d', build.slave,

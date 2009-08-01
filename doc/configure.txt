@@ -131,6 +131,9 @@ to a software package. For example:
   version = 2.3.5
   path = /usr/bin/python2.3
 
+*Note:* Options called ``name`` is not allowed in custom sections (will
+be skipped).
+
 The build slave sends this package information as part of the build initiation,
 which when using verbose logging (``bitten-slave -v``) will display a debug
 message 'Sending slave configuration:' followed by:

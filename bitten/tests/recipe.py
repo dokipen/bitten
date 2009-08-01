@@ -13,8 +13,25 @@ import shutil
 import tempfile
 import unittest
 
-from bitten.recipe import Recipe, InvalidRecipeError
+from bitten.build.config import Configuration
+from bitten.recipe import Context, Recipe, InvalidRecipeError
 from bitten.util import xmlio
+
+
+class ContextTestCase(unittest.TestCase):
+
+    def setUp(self):
+        self.basedir = os.path.realpath(tempfile.mkdtemp())
+
+    def tearDown(self):
+        shutil.rmtree(self.basedir)
+
+    def test_vars_basedir(self):
+        config = Configuration(properties={'foo.bar': 'baz'})
+        ctxt = Context('/foo/${path}/${foo.bar}', config,
+                        {'path': 'bar'})
+
+        self.assertEquals('/foo/bar/baz', ctxt.vars['basedir'])
 
 
 class RecipeTestCase(unittest.TestCase):
@@ -102,7 +119,10 @@ class RecipeTestCase(unittest.TestCase):
         recipe.validate()
 
 def suite():
-    return unittest.makeSuite(RecipeTestCase, 'test')
+    suite = unittest.TestSuite()
+    suite.addTest(unittest.makeSuite(ContextTestCase, 'test'))
+    suite.addTest(unittest.makeSuite(RecipeTestCase, 'test'))
+    return suite
 
 if __name__ == '__main__':
     unittest.main(defaultTest='suite')

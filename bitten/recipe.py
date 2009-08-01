@@ -56,6 +56,7 @@ class Context(object):
         self.output = []
         self.basedir = os.path.realpath(self.config.interpolate(basedir,
                                                                 **self.vars))
+        self.vars['basedir'] = self.basedir
 
     def run(self, step, namespace, name, attr):
         """Run the specified recipe command.
