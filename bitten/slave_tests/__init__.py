@@ -9,25 +9,16 @@
 # are also available at http://bitten.edgewall.org/wiki/License.
 
 import unittest
-from bitten.tests import admin, master, model, queue, web_ui, notify
-from bitten.slave_tests import slave, recipe
+from bitten.slave_tests import recipe, slave
 from bitten.build import tests as build
-from bitten.report import tests as report
 from bitten.util import tests as util
 
 def suite():
     suite = unittest.TestSuite()
-    suite.addTest(admin.suite())
-    suite.addTest(master.suite())
-    suite.addTest(model.suite())
     suite.addTest(recipe.suite())
-    suite.addTest(queue.suite())
     suite.addTest(slave.suite())
-    suite.addTest(web_ui.suite())
     suite.addTest(build.suite())
-    suite.addTest(report.suite())
     suite.addTest(util.suite())
-    suite.addTest(notify.suite())
     return suite
 
 if __name__ == '__main__':
