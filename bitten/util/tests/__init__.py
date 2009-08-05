@@ -11,11 +11,13 @@
 import doctest
 import unittest
 
-from bitten.util import xmlio
+from bitten.util import xmlio as xmlio_module
+from bitten.util.tests import xmlio as xmlio_tests
 
 def suite():
     suite = unittest.TestSuite()
-    suite.addTest(doctest.DocTestSuite(xmlio))
+    suite.addTest(doctest.DocTestSuite(xmlio_module))
+    suite.addTest(xmlio_tests.suite())
     return suite
 
 if __name__ == '__main__':
