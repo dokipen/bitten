@@ -3,20 +3,17 @@ prune bitten/templates
 prune doc
 prune scripts
 exclude bitten/*.py
-exclude bitten/build/tests/*.py
+include bitten/build/tests/*.py
 exclude bitten/report/*.py
 exclude bitten/report/tests/*.py
 exclude bitten/tests/*.py
-exclude bitten/util/*.py
-exclude bitten/util/tests/*.py
-exclude setup.py
+include setup.py
 exclude MANIFEST.in
 include bitten/__init__.py
 include bitten/build/*.py
 include bitten/recipe.py
 include bitten/slave.py
-include bitten/tests/slave.py
-include bitten/util/__init__.py
-include bitten/util/testrunner.py
-include bitten/util/xmlio.py
+include bitten/slave_tests/*.py
+include bitten/util/*.py
+include bitten/util/tests/*.py
 
