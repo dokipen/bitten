@@ -334,8 +334,13 @@ def migrate_logs_to_files(env, db):
         env.log.info("Migrated log %s", log_id)
     env.log.warning("Logs have been migrated from the database to files in %s. "
         "Ensure permissions are set correctly on this file. "
-        "When you have confirmed that the migration worked correctly, "
-        "you can drop the bitten_log_message table in the database (it remains as a backup)", logs_dir)
+        "Since we presume that the migration worked correctly, "
+        "we are now dropping the bitten_log_message table in the database (aren't you glad you backed up)", logs_dir)
+    cursor.close()
+    cursor = db.cursor()
+    cursor.execute("DROP TABLE bitten_log_message")
+    cursor.close()
+    env.log.warning("We have dropped the bitten_log_message table - you may want to vaccuum/compress your database to save space")
 
 def recreate_rule_with_int_id(env, db):
         """Recreates the bitten_rule table with an integer id column rather than a text one."""
