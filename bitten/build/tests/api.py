@@ -70,7 +70,8 @@ class CommandLineTestCase(unittest.TestCase):
                 stdout.append(out)
             if err is not None:
                 stderr.append(err)
-        py_version = '.'.join([str(v) for (v) in sys.version_info[:3]])
+        py_version = '.'.join([str(v) for (v) in sys.version_info[:3]]
+                                                            ).rstrip('.0')
         self.assertEqual(['Python %s' % py_version], stderr)
         self.assertEqual([], stdout)
         self.assertEqual(0, cmdline.returncode)
@@ -87,8 +88,6 @@ for arg in sys.argv[1:]:
         for out, err in cmdline.execute(timeout=5.0):
             stdout.append(out)
             stderr.append(err)
-        py_version = '.'.join([str(v) for (v) in sys.version_info[:3]]
-                                                            ).rstrip('.0')
         self.assertEqual(['foo', 'bar', 'baz'], stdout)
         self.assertEqual([None, None, None], stderr)
         self.assertEqual(0, cmdline.returncode)
