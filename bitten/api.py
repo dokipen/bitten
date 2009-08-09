@@ -43,7 +43,7 @@ class IBuildListener(Interface):
         """Called when a build slave has completed a build, regardless of the
         outcome.
         
-        :param build: the build that was aborted
+        :param build: the build that was completed
         :type build: `Build`
         """
 
