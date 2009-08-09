@@ -30,14 +30,14 @@ class BittenNotify(Component):
         self.log.debug('Initializing BittenNotify plugin')
 
     def notify(self, build=None):
-        self.log.info('BittenNotify invoked for build %r' % build)
-        self.log.debug('build status: %s' % build.status)
+        self.log.info('BittenNotify invoked for build %r', build)
+        self.log.debug('build status: %s', build.status)
         if not self._should_notify(build):
             return
-        self.log.info('Sending notification for build %r' % build)
+        self.log.info('Sending notification for build %r', build)
         try:
-            email = BittenNotifyEmail(self.env)
-            email.notify(BuildInfo(self.env, build))
+            email = BuildNotifyEmail(self.env)
+            email.notify(build)
         except Exception, e:
             self.log.exception("Failure sending notification for build "
                                "%s: %s", build.id, e)
@@ -78,99 +78,77 @@ class BittenNotify(Component):
         return []
 
 
-class BuildInfo(dict):
-    """Wraps a Build instance and exposes properties conveniently"""
-
-    readable_states = {Build.SUCCESS:'Successful', Build.FAILURE:'Failed'}
-
-    def __init__(self, env, build):
-        dict.__init__(self)
-        self.build = build
-        self.env = env
-        self['project_name'] = self.env.project_name
-        self['id'] = self.build.id
-        self['status'] = self.readable_states[self.build.status]
-        self['link'] = self.env.abs_href.build(self.build.config,
-                self.build.id)
-        self['config'] = self.build.config
-        self['slave'] = self.build.slave
-        self['changeset'] = self.build.rev
-        self['changesetlink'] = self.env.abs_href.changeset(self.build.rev)
-        self['author'] = self.get_author(build)
-        self['errors'] = self.get_errors(build)
-        self['faillog'] = self.get_faillog(build)
-
-    def get_author(self, build):
-        if build and build.rev:
-            changeset = self.env.get_repository().get_changeset(build.rev)
-            return changeset.author
-
-    def get_failed_steps(self, build):
-        build_steps = BuildStep.select(self.env,
-                build=build.id,
-                status=BuildStep.FAILURE)
-        return build_steps
-
-    def get_errors(self, build):
-        errors = ''
-        for step in self.get_failed_steps(build):
-            errors += ', '.join(['%s: %s' % (step.name, error) \
-                    for error in step.errors])
-        return errors
-
-    def get_faillog(self, build):
-        faillog = ''
-        for step in self.get_failed_steps(build):
-            build_logs = BuildLog.select(self.env,
-                    build=build.id,
-                    step=step.name)
-            for log in build_logs:
-                faillog += '\n'.join(['%5s: %s' % (level, msg) \
-                        for level, msg in log.messages])
-        return faillog
-
-    def __getattr__(self, attr):
-        return dict.__getitem__(self,attr)
-
-    def __repr__(self):
-        repr = ''
-        for k, v in self.items():
-            repr += '%s: %s\n' % (k, v)
-        return repr
-
-    def __str__(self):
-        return self.repr()
-
-
-class BittenNotifyEmail(NotifyEmail):
+class BuildNotifyEmail(NotifyEmail):
     """Notification of failed builds."""
 
+    readable_states = {
+        Build.SUCCESS: 'Successful',
+        Build.FAILURE: 'Failed',
+    }
     template_name = 'bitten_notify_email.txt'
     from_email = 'bitten@localhost'
 
     def __init__(self, env):
         NotifyEmail.__init__(self, env)
 
-    def notify(self, build_info):
-        self.build_info = build_info
-        self.data = self.build_info
-        subject = '[%s Build] %s [%s] %s' % (self.build_info.status,
-                self.env.project_name,
-                self.build_info.changeset,
-                self.build_info.config)
-        stream = self.template.generate(**self.data)
-        body = stream.render('text')
-        self.env.log.debug('notification: %s' % body )
-        NotifyEmail.notify(self, self.build_info.id, subject)
+    def notify(self, build):
+        self.build = build
+        self.data.update(self.template_data())
+        subject = '[%s Build] %s [%s] %s' % (self.readable_states[build.status],
+                                             self.env.project_name,
+                                             self.build.rev,
+                                             self.build.config)
+        NotifyEmail.notify(self, self.build.id, subject)
 
     def get_recipients(self, resid):
-        to = [self.build_info.author]
+        to = [self.get_author()]
         cc = []
         return (to, cc)
 
-    def send(self, torcpts, ccrcpts, mime_headers={}):
+    def send(self, torcpts, ccrcpts):
         mime_headers = {
-            'X-Trac-Build-ID': str(self.build_info.id),
-            'X-Trac-Build-URL': self.build_info.link,
+            'X-Trac-Build-ID': str(self.build.id),
+            'X-Trac-Build-URL': self.build_link(),
         }
         NotifyEmail.send(self, torcpts, ccrcpts, mime_headers)
+
+    def build_link(self):
+        return self.env.abs_href.build(self.build.config, self.build.id)
+
+    def template_data(self):
+        failed_steps = BuildStep.select(self.env, build=self.build.id,
+                                        status=BuildStep.FAILURE)
+        change = self.get_changeset()
+        return {
+            'build': {
+                'id': self.build.id,
+                'status': self.readable_states[self.build.status],
+                'link': self.build_link(),
+                'config': self.build.config,
+                'slave': self.build.slave,
+                'failed_steps': [{
+                    'name': step.name,
+                    'description': step.description,
+                    'errors': step.errors,
+                    'log_messages': self.get_all_log_messages_for_step(step),
+                } for step in failed_steps],
+            },
+            'change': {
+                'rev': change.rev,
+                'link': self.env.abs_href.changeset(change.rev),
+                'author': change.author,
+            },
+        }
+
+    def get_all_log_messages_for_step(self, step):
+        messages = []
+        for log in BuildLog.select(self.env, build=self.build.id,
+                                   step=step.name):
+            messages.extend(log.messages)
+        return messages
+
+    def get_changeset(self):
+        return self.env.get_repository().get_changeset(self.build.rev)
+
+    def get_author(self):
+        return self.get_changeset().author

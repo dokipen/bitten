@@ -1,15 +1,26 @@
-${status} build of ${project_name} [${changeset}]
+$build.status build of $project.name [$change.rev]
 ---------------------------------------------------------------------
 
-  Changeset:             ${changeset}  -  <${changesetlink}>
-  Committed by:          ${author}
+  Changeset:             $change.rev  -  <$change.link>
+  Committed by:          $change.author
 
-  Build Configuration:   ${config}
-  Build Slave:           ${slave}
-  Build Number:          ${id}  -  <${link}>
+  Build Configuration:   $build.config
+  Build Slave:           $build.slave
+  Build Number:          $build.id  -  <${build.link}>
+#if build.failed_steps
 
-  Failed Steps:          ${errors}
-  Failure Log:
+  Failures:
+#for step in build.failed_steps
+    Step:                $step.name
+    Errors:              ${', '.join(step.errors)}
+    Log:
+      #for lvl, msg in step.log_messages
+      [${lvl.upper().ljust(8)}] $msg
+      #end
+#end
+#end
 
-${faillog}
-
+--
+Build URL: <$build.link>
+$project.name <${project.url or abs_href()}>
+$project.descr

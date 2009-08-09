@@ -12,13 +12,13 @@ from trac.db import DatabaseManager
 from trac.test import EnvironmentStub, Mock
 from trac.web.session import DetachedSession
 from bitten.model import schema, Build, BuildStep, BuildLog
-from bitten.notify import BittenNotify, BittenNotifyEmail, BuildInfo
+from bitten.notify import BittenNotify, BuildNotifyEmail
 
 
 class BittenNotifyBaseTest(unittest.TestCase):
     def setUp(self):
         self.env = EnvironmentStub(enable=['trac.*', 'bitten.notify.*'])
-        repos = Mock(get_changeset=lambda rev: Mock(author='author'))
+        repos = Mock(get_changeset=lambda rev: Mock(author='author', rev=rev))
         self.env.get_repository = lambda authname=None: repos
 
         db = self.env.get_db_cnx()
@@ -62,52 +62,7 @@ class BittenNotifyTest(BittenNotifyBaseTest):
         self.env.config.set(option.section, option.name, value)
 
 
-class BuildInfoTest(BittenNotifyBaseTest):
-    """unit tests for BuildInfo class"""
-
-    def setUp(self):
-        BittenNotifyBaseTest.setUp(self)
-        #fixture
-        self.failed_build = Build(self.env,
-                config = 'config',
-                slave = 'slave',
-                rev = 10,
-                status = Build.FAILURE)
-        self.failed_build.id = 1
-        self.successful_build = Build(self.env, status = Build.SUCCESS)
-        self.successful_build.id = 2
-        step = BuildStep(self.env,
-                build = 1,
-                name = 'test',
-                status = BuildStep.FAILURE)
-        step.errors = ['msg']
-        step.insert()
-        log = BuildLog(self.env, build = 1, step = 'test')
-        log.messages = [('info','msg')]
-        log.insert()
-
-    def test_exposed_properties(self):
-        build_info = BuildInfo(self.env, self.failed_build)
-        self.assertEquals(self.failed_build.id, build_info.id)
-        self.assertEquals('Failed', build_info.status)
-        self.assertEquals('http://example.org/trac.cgi/build/config/1',
-                build_info.link)
-        self.assertEquals('config', build_info.config)
-        self.assertEquals('slave', build_info.slave)
-        self.assertEquals('10', build_info.changeset)
-        self.assertEquals('http://example.org/trac.cgi/changeset/10',
-                build_info.changesetlink)
-        self.assertEquals('author', build_info.author)
-        self.assertEquals('test: msg', build_info.errors)
-        self.assertEquals(' info: msg', build_info.faillog)
-
-    def test_exposed_properties_on_successful_build(self):
-        build_info = BuildInfo(self.env, self.successful_build)
-        self.assertEquals(self.successful_build.id, build_info.id)
-        self.assertEquals('Successful', build_info.status)
-
-
-class BittenNotifyEmailTest(BittenNotifyBaseTest):
+class BuildNotifyEmailTest(BittenNotifyBaseTest):
     """unit tests for BittenNotifyEmail class"""
     def setUp(self):
         BittenNotifyBaseTest.setUp(self)
@@ -117,32 +72,24 @@ class BittenNotifyEmailTest(BittenNotifyBaseTest):
             self.notifications_sent_to = to
         def noop(*args, **kw):
             pass
-        self.email = Mock(BittenNotifyEmail, self.env,
+        self.email = Mock(BuildNotifyEmail, self.env,
                           begin_send=noop,
                           finish_send=noop,
                           send=send)
-        self.build_info = BuildInfo(self.env,
-                Build(self.env, status=Build.SUCCESS, rev=123))
+        self.build = Build(self.env, status=Build.SUCCESS, rev=123)
 
     def test_notification_is_sent_to_author(self):
-        self.email.notify(self.build_info)
+        self.email.notify(self.build)
         self.assertTrue('author' in self.notifications_sent_to,
                 'Recipient list should contain the author')
 
-    def add_known_user(self, username, name, email):
-        session = DetachedSession(self.env, username)
-        if name is not None:
-            session['name'] = name
-        if email is not None:
-            session['email'] = email
-        session.save()
+    # TODO functional tests of generated mails
 
 
 def suite():
     suite = unittest.TestSuite()
-    suite.addTest(unittest.makeSuite(BittenNotifyTest,'test'))
-    suite.addTest(unittest.makeSuite(BuildInfoTest,'test'))
-    suite.addTest(unittest.makeSuite(BittenNotifyEmailTest,'test'))
+    suite.addTest(unittest.makeSuite(BittenNotifyTest, 'test'))
+    suite.addTest(unittest.makeSuite(BuildNotifyEmailTest, 'test'))
     return suite
 
 if __name__ == '__main__':
