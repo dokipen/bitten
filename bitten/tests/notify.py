@@ -6,27 +6,20 @@
 # This software is licensed as described in the file COPYING, which
 # you should have received as part of this distribution.
 
-import logging
-import os
-import sys
 import unittest
 
 from trac.db import DatabaseManager
 from trac.test import EnvironmentStub, Mock
 from trac.web.session import DetachedSession
-from bitten.model import *
-from bitten.notify import *
+from bitten.model import schema, Build, BuildStep, BuildLog
+from bitten.notify import BittenNotify, BittenNotifyEmail, BuildInfo
 
 
 class BittenNotifyBaseTest(unittest.TestCase):
     def setUp(self):
-        self.set_up_env()
-
-    def set_up_env(self):
         self.env = EnvironmentStub(enable=['trac.*', 'bitten.notify.*'])
-        self.env.path = ''
-        self.repos = Mock(get_changeset=lambda rev: Mock(author = 'author'))
-        self.env.get_repository = lambda authname = None: self.repos
+        repos = Mock(get_changeset=lambda rev: Mock(author='author'))
+        self.env.get_repository = lambda authname=None: repos
 
         db = self.env.get_db_cnx()
         cursor = db.cursor()
@@ -46,26 +39,27 @@ class BittenNotifyTest(BittenNotifyBaseTest):
         self.successful_build = Build(self.env, status=Build.SUCCESS)
 
     def test_do_notify_on_failed_build(self):
-        self.env.config.set(CONFIG_SECTION, NOTIFY_ON_FAILURE, 'true')
+        self.set_option(BittenNotify.notify_on_failure, 'true')
         self.assertTrue(self.dispatcher._should_notify(self.failed_build),
                 'notifier should be called for failed builds.')
 
     def test_do_not_notify_on_failed_build(self):
-        self.env.config.set(CONFIG_SECTION, NOTIFY_ON_FAILURE, 'false')
+        self.set_option(BittenNotify.notify_on_failure, 'false')
         self.assertFalse(self.dispatcher._should_notify(self.failed_build),
                 'notifier should not be called for failed build.')
 
     def test_do_notify_on_successful_build(self):
-        self.env.config.set(CONFIG_SECTION, NOTIFY_ON_SUCCESS, 'true')
-        self.dispatcher.notify(self.successful_build)
+        self.set_option(BittenNotify.notify_on_success, 'true')
         self.assertTrue(self.dispatcher._should_notify(self.successful_build),
                 'notifier should be called for successful builds when configured.')
 
     def test_do_not_notify_on_successful_build(self):
-        self.env.config.set(CONFIG_SECTION, NOTIFY_ON_SUCCESS, 'false')
-        self.dispatcher.notify(self.successful_build)
+        self.set_option(BittenNotify.notify_on_success, 'false')
         self.assertFalse(self.dispatcher._should_notify(self.successful_build),
-                'notifier shouldn\'t be called for successful build.')
+                'notifier should not be called for successful build.')
+
+    def set_option(self, option, value):
+        self.env.config.set(option.section, option.name, value)
 
 
 class BuildInfoTest(BittenNotifyBaseTest):

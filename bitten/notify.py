@@ -6,28 +6,24 @@
 # This software is licensed as described in the file COPYING, which
 # you should have received as part of this distribution.
 
-from trac.core import *
+from trac.core import Component, implements
 from trac.web.chrome import ITemplateProvider
-from trac.web.session import DetachedSession
 from trac.config import BoolOption
 from trac.notification import NotifyEmail
 from bitten.api import IBuildListener
 from bitten.model import Build, BuildStep, BuildLog
 
 
-CONFIG_SECTION = 'notification'
-NOTIFY_ON_FAILURE = 'notify_on_failed_build'
-NOTIFY_ON_SUCCESS = 'notify_on_successful_build'
-
-
 class BittenNotify(Component):
     """Sends notifications on build status by mail."""
     implements(IBuildListener, ITemplateProvider)
 
-    notify_on_failure = BoolOption(CONFIG_SECTION, NOTIFY_ON_FAILURE, 'true',
+    notify_on_failure = BoolOption('notification',
+            'notify_on_failed_build', 'true',
             """Notify if bitten build fails.""")
 
-    notify_on_success = BoolOption(CONFIG_SECTION, NOTIFY_ON_SUCCESS, 'false',
+    notify_on_success = BoolOption('notification',
+            'notify_on_successful_build', 'false',
             """Notify if bitten build succeeds.""")
 
     def __init__(self):
