@@ -168,11 +168,9 @@ class BittenNotifyEmail(NotifyEmail):
         NotifyEmail.notify(self, self.build_info.id, subject)
 
     def get_recipients(self, resid):
-        author = self.build_info.author
-        author = DetachedSession(self.env, author).get('email') or author
-        torecipients = [author]
-        ccrecipients = []
-        return (torecipients, ccrecipients)
+        to = [self.build_info.author]
+        cc = []
+        return (to, cc)
 
     def send(self, torcpts, ccrcpts, mime_headers={}):
         mime_headers = {

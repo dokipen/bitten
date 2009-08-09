@@ -127,26 +127,13 @@ class BittenNotifyEmailTest(BittenNotifyBaseTest):
                           begin_send=noop,
                           finish_send=noop,
                           send=send)
-        self.build_info = BuildInfo(self.env, Build(self.env,
-                status = Build.SUCCESS))
-        self.build_info['author'] = 'author'
+        self.build_info = BuildInfo(self.env,
+                Build(self.env, status=Build.SUCCESS, rev=123))
 
-    def test_notification_uses_default_address(self):
+    def test_notification_is_sent_to_author(self):
         self.email.notify(self.build_info)
         self.assertTrue('author' in self.notifications_sent_to,
-                'recipient list should contain plain author')
-
-    def test_notification_uses_custom_address(self):
-        self.add_known_user('author', "Author's Name", 'author@email.com')
-        self.email.notify(self.build_info)
-        self.assertTrue('author@email.com' in self.notifications_sent_to,
-                "recipient list should contain custom author's email")
-
-    def test_notification_discards_invalid_address(self):
-        self.add_known_user('author', "Author's Name", email=None)
-        self.email.notify(self.build_info)
-        self.assertTrue('author' in self.notifications_sent_to,
-                'recipient list should only use valid custom address')
+                'Recipient list should contain the author')
 
     def add_known_user(self, username, name, email):
         session = DetachedSession(self.env, username)
