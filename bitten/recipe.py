@@ -14,9 +14,11 @@ This module provides various classes that can be used to process build recipes,
 most importantly the `Recipe` class.
 """
 
+import inspect
 import keyword
 import logging
 import os
+import time
 try:
     set
 except NameError:
@@ -90,6 +92,12 @@ class Context(object):
             args = dict([(escape(name),
                           self.config.interpolate(attr[name], **self.vars))
                          for name in attr])
+            function_args, has_kwargs = inspect.getargspec(function)[0:3:2]
+            for arg in args:
+                if not arg in function_args or not has_kwargs:
+                    raise InvalidRecipeError(
+                            "Unsupported argument '%s' for command %s" % \
+                            (arg, qname))
 
             self.generator = qname
             log.debug('Executing %s with arguments: %s', function, args)
@@ -188,8 +196,15 @@ class Step(object):
         :param ctxt: the build context
         :type ctxt: `Context`
         """
+        last_finish = time.time()
         for child in self._elem:
-            ctxt.run(self, child.namespace, child.name, child.attr)
+            try:
+                ctxt.run(self, child.namespace, child.name, child.attr)
+            except (BuildError, InvalidRecipeError), e:
+                ctxt.error(e)
+        if time.time() < last_finish + 1:
+            # Add a delay to make sure steps appear in correct order
+            time.sleep(1)
 
         errors = []
         while ctxt.output:
@@ -198,10 +213,11 @@ class Step(object):
             if type == Recipe.ERROR:
                 errors.append((generator, output))
         if errors:
+            for _t, error in errors:
+                log.error(error)
             if self.onerror != 'ignore':
-                raise BuildError('Build step %s failed' % self.id)
-            log.warning('Continuing despite errors in step %s (%s)', self.id,
-                        ', '.join([error[1] for error in errors]))
+                raise BuildError("Build step '%s' failed" % self.id)
+            log.warning("Continuing despite errors in step '%s'", self.id)
 
 
 class Recipe(object):

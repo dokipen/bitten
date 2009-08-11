@@ -14,7 +14,12 @@ import sys
 import tempfile
 import unittest
 
-from bitten.build import CommandLine, FileSet, TimeoutError
+try:
+    has_subprocess = __import__('subprocess') and True
+except:
+    has_subprocess = False
+
+from bitten.build import CommandLine, FileSet, TimeoutError, BuildError
 from bitten.build.api import _combine
 
 
@@ -72,6 +77,11 @@ class CommandLineTestCase(unittest.TestCase):
                 stderr.append(err)
         py_version = '.'.join([str(v) for (v) in sys.version_info[:3]]
                                                             ).rstrip('.0')
+
+        # NT without subprocess doesn't split stderr and stdout. See #256.
+        if not has_subprocess and os.name == "nt":
+            return
+
         self.assertEqual(['Python %s' % py_version], stderr)
         self.assertEqual([], stdout)
         self.assertEqual(0, cmdline.returncode)
@@ -110,7 +120,7 @@ sys.stderr.flush()
             stderr.append(err)
         py_version = '.'.join([str(v) for (v) in sys.version_info[:3]])
         # nt doesn't properly split stderr and stdout. See ticket #256.
-        if os.name != "nt":
+        if has_subprocess or os.name != "nt":
             self.assertEqual(['Hello', 'world!', None], stdout)
         self.assertEqual(0, cmdline.returncode)
 
@@ -163,9 +173,25 @@ print 'Done'
 """)
         cmdline = CommandLine('python', [script_file])
         iterable = iter(cmdline.execute(timeout=.5))
-        if os.name != "nt":
+        if has_subprocess or os.name != "nt":
             # commandline timeout not implemented on windows. See #257
             self.assertRaises(TimeoutError, iterable.next)
+
+    def test_nonexisting_command(self):
+        if not has_subprocess:
+            # Test only valid for subprocess execute()
+            return
+        cmdline = CommandLine('doesnotexist', [])
+        iterable = iter(cmdline.execute())
+        try:
+            out, err = iterable.next()
+            if os.name == 'nt':
+                # NT executes through shell and will not raise BuildError
+                self.failUnless("'doesnotexist' is not recognized" in err)
+            else:
+                self.fail("Expected BuildError")
+        except BuildError, e:
+            self.failUnless("Error executing ['doesnotexist']" in str(e))
 
 class FileSetTestCase(unittest.TestCase):
 

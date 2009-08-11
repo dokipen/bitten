@@ -17,6 +17,11 @@ import shlex
 import time
 import sys
 
+try:
+    import subprocess
+except ImportError:
+    subprocess = None
+
 log = logging.getLogger('bitten.build.api')
 
 __docformat__ = 'restructuredtext en'
@@ -82,14 +87,110 @@ class CommandLine(object):
             assert os.path.isdir(self.cwd)
         self.returncode = None
 
-    if os.name == 'nt': # windows
+    if subprocess:
 
         def execute(self, timeout=None):
             """Execute the command, and return a generator for iterating over
             the output written to the standard output and error streams.
             
             :param timeout: number of seconds before the external process
-                            should be aborted (not supported on Windows)
+                            should be aborted (not supported on Windows without
+                            ``subprocess`` module / Python 2.4+)
+            """
+            from threading import Thread
+            from Queue import Queue, Empty
+
+            class ReadThread(Thread):
+                def __init__(self, pipe, pipe_name, queue):
+                    self.pipe = pipe
+                    self.pipe_name = pipe_name
+                    self.queue = queue
+                    Thread.__init__(self)
+                def run(self):
+                    while self.pipe and not self.pipe.closed:
+                        line = self.pipe.readline()
+                        if line == '':
+                            break
+                        self.queue.put((self.pipe_name, line))
+                    if not self.pipe.closed:
+                        self.pipe.close()
+
+            class WriteThread(Thread):
+                def __init__(self, pipe, data):
+                    self.pipe = pipe
+                    self.data = data
+                    Thread.__init__(self)
+                def run(self):
+                    if self.data and self.pipe and not self.pipe.closed:
+                        self.pipe.write(self.data)
+                    if not self.pipe.closed:
+                        self.pipe.close()
+
+            args = [self.executable] + self.arguments
+            try:
+                p = subprocess.Popen(args, bufsize=1, # Line buffered
+                            stdin=subprocess.PIPE,
+                            stdout=subprocess.PIPE,
+                            stderr=subprocess.PIPE,
+                            cwd=(self.cwd or None),
+                            shell=(os.name == 'nt' and True or False),
+                            universal_newlines=True,
+                            env=None)
+            except Exception, e:
+                # NT executes through shell and will not raise BuildError
+                raise BuildError('Error executing %s: %s %s' % (args,
+                                            e.__class__.__name__, str(e)))
+
+            log.debug('Executing %s, (pid = %s)', args, p.pid)
+
+            if self.input:
+                if isinstance(self.input, basestring):
+                    in_data = self.input
+                else:
+                    in_data = self.input.read()
+            else:
+                in_data = None
+            
+            queue = Queue()
+            limit = timeout and timeout + time.time() or 0
+
+            pipe_in = WriteThread(p.stdin, in_data)
+            pipe_out = ReadThread(p.stdout, 'stdout', queue)
+            pipe_err = ReadThread(p.stderr, 'stderr', queue)
+            pipe_err.start(); pipe_out.start(); pipe_in.start()
+
+            while True:
+                if limit and limit < time.time():
+                    if hasattr(subprocess, 'kill'): # Python 2.6+
+                        p.kill()
+                    raise TimeoutError('Command %s timed out' % self.executable)
+                if p.poll() != None and self.returncode == None:
+                    self.returncode = p.returncode
+                try:
+                    name, line = queue.get(block=True, timeout=.01)
+                    line = line and line.rstrip().replace('\x00', '')
+                    if name == 'stderr':
+                        yield (None, line)
+                    else:
+                        yield (line, None)
+                except Empty:
+                    if self.returncode != None:
+                        break
+
+            pipe_out.join(); pipe_in.join(); pipe_err.join()
+
+            log.debug('%s exited with code %s', self.executable,
+                      self.returncode)
+
+    elif os.name == 'nt': # windows
+
+        def execute(self, timeout=None):
+            """Execute the command, and return a generator for iterating over
+            the output written to the standard output and error streams.
+            
+            :param timeout: number of seconds before the external process
+                            should be aborted (not supported on Windows without
+                            ``subprocess`` module / Python 2.4+)
             """
             args = [self.executable] + self.arguments
             for idx, arg in enumerate(args):
@@ -118,29 +219,24 @@ class CommandLine(object):
             out_file, out_name = tempfile.mkstemp(prefix='bitten_',
                                                   suffix='.pipe')
             os.close(out_file)
-            err_file, err_name = tempfile.mkstemp(prefix='bitten_',
-                                                  suffix='.pipe')
-            os.close(err_file)
 
             try:
-                cmd = '( %s ) > "%s" %s 2> "%s"' % (' '.join(args), out_name,
-                                                    in_redirect, err_name)
+                # NT without subprocess joins output from stdout & stderr
+                cmd = '( %s ) > "%s" %s 2>&1' % (' '.join(args), out_name,
+                                                    in_redirect)
+                log.info("running: %s", cmd)
                 self.returncode = os.system(cmd)
                 log.debug('Exited with code %s', self.returncode)
 
                 out_file = file(out_name, 'r')
-                err_file = file(err_name, 'r')
                 out_lines = out_file.readlines()
-                err_lines = err_file.readlines()
+                err_lines = []
                 out_file.close()
-                err_file.close()
             finally:
                 if in_name:
                     os.unlink(in_name)
                 if out_name:
                     os.unlink(out_name)
-                if err_name:
-                    os.unlink(err_name)
                 if self.cwd:
                     os.chdir(old_cwd)
 
@@ -150,6 +246,9 @@ class CommandLine(object):
                       err_line and _decode(
                                     err_line.rstrip().replace('\x00', ''))
 
+            if self.cwd:
+                os.chdir(old_cwd)
+
     else: # posix
 
         def execute(self, timeout=None):
@@ -157,7 +256,8 @@ class CommandLine(object):
             the output written to the standard output and error streams.
             
             :param timeout: number of seconds before the external process
-                            should be aborted (not supported on Windows)
+                            should be aborted (not supported on Windows without
+                            ``subprocess`` module / Python 2.4+)
             """
             import popen2, select
             if self.cwd:

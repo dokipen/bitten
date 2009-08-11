@@ -298,7 +298,7 @@ class BuildSlave(object):
             log.warning('Build interrupted')
             self._cancel_build(build_url)
         except BuildError, e:
-            log.error('Build step %r failed (%s)', step.id, e)
+            log.error('Build step %r failed', step.id)
             failed = True
         except Exception, e:
             log.error('Internal error in build step %r', step.id, exc_info=True)
@@ -306,7 +306,6 @@ class BuildSlave(object):
         xml.attr['duration'] = (datetime.utcnow() - started).seconds
         if failed:
             xml.attr['status'] = 'failure'
-            log.warning('Build step %r failed', step.id)
         else:
             xml.attr['status'] = 'success'
             log.info('Build step %s completed successfully', step.id)

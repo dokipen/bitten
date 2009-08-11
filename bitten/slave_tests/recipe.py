@@ -34,6 +34,13 @@ class ContextTestCase(unittest.TestCase):
         self.assertEquals(os.path.realpath('/foo/bar/baz'),
                         ctxt.vars['basedir'])
 
+    def test_run_wrong_arg(self):
+        ctxt = Context(self.basedir)
+        try:
+            ctxt.run(1, 'http://bitten.cmlenz.net/tools/sh', 'exec', {'foo':'bar'})
+            self.fail("InvalidRecipeError expected")
+        except InvalidRecipeError, e:
+            self.failUnless("Unsupported argument 'foo'" in str(e))
 
 class RecipeTestCase(unittest.TestCase):
 
