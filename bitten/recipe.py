@@ -81,6 +81,8 @@ class Context(object):
                     break
             elif name == 'report':
                 function = Context.report_file
+            elif name == 'attach':
+                function = Context.attach
             if not function:
                 raise InvalidRecipeError('Unknown recipe command %s' % qname)
 
@@ -160,6 +162,32 @@ class Context(object):
             self.error('Failed to read %s report at %s: %s'
                        % (category, filename, e))
 
+    def attach(self, file_=None, description=None, resource=None):
+        """Attach a file to the build or build configuration.
+        
+        :param file\_: the path to the file to attach, relative to
+                       base directory.
+        :param description: description saved with attachment
+        :resource: which resource to attach the file to,
+                   either 'build' (default) or 'config'
+        :replace: non-empty to replace existing attachment with same name
+        """
+        filename = self.resolve(file_)
+        try:
+            fileobj = file(filename, 'r')
+            try:
+                xml_elem = xmlio.Element('file',
+                                filename=os.path.basename(filename),
+                                description=description,
+                                resource=resource or 'build')
+                xml_elem.append(fileobj.read().encode('base64'))
+                self.output.append((Recipe.ATTACH, None, None, xml_elem))
+                
+            finally:
+                fileobj.close()
+        except IOError, e:
+            self.error('Failed to read file %s as attachment' % file_)
+
     def resolve(self, *path):
         """Return the path of a file relative to the base directory.
         
@@ -230,6 +258,7 @@ class Recipe(object):
     ERROR = 'error'
     LOG = 'log'
     REPORT = 'report'
+    ATTACH = 'attach'
 
     def __init__(self, xml, basedir=os.getcwd(), config=None):
         """Create the recipe.

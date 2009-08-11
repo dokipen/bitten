@@ -97,6 +97,13 @@ class BuildConfigControllerTestCase(AbstractWebUITestCase):
         self.assertEqual('view_config', data['page_mode'])
         assert not 'next' in req.chrome['links']
 
+        from trac.resource import Resource
+        self.assertEquals(Resource('build', 'test'), data['context'].resource)
+
+        self.assertEquals([], data['config']['attachments']['attachments'])
+        self.assertEquals('/trac/attachment/build/test/',
+                                data['config']['attachments']['attach_href'])
+
     def test_view_config_paging(self):
         config = BuildConfig(self.env, name='test', path='trunk')
         config.insert()
@@ -144,6 +151,43 @@ class BuildConfigControllerTestCase(AbstractWebUITestCase):
 
 class BuildControllerTestCase(AbstractWebUITestCase):
 
+    def test_view_build(self):
+        config = BuildConfig(self.env, name='test', path='trunk')
+        config.insert()
+        platform = TargetPlatform(self.env, config='test', name='any')
+        platform.insert()
+        build = Build(self.env, config='test', platform=1, rev=123, rev_time=42,
+                      status=Build.SUCCESS, slave='hal')
+        build.insert()
+
+        PermissionSystem(self.env).grant_permission('joe', 'BUILD_VIEW')
+        req = Mock(method='GET', base_path='', cgi_location='',
+                   path_info='/build/test/1', href=Href('/trac'), args={},
+                   chrome={}, authname='joe',
+                   perm=PermissionCache(self.env, 'joe'))
+
+        root = Mock(get_entries=lambda: ['foo'],
+                    get_history=lambda: [('trunk', rev, 'edit') for rev in
+                                          range(123, 111, -1)])
+        self.repos = Mock(get_node=lambda path, rev=None: root,
+                          sync=lambda: None,
+                          normalize_path=lambda path: path,
+                          get_changeset=lambda rev: Mock(author='joe'))
+        self.repos.authz = Mock(has_permission=lambda path: True, assert_permission=lambda path: None)
+
+        module = BuildController(self.env)
+        assert module.match_request(req)
+        _, data, _ = module.process_request(req)
+
+        self.assertEqual('view_build', data['page_mode'])
+
+        from trac.resource import Resource
+        self.assertEquals(Resource('build', 'test/1'), data['context'].resource)
+
+        self.assertEquals([], data['build']['attachments']['attachments'])
+        self.assertEquals('/trac/attachment/build/test/1/',
+                                data['build']['attachments']['attach_href'])
+
     def test_raise_404(self):
         PermissionSystem(self.env).grant_permission('joe', 'BUILD_VIEW')
         module = BuildController(self.env)
@@ -162,6 +206,7 @@ class BuildControllerTestCase(AbstractWebUITestCase):
                     "404 Not Found (Build '42' does not exist.)")
             return
         self.fail("This should have raised HTTPNotFound")
+
 
 class SourceFileLinkFormatterTestCase(AbstractWebUITestCase):
 

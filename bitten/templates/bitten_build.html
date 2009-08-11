@@ -5,6 +5,7 @@
       xmlns:xi="http://www.w3.org/2001/XInclude"
       xmlns:py="http://genshi.edgewall.org/">
   <xi:include href="layout.html" />
+  <xi:include href="macros.html" />
   <head>
     <title>$title</title>
   </head>
@@ -52,7 +53,10 @@
           <input type="hidden" name="action" value="invalidate" />
           <input type="submit" value="Invalidate build" />
         </div></form>
-      </div><py:for each="step in build.steps">
+        ${attach_file_form(build.attachments)}
+      </div>
+      ${list_of_attachments(build.attachments, compact=True)}
+      <py:for each="step in build.steps">
       <h2 class="step" id="step_${step.name}">$step.name ($step.duration)</h2>
       <div py:if="step.errors" class="errors">
         <h3>Errors</h3>

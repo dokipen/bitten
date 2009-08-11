@@ -442,6 +442,83 @@ class BuildMasterTestCase(unittest.TestCase):
                 'type': 'test',
             }, reports[0].items[0])
 
+    def test_process_build_step_success_with_attach(self):
+        # Parse input and create attachments for config + build
+        recipe = """<build>
+  <step id="foo">
+  <attach file="bar.txt" description="bar bar"/>
+  <attach file="baz.txt" description="baz baz" resource="config"/>
+  </step>
+</build>"""
+        BuildConfig(self.env, 'test', path='somepath', active=True,
+                    recipe=recipe).insert()
+        build = Build(self.env, 'test', '123', 1, slave='hal', rev_time=42,
+                      started=42, status=Build.IN_PROGRESS)
+        build.slave_info[Build.IP_ADDRESS] = '127.0.0.1';
+        build.insert()
+
+        inbody = StringIO("""<result step="foo" status="success"
+                                     time="2007-04-01T15:30:00.0000"
+                                     duration="3.45">
+    <attach>
+        <file filename="bar.txt"
+              description="bar bar">aGVsbG8gYmFy\n</file>
+    </attach>
+    <attach>
+        <file filename="baz.txt" description="baz baz"
+            resource="config">aGVsbG8gYmF6\n</file>
+    </attach>
+</result>""")
+        outheaders = {}
+        outbody = StringIO()
+        req = Mock(method='POST', base_path='',
+                   path_info='/builds/%d/steps/' % build.id,
+                   href=Href('/trac'), abs_href=Href('http://example.org/trac'),
+                   remote_addr='127.0.0.1', args={},
+                   authname='hal',
+                   perm=PermissionCache(self.env, 'hal'),
+                   read=inbody.read,
+                   send_response=lambda x: outheaders.setdefault('Status', x),
+                   send_header=lambda x, y: outheaders.setdefault(x, y),
+                   write=outbody.write)
+        module = BuildMaster(self.env)
+        assert module.match_request(req)
+
+        self.assertRaises(RequestDone, module.process_request, req)
+
+        self.assertEqual(201, outheaders['Status'])
+        self.assertEqual('20', outheaders['Content-Length'])
+        self.assertEqual('text/plain', outheaders['Content-Type'])
+        self.assertEqual('Build step processed', outbody.getvalue())
+
+        build = Build.fetch(self.env, build.id)
+        self.assertEqual(Build.SUCCESS, build.status)
+        assert build.stopped
+        assert build.stopped > build.started
+
+        steps = list(BuildStep.select(self.env, build.id))
+        self.assertEqual(1, len(steps))
+        self.assertEqual('foo', steps[0].name)
+        self.assertEqual(BuildStep.SUCCESS, steps[0].status)
+
+        from trac.attachment import Attachment
+        config_attachments = list(Attachment.select(self.env, 'build', 'test'))
+        build_attachments = list(Attachment.select(self.env, 'build', 'test/1'))
+        
+        self.assertEquals(1, len(build_attachments))
+        self.assertEquals('hal', build_attachments[0].author)
+        self.assertEquals('bar bar', build_attachments[0].description)
+        self.assertEquals('bar.txt', build_attachments[0].filename)
+        self.assertEquals('hello bar',
+                        build_attachments[0].open().read())
+
+        self.assertEquals(1, len(config_attachments))
+        self.assertEquals('hal', config_attachments[0].author)
+        self.assertEquals('baz baz', config_attachments[0].description)
+        self.assertEquals('baz.txt', config_attachments[0].filename)
+        self.assertEquals('hello baz',
+                        config_attachments[0].open().read())
+
     def test_process_build_step_wrong_slave(self):
         recipe = """<build>
   <step id="foo">

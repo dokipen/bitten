@@ -13,9 +13,12 @@
 import calendar
 import re
 import time
+from StringIO import StringIO
 
+from trac.attachment import Attachment
 from trac.config import BoolOption, IntOption, Option
 from trac.core import *
+from trac.resource import ResourceNotFound
 from trac.web import IRequestHandler, HTTPBadRequest, HTTPConflict, \
                      HTTPForbidden, HTTPMethodNotAllowed, HTTPNotFound, \
                      RequestDone
@@ -280,6 +283,24 @@ class BuildMaster(Component):
                     item[child_elem.name] = child_elem.gettext()
                 report.items.append(item)
             report.insert(db=db)
+
+        # Collect attachments from the request body
+        for attach_elem in elem.children(Recipe.ATTACH):
+            attach_elem = list(attach_elem.children('file'))[0] # One file only
+            filename = attach_elem.attr.get('filename')
+            resource_id = attach_elem.attr.get('resource') == 'config' \
+                                    and build.config or build.resource.id
+            try: # Delete attachment if it already exists
+                old_attach = Attachment(self.env, 'build',
+                                    parent_id=resource_id, filename=filename)
+                old_attach.delete()
+            except ResourceNotFound:
+                pass
+            attachment = Attachment(self.env, 'build', parent_id=resource_id)
+            attachment.description = attach_elem.attr.get('description')
+            attachment.author = req.authname
+            fileobj = StringIO(attach_elem.gettext().decode('base64'))
+            attachment.insert(filename, fileobj, fileobj.len, db=db)
 
         # If this was the last step in the recipe we mark the build as
         # completed

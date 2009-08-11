@@ -47,6 +47,33 @@ Parameters
 Both parameters must be specified.
 
 
+------------
+``<attach>``
+------------
+
+Attach a file to the build or configuration as regular attachment. An already
+existing attachment on the same resource with same base filename will be
+replaced.
+
+**Note:** Unless consistently building latest only, overwriting files on
+config level may lead to unexpected results.
+
+Parameters
+----------
+
++-----------------+----------------------------------------------------------+
+| Name            | Description                                              |
++=================+==========================================================+
+| ``file``        | Path to the file to attach, relative to the project      |
+|                 | directory.                                               |
++-----------------+----------------------------------------------------------+
+| ``resource``    | The resource to attach the file to. Either               |
+|                 | 'build' (default) or 'config'. Optional.                 |
++-----------------+----------------------------------------------------------+
+| ``description`` | Attachment description. Optional.                        |
++-----------------+----------------------------------------------------------+
+
+
 Shell Tools
 ===========
 

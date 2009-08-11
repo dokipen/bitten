@@ -16,7 +16,10 @@ from StringIO import StringIO
 
 import pkg_resources
 from genshi.builder import tag
+from trac.attachment import AttachmentModule
 from trac.core import *
+from trac.mimeview.api import Context
+from trac.resource import Resource
 from trac.timeline import ITimelineEventProvider
 from trac.util import escape, pretty_timedelta, format_datetime, shorten_line, \
                       Markup
@@ -368,6 +371,10 @@ class BuildConfigController(Component):
             'builds_inprogress' : len(inprogress_builds)
         }
 
+        context = Context.from_request(req, config.resource)
+        data['context'] = context
+        data['config']['attachments'] = AttachmentModule(self.env).attachment_data(context)
+
         platforms = list(TargetPlatform.select(self.env, config=config_name,
                                                db=db))
         data['config']['platforms'] = [
@@ -504,6 +511,10 @@ class BuildController(Component):
             'href': req.href.build(config.name)
         }
 
+        context = Context.from_request(req, build.resource)
+        data['context'] = context
+        data['build']['attachments'] = AttachmentModule(self.env).attachment_data(context)
+
         formatters = []
         for formatter in self.log_formatters:
             formatters.append(formatter.get_formatter(req, build))
@@ -547,6 +558,11 @@ class BuildController(Component):
     def get_timeline_events(self, req, start, stop, filters):
         if 'build' not in filters:
             return
+
+        # Attachments (will be rendered by attachment module)
+        for event in AttachmentModule(self.env).get_timeline_events(
+            req, Resource('build'), start, stop):
+            yield event
 
         start = to_timestamp(start)
         stop = to_timestamp(stop)

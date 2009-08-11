@@ -10,7 +10,9 @@
 
 """Model classes for objects persisted in the database."""
 
+from trac.attachment import Attachment
 from trac.db import Table, Column, Index
+from trac.resource import Resource
 from trac.util.text import to_unicode
 import codecs
 import os
@@ -52,6 +54,8 @@ class BuildConfig(object):
 
     exists = property(fget=lambda self: self._old_name is not None,
                       doc='Whether this configuration exists in the database')
+    resource = property(fget=lambda self: Resource('build', '%s' % self.name),
+                        doc='Build Config resource identification')
 
     def delete(self, db=None):
         """Remove a build configuration and all dependent objects from the
@@ -68,6 +72,9 @@ class BuildConfig(object):
 
         for build in list(Build.select(self.env, config=self.name, db=db)):
             build.delete(db=db)
+
+        # Delete attachments
+        Attachment.delete_all(self.env, 'build', self.resource.id, db)
 
         cursor = db.cursor()
         cursor.execute("DELETE FROM bitten_config WHERE name=%s", (self.name,))
@@ -384,6 +391,8 @@ class Build(object):
                          doc='Whether the build has been completed')
     successful = property(fget=lambda self: self.status == Build.SUCCESS,
                           doc='Whether the build was successful')
+    resource = property(fget=lambda self: Resource('build', '%s/%s' % (self.config, self.id)),
+                        doc='Build resource identification')
 
     def delete(self, db=None):
         """Remove the build from the database."""
@@ -396,6 +405,9 @@ class Build(object):
 
         for step in list(BuildStep.select(self.env, build=self.id)):
             step.delete(db=db)
+
+        # Delete attachments
+        Attachment.delete_all(self.env, 'build', self.resource.id, db)
 
         cursor = db.cursor()
         cursor.execute("DELETE FROM bitten_slave WHERE build=%s", (self.id,))
