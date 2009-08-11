@@ -96,7 +96,7 @@ class Context(object):
                          for name in attr])
             function_args, has_kwargs = inspect.getargspec(function)[0:3:2]
             for arg in args:
-                if not arg in function_args or not has_kwargs:
+                if not (arg in function_args or has_kwargs):
                     raise InvalidRecipeError(
                             "Unsupported argument '%s' for command %s" % \
                             (arg, qname))
