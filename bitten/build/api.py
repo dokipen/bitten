@@ -15,6 +15,7 @@ import fnmatch
 import os
 import shlex
 import time
+import sys
 
 log = logging.getLogger('bitten.build.api')
 
@@ -45,6 +46,20 @@ def _combine(*iterables):
             break
         yield tuple(to_yield)
 
+def _encode(text):
+    """Encode input for call. Input must be unicode or utf-8 string."""
+    if not isinstance(text, unicode):
+        text = unicode(text, 'utf-8')
+    return text.encode(
+                sys.getfilesystemencoding() or sys.stdin.encoding, 'replace')
+
+def _decode(text):
+    """Decode output from call."""
+    try:
+        return text.decode('utf-8')
+    except UnicodeDecodeError:
+        return text.decode(sys.stdout.encoding, 'replace')
+
 
 class CommandLine(object):
     """Simple helper for executing subprocesses."""
@@ -60,7 +75,7 @@ class CommandLine(object):
                     command
         """
         self.executable = executable
-        self.arguments = [str(arg) for arg in args]
+        self.arguments = [_encode(arg) for arg in args]
         self.input = input
         self.cwd = cwd
         if self.cwd:
@@ -130,8 +145,10 @@ class CommandLine(object):
                     os.chdir(old_cwd)
 
             for out_line, err_line in _combine(out_lines, err_lines):
-                yield out_line and out_line.rstrip().replace('\x00', ''), \
-                      err_line and err_line.rstrip().replace('\x00', '')
+                yield out_line and _decode(
+                                    out_line.rstrip().replace('\x00', '')), \
+                      err_line and _decode(
+                                    err_line.rstrip().replace('\x00', ''))
 
     else: # posix
 
@@ -191,7 +208,8 @@ class CommandLine(object):
                 out_lines = self._extract_lines(out_data)
                 err_lines = self._extract_lines(err_data)
                 for out_line, err_line in _combine(out_lines, err_lines):
-                    yield out_line, err_line
+                    yield out_line and _decode(out_line), \
+                          err_line and _decode(err_line)
                 time.sleep(.1)
             self.returncode = pipe.wait()
             log.debug('%s exited with code %s', self.executable,

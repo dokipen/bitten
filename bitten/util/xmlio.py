@@ -23,28 +23,50 @@ from UserDict import DictMixin
 import cgi
 import string
 
-__trans = string.maketrans ("", "")
-__todel = ""
-for c in range (0, 256):
-    c1 = chr (c)
-    if not c1 in string.printable:
-        __todel += c1
-del c, c1
-
 __all__ = ['Fragment', 'Element', 'ParsedElement', 'parse']
 __docformat__ = 'restructuredtext en'
+
+def _from_utf8(text):
+    """Convert utf-8 string to unicode. All other input returned as-is."""
+    if isinstance(text, str):
+        return text.decode('utf-8')
+    else:
+        return text
+
+def _to_utf8(text):
+    """Convert any input to utf-8 byte string."""
+    if isinstance(text, str):
+        return text # presumes utf-8
+    elif not isinstance(text, unicode):
+        text = unicode(text)
+    return text.encode('utf-8')
+
+__trans = string.maketrans('', '')
+# http://www.w3.org/TR/xml11/#charsets (partial)
+__todel = ('\x01\x02\x03\x04\x05\x06\x07\x08\x0b\x0c\x0e\x0f\x10\x12\x13\x14'
+           '\x15\x16\x17\x18\x19\x1a\x1b\x1c\x1d\x1e\x1f\x7f\x80\x81\x82\x83'
+           '\x84\x86\x87\x88\x89\x8a\x8b\x8c\x8d\x8e\x8f\x90\x91\x92\x93\x94'
+           '\x95\x96\x97\x98\x99\x9a\x9b\x9c\x9d\x9e\x9f')
+__uni_trans = dict([(ord(c), None) for c in __todel])
 
 def _escape_text(text):
     """Escape special characters in the provided text so that it can be safely
     included in XML text nodes.
     """
-    return cgi.escape (str(text)).translate (__trans, __todel)
+    if isinstance(text, str):
+        text = cgi.escape(text.translate(__trans, __todel))
+    elif isinstance(text, unicode):
+        text = cgi.escape(text.translate(__uni_trans))
+    return text
 
 def _escape_attr(attr):
     """Escape special characters in the provided text so that it can be safely
     included in XML attribute values.
     """
-    return _escape_text(attr).replace('"', '&#34;')
+    if isinstance(attr, basestring):
+        return _escape_text(attr).replace('"', '&quot;')
+    else:
+        return attr
 
 
 class Fragment(object):
@@ -76,7 +98,10 @@ class Fragment(object):
         elif isinstance(node, Fragment):
             self.children += node.children
         elif node is not None and node != '':
-            self.children.append(str(node))
+            if isinstance(node, basestring):
+                self.children.append(_from_utf8(node))
+            else:
+                self.children.append(unicode(node))
 
     def write(self, out, newlines=False):
         """Serializes the element and writes the XML to the given output
@@ -87,9 +112,9 @@ class Fragment(object):
                 child.write(out, newlines=newlines)
             else:
                 if child.startswith('<'):
-                    out.write('<![CDATA[' + child + ']]>')
+                    out.write('<![CDATA[' + _to_utf8(child) + ']]>')
                 else:
-                    out.write(_escape_text(child))
+                    out.write(_to_utf8(_escape_text(child)))
 
 
 class Element(Fragment):
@@ -109,7 +134,7 @@ class Element(Fragment):
     >>> print Element('foo', bar='1 < 2')
     <foo bar="1 &lt; 2"/>
     >>> print Element('foo', bar='"baz"')
-    <foo bar="&#34;baz&#34;"/>
+    <foo bar="&quot;baz&quot;"/>
 
     The order in which attributes are rendered is undefined.
 
@@ -141,6 +166,12 @@ class Element(Fragment):
 
     >>> print Element('foo')['<bar a="3" b="4"><baz/></bar>']
     <foo><![CDATA[<bar a="3" b="4"><baz/></bar>]]></foo>
+
+    Valid input are utf-8 or unicode strings, or any type easily converted
+    to unicode such as integers. Output is always utf-8:
+
+    >>> print str(Element(u'\xf8\xfc', arg=u'\xe9\u20ac'.encode('utf-8')))
+    <\xc3\xb8\xc3\xbc arg="\xc3\xa9\xe2\x82\xac"/>
     """
     __slots__ = ['name', 'attr']
 
@@ -151,8 +182,9 @@ class Element(Fragment):
         keyword arguments following it are handled as attributes of the element.
         """
         Fragment.__init__(self)
-        self.name = name_
-        self.attr = dict([(name, value) for name, value in attr.items()
+        self.name = _from_utf8(name_)
+        self.attr = dict([(_from_utf8(name), _from_utf8(value)) \
+                          for name, value in attr.items() \
                           if value is not None])
 
     def write(self, out, newlines=False):
@@ -160,13 +192,13 @@ class Element(Fragment):
         stream.
         """
         out.write('<')
-        out.write(self.name)
+        out.write(_to_utf8(self.name))
         for name, value in self.attr.items():
-            out.write(' %s="%s"' % (name, _escape_attr(value)))
+            out.write(_to_utf8(' %s="%s"' % (name, _escape_attr(value))))
         if self.children:
             out.write('>')
             Fragment.write(self, out, newlines)
-            out.write('</' + self.name + '>')
+            out.write('</' + _to_utf8(self.name) + '>')
         else:
             out.write('/>')
         if newlines:
@@ -186,8 +218,8 @@ def parse(text_or_file):
     from xml.dom import minidom
     from xml.parsers import expat
     try:
-        if isinstance(text_or_file, (str, unicode)):
-            dom = minidom.parseString(text_or_file)
+        if isinstance(text_or_file, basestring):
+            dom = minidom.parseString(_to_utf8(text_or_file))
         else:
             dom = minidom.parse(text_or_file)
         return ParsedElement(dom.documentElement)
@@ -248,6 +280,9 @@ class ParsedElement(object):
     >>> xml = parse('<root>foo<![CDATA[ <bar> ]]>baz</root>')
     >>> xml.gettext()
     'foo <bar> baz'
+
+    Valid input are utf-8 or unicode strings, or any type easily converted
+    to unicode such as integers. Output is always utf-8.
     """
     __slots__ = ['_node', 'attr']
 
@@ -260,13 +295,13 @@ class ParsedElement(object):
             attr = self._node.getAttributeNode(name)
             if not attr:
                 raise KeyError(name)
-            return attr.value.encode('utf-8')
+            return _to_utf8(attr.value)
         def __setitem__(self, name, value):
             self._node.setAttribute(name, value)
         def __delitem__(self, name):
             self._node.removeAttribute(name)
         def keys(self):
-            return [key.encode('utf-8') for key in self._node.attributes.keys()]
+            return [_to_utf8(key) for key in self._node.attributes.keys()]
 
     def __init__(self, node):
         self._node = node
@@ -296,7 +331,7 @@ class ParsedElement(object):
         This concatenates the values of all text and CDATA nodes that are
         immediate children of this element.
         """
-        return ''.join([c.nodeValue.encode('utf-8')
+        return ''.join([_to_utf8(c.nodeValue)
                         for c in self._node.childNodes
                         if c.nodeType in (3, 4)])
 
@@ -304,7 +339,8 @@ class ParsedElement(object):
         """Serializes the element and writes the XML to the given output
         stream.
         """
-        self._node.writexml(out, newl=newlines and '\n' or '')
+        out.write(self._node.toprettyxml(newl=newlines and '\n' or '',
+                        indent=newlines and '\t' or '', encoding='utf-8'))
 
     def __str__(self):
         """Return a string representation of the XML element."""
