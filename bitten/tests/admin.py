@@ -328,7 +328,8 @@ class BuildConfigurationsAdminPageProviderTestCase(unittest.TestCase):
 
     def test_process_add_config_no_name(self):
         req = Mock(method='POST', perm=PermissionCache(self.env, 'joe'),
-                   args={'add': ''})
+                   chrome={'warnings': []}, href=Href('/'),
+                   authname='joe', args={'add': ''})
 
         provider = BuildConfigurationsAdminPageProvider(self.env)
         try:
@@ -336,11 +337,12 @@ class BuildConfigurationsAdminPageProviderTestCase(unittest.TestCase):
             self.fail('Expected TracError')
 
         except TracError, e:
-            self.assertEqual('Missing required field "name"', e.message)
-            self.assertEqual('Missing Field', e.title)
+            self.assertEqual('Missing required field "name".', e.message)
+            self.assertEqual('Add Configuration', e.title)
 
     def test_process_add_config_invalid_name(self):
         req = Mock(method='POST', perm=PermissionCache(self.env, 'joe'),
+                   chrome={'warnings': []}, href=Href('/'), authname='joe',
                    args={'add': '', 'name': 'no spaces allowed'})
 
         provider = BuildConfigurationsAdminPageProvider(self.env)
@@ -351,7 +353,7 @@ class BuildConfigurationsAdminPageProviderTestCase(unittest.TestCase):
         except TracError, e:
             self.assertEqual('The field "name" may only contain letters, '
                              'digits, periods, or dashes.', e.message)
-            self.assertEqual('Invalid Field', e.title)
+            self.assertEqual('Add Configuration', e.title)
 
     def test_new_config_submit_with_invalid_path(self):
         req = Mock(method='POST', perm=PermissionCache(self.env, 'joe'),
@@ -360,7 +362,7 @@ class BuildConfigurationsAdminPageProviderTestCase(unittest.TestCase):
 
         def get_node(path, rev=None):
             raise TracError('No such node')
-        self.repos = Mock(get_node=get_node)
+        self.repos.get_node = get_node
 
         provider = BuildConfigurationsAdminPageProvider(self.env)
         try:
@@ -368,8 +370,7 @@ class BuildConfigurationsAdminPageProviderTestCase(unittest.TestCase):
             self.fail('Expected TracError')
 
         except TracError, e:
-            self.assertEqual('No such node', e.message)
-            self.assertEqual('Invalid Repository Path', e.title)
+            self.failUnless('Invalid Repository Path' in e.message)
 
     def test_process_add_config_no_perms(self):
         BuildConfig(self.env, name='foo', label='Foo', path='branches/foo',
@@ -486,10 +487,10 @@ class BuildConfigurationsAdminPageProviderTestCase(unittest.TestCase):
             raise RequestDone
         req = Mock(method='POST', perm=PermissionCache(self.env, 'joe'),
                    abs_href=Href('http://example.org/'), redirect=redirect,
-                   authname='joe', args={
-            'save': '', 'name': 'foo', 'label': 'Foobar',
-            'description': 'Thanks for all the fish!'
-        })
+                   authname='joe', chrome={'warnings': [], 'notices': []},
+                   href=Href('/'),
+                   args={'save': '', 'name': 'foo', 'label': 'Foobar',
+                         'description': 'Thanks for all the fish!'})
 
         provider = BuildConfigurationsAdminPageProvider(self.env)
         try:
@@ -497,7 +498,8 @@ class BuildConfigurationsAdminPageProviderTestCase(unittest.TestCase):
             self.fail('Expected RequestDone')
 
         except RequestDone:
-            self.assertEqual('http://example.org/admin/bitten/configs',
+            self.assertEqual(['Configuration Saved.'], req.chrome['notices'])
+            self.assertEqual('http://example.org/admin/bitten/configs/foo',
                              redirected_to[0])
             config = BuildConfig.fetch(self.env, name='foo')
             self.assertEqual('Foobar', config.label)
@@ -508,90 +510,81 @@ class BuildConfigurationsAdminPageProviderTestCase(unittest.TestCase):
                     active=True).insert()
 
         req = Mock(method='POST', perm=PermissionCache(self.env, 'joe'),
-                   args={'save': ''})
+                   args={'save': '', 'name': ''}, authname='joe',
+                   chrome={'warnings':[]}, href=Href('/'))
 
         provider = BuildConfigurationsAdminPageProvider(self.env)
-        try:
-            provider.render_admin_panel(req, 'bitten', 'configs', 'foo')
-            self.fail('Expected TracError')
+        provider.render_admin_panel(req, 'bitten', 'configs', 'foo')
 
-        except TracError, e:
-            self.assertEqual('Missing required field "name"', e.message)
-            self.assertEqual('Missing Field', e.title)
+        self.failUnless(req.chrome['warnings'], "No warnings?")
+        self.assertEquals(['Missing required field "name".'],
+                            req.chrome['warnings'])
 
     def test_process_update_config_invalid_name(self):
         BuildConfig(self.env, name='foo', label='Foo', path='branches/foo',
                     active=True).insert()
 
         req = Mock(method='POST', perm=PermissionCache(self.env, 'joe'),
-                   args={'save': '', 'name': 'no spaces allowed'})
+                   args={'save': '', 'name': 'no spaces allowed'},
+                   authname='joe', chrome={'warnings': []},
+                   href=Href('/'))
 
         provider = BuildConfigurationsAdminPageProvider(self.env)
-        try:
-            provider.render_admin_panel(req, 'bitten', 'configs', 'foo')
-            self.fail('Expected TracError')
+        provider.render_admin_panel(req, 'bitten', 'configs', 'foo')
 
-        except TracError, e:
-            self.assertEqual('The field "name" may only contain letters, '
-                             'digits, periods, or dashes.', e.message)
-            self.assertEqual('Invalid Field', e.title)
+        self.failUnless(req.chrome['warnings'], "No warnings?")
+        self.assertEquals(req.chrome['warnings'], ['The field "name" may ' \
+                        'only contain letters, digits, periods, or dashes.'])
 
     def test_process_update_config_invalid_path(self):
         BuildConfig(self.env, name='foo', label='Foo', path='branches/foo',
                     active=True).insert()
 
         req = Mock(method='POST', perm=PermissionCache(self.env, 'joe'),
-                   authname='joe',
+                   authname='joe', chrome={'warnings': []}, href=Href('/'),
                    args={'save': '', 'name': 'foo', 'path': 'invalid/path'})
 
         def get_node(path, rev=None):
             raise TracError('No such node')
-        self.repos = Mock(get_node=get_node)
+        self.repos.get_node = get_node
 
         provider = BuildConfigurationsAdminPageProvider(self.env)
-        try:
-            provider.render_admin_panel(req, 'bitten', 'configs', 'foo')
-            self.fail('Expected TracError')
-
-        except TracError, e:
-            self.assertEqual('No such node', e.message)
-            self.assertEqual('Invalid Repository Path', e.title)
+        provider.render_admin_panel(req, 'bitten', 'configs', 'foo')
+        
+        self.failUnless(req.chrome['warnings'], "No warnings?")
+        self.assertEquals(req.chrome['warnings'],
+                            ['Invalid Repository Path "invalid/path".'])
 
     def test_process_update_config_non_wellformed_recipe(self):
         BuildConfig(self.env, name='foo', label='Foo', path='branches/foo',
                     active=True).insert()
 
         req = Mock(method='POST', perm=PermissionCache(self.env, 'joe'),
-                   authname='joe',
+                   authname='joe', chrome={'warnings': []}, href=Href('/'),
                    args={'save': '', 'name': 'foo', 'recipe': 'not_xml'})
 
         provider = BuildConfigurationsAdminPageProvider(self.env)
-        try:
-            provider.render_admin_panel(req, 'bitten', 'configs', 'foo')
-            self.fail('Expected TracError')
+        provider.render_admin_panel(req, 'bitten', 'configs', 'foo')
 
-        except TracError, e:
-            self.assertEqual('Failure parsing recipe: syntax error: line 1, '
-                             'column 0', e.message)
-            self.assertEqual('Invalid Recipe', e.title)
+        self.failUnless(req.chrome['warnings'], "No warnings?")
+        self.assertEquals(['Failure parsing recipe: syntax error: line 1, ' \
+                        'column 0.'], req.chrome['warnings'])
 
     def test_process_update_config_invalid_recipe(self):
         BuildConfig(self.env, name='foo', label='Foo', path='branches/foo',
                     active=True).insert()
 
         req = Mock(method='POST', perm=PermissionCache(self.env, 'joe'),
-                   authname='joe',
+                   authname='joe', chrome={'warnings': []}, href=Href('/'),
                    args={'save': '', 'name': 'foo',
                          'recipe': '<build><step /></build>'})
 
         provider = BuildConfigurationsAdminPageProvider(self.env)
-        try:
-            provider.render_admin_panel(req, 'bitten', 'configs', 'foo')
-            self.fail('Expected TracError')
-
-        except TracError, e:
-            self.assertEqual('Steps must have an "id" attribute', e.message)
-            self.assertEqual('Invalid Recipe', e.title)
+        provider.render_admin_panel(req, 'bitten', 'configs', 'foo')
+        
+        self.failUnless(req.chrome['warnings'], "No warnings?")
+        self.assertEquals(req.chrome['warnings'],
+                    ['Invalid Recipe: Steps must have an "id" attribute.'])
 
     def test_process_new_platform_no_name(self):
         BuildConfig(self.env, name='foo', label='Foo', path='branches/foo',
@@ -648,7 +641,8 @@ class BuildConfigurationsAdminPageProviderTestCase(unittest.TestCase):
             raise RequestDone
         req = Mock(method='POST', perm=PermissionCache(self.env, 'joe'),
                    abs_href=Href('http://example.org/'), redirect=redirect,
-                   authname='joe',
+                   authname='joe', chrome={'warnings': [], 'notices': []},
+                   href=Href('/'),
                    args={'remove': '', 'sel': str(platform.id)})
 
         provider = BuildConfigurationsAdminPageProvider(self.env)
@@ -657,6 +651,8 @@ class BuildConfigurationsAdminPageProviderTestCase(unittest.TestCase):
             self.fail('Expected RequestDone')
 
         except RequestDone:
+            self.assertEquals(['Target Platform(s) Removed.'],
+                               req.chrome['notices'])
             self.assertEqual('http://example.org/admin/bitten/configs/foo',
                              redirected_to[0])
             platforms = list(TargetPlatform.select(self.env, config='foo'))

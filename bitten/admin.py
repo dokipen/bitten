@@ -14,7 +14,7 @@ import re
 
 from trac.core import *
 from trac.admin import IAdminPanelProvider
-from trac.web.chrome import add_stylesheet, add_script
+from trac.web.chrome import add_stylesheet, add_script, add_warning, add_notice
 
 from bitten.model import BuildConfig, TargetPlatform
 from bitten.recipe import Recipe, InvalidRecipeError
@@ -110,6 +110,7 @@ class BuildConfigurationsAdminPageProvider(Component):
             platform_id = None
 
         if config_name: # Existing build config
+            warnings = []
             if platform_id or (
                     # Editing or creating one of the config's target platforms
                     req.method == 'POST' and 'new' in req.args):
@@ -146,12 +147,18 @@ class BuildConfigurationsAdminPageProvider(Component):
                 if req.method == 'POST':
                     if 'remove' in req.args: # Remove selected platforms
                         self._remove_platforms(req)
+                        add_notice(req, "Target Platform(s) Removed.")
                         req.redirect(req.abs_href.admin(cat, page, config.name))
 
                     elif 'save' in req.args: # Save this build config
-                        self._update_config(req, config)
+                        warnings = self._update_config(req, config)
 
-                    req.redirect(req.abs_href.admin(cat, page))
+                    if not warnings:
+                        add_notice(req, "Configuration Saved.")
+                        req.redirect(req.abs_href.admin(cat, page, config.name))
+
+                    for warning in warnings:
+                        add_warning(req, warning)
 
                 # Prepare template variables
                 data['config'] = {
@@ -218,7 +225,13 @@ class BuildConfigurationsAdminPageProvider(Component):
         req.perm.assert_permission('BUILD_CREATE')
 
         config = BuildConfig(self.env)
-        self._update_config(req, config)
+        warnings = self._update_config(req, config)
+        if warnings:
+            if len(warnings) == 1:
+                raise TracError(warnings[0], 'Add Configuration')
+            else:
+                raise TracError('Errors: %s' % ' '.join(warnings),
+                                'Add Configuration')
         return config
 
     def _remove_configs(self, req):
@@ -238,14 +251,15 @@ class BuildConfigurationsAdminPageProvider(Component):
         db.commit()
 
     def _update_config(self, req, config):
+        warnings = []
         req.perm.assert_permission('BUILD_MODIFY')
 
         name = req.args.get('name')
         if not name:
-            raise TracError('Missing required field "name"', 'Missing Field')
-        if not re.match(r'^[\w.-]+$', name):
-            raise TracError('The field "name" may only contain letters, '
-                            'digits, periods, or dashes.', 'Invalid Field')
+            warnings.append('Missing required field "name".')
+        if name and not re.match(r'^[\w.-]+$', name):
+            warnings.append('The field "name" may only contain letters, '
+                            'digits, periods, or dashes.')
 
         path = req.args.get('path', '')
         repos = self.env.get_repository(req.authname)
@@ -254,22 +268,21 @@ class BuildConfigurationsAdminPageProvider(Component):
             node = repos.get_node(path, max_rev)
             assert node.isdir, '%s is not a directory' % node.path
         except (AssertionError, TracError), e:
-            raise TracError(unicode(e), 'Invalid Repository Path')
+            warnings.append('Invalid Repository Path "%s".' % path)
         if req.args.get('min_rev'):
             try:
                 repos.get_node(path, req.args.get('min_rev'))
             except TracError, e:
-                raise TracError(unicode(e), 'Invalid Oldest Revision')
+                warnings.append('Invalid Oldest Revision: %s.' % unicode(e))
 
         recipe_xml = req.args.get('recipe', '')
         if recipe_xml:
             try:
                 Recipe(xmlio.parse(recipe_xml)).validate()
             except xmlio.ParseError, e:
-                raise TracError('Failure parsing recipe: %s' % e,
-                                'Invalid Recipe')
+                warnings.append('Failure parsing recipe: %s.' % unicode(e))
             except InvalidRecipeError, e:
-                raise TracError(unicode(e), 'Invalid Recipe')
+                warnings.append('Invalid Recipe: %s.' % unicode(e))
 
         config.name = name
         config.path = repos.normalize_path(path)
@@ -279,10 +292,14 @@ class BuildConfigurationsAdminPageProvider(Component):
         config.label = req.args.get('label', config.name)
         config.description = req.args.get('description', '')
 
+        if warnings: # abort
+            return warnings
+
         if config.exists:
             config.update()
         else:
             config.insert()
+        return []
 
     def _create_platform(self, req, config_name):
         req.perm.assert_permission('BUILD_MODIFY')
