@@ -180,6 +180,8 @@ if hasattr(IHTMLPreviewAnnotator, 'get_annotation_data'):
             add_stylesheet(context.req, 'bitten/bitten_coverage.css')
 
             resource = context.resource
+            self.log.debug("Looking for coverage report for %s@%s..." % (
+                            resource.id, str(resource.version)))
             builds = Build.select(self.env, rev=resource.version)
             reports = []
             for build in builds:
@@ -195,8 +197,9 @@ if hasattr(IHTMLPreviewAnnotator, 'get_annotation_data'):
                             coverage = item.get('line_hits', '').split()
                             if coverage:
                                 # Return first result with line data
-                                self.log.debug("Coverage annotate for %s: %s" \
-                                            % (resource.id, coverage))
+                                self.log.debug(
+                                    "Coverage annotate for %s@%s: %s" % \
+                                    (resource.id, resource.version, coverage))
                                 return coverage
             return []
 
