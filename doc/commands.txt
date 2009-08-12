@@ -737,8 +737,9 @@ Configuration
 Extracts information from unittest_ results recorded in an XML file.
 
 .. _unittest: http://docs.python.org/lib/module-unittest.html
-.. note:: This report must be used in conjunction with the ``distutils`` command
-          "unittest" that comes with Bitten.
+
+**Note:** This report must be used in conjunction with the ``distutils``
+command "unittest" that comes with Bitten.
 
 Parameters
 ----------
@@ -979,9 +980,9 @@ A collection of recipe commands for XML processing.
 
 Apply an XSLT stylesheet .
 
-.. note:: that this command requires either libxslt_ (with `Python bindings`_)
-          or, on Windows platforms, MSXML (version 3 or later) to be installed
-          on the slave machine.
+**Note:** This command requires either libxslt_ (with `Python bindings`_)
+or, on Windows platforms, MSXML (version 3 or later) to be installed
+on the slave machine.
 
 .. _libxslt: http://xmlsoft.org/XSLT/
 .. _`python bindings`: http://xmlsoft.org/XSLT/python.html
