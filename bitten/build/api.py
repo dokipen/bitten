@@ -168,7 +168,7 @@ class CommandLine(object):
                     self.returncode = p.returncode
                 try:
                     name, line = queue.get(block=True, timeout=.01)
-                    line = line and line.rstrip().replace('\x00', '')
+                    line = line and _decode(line.rstrip().replace('\x00', ''))
                     if name == 'stderr':
                         yield (None, line)
                     else:
