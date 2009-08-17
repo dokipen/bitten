@@ -11,10 +11,16 @@
     <th>Failures</th><th>Ignores</th><th>Errors</th>
    </tr></thead>
    <tbody><tr py:for="item in data.fixtures"
-              class="${item.num_failure or item.num_error and 'failed' or None}">
-    <th py:choose="">
-     <a py:when="item.href" href="$item.href">$item.name</a>
-     <py:otherwise>$item.name</py:otherwise>
+              class="${item.failures and 'failed' or 'success'}">
+    <th>
+      <span class="fixture" />
+      <py:choose test="">
+        <a py:when="item.href" href="$item.href">$item.name</a>
+        <span py:when="not item.href">$item.name</span>
+      </py:choose>
+      <p class="details" py:for="failure in item.failures">$failure.name ($failure.status):<br />
+        <span>$failure.traceback</span>
+      </p>
     </th>
     <td>${item.num_success + item.num_failure + item.num_error + item.num_ignore}</td>
     <td>$item.num_failure</td>

@@ -12,8 +12,10 @@ import unittest
 
 from trac.db import DatabaseManager
 from trac.test import EnvironmentStub, Mock
+from trac.web.href import Href
 from bitten.model import *
-from bitten.report.testing import TestResultsChartGenerator
+from bitten.report.testing import TestResultsChartGenerator, \
+                    TestResultsSummarizer
 
 
 class TestResultsChartGeneratorTestCase(unittest.TestCase):
@@ -98,9 +100,64 @@ class TestResultsChartGeneratorTestCase(unittest.TestCase):
         self.assertEqual(2, data['data'][2][1])
 
 
+class TestResultsSummarizerTestCase(unittest.TestCase):
+
+    def setUp(self):
+        self.env = EnvironmentStub()
+        self.env.path = ''
+
+        db = self.env.get_db_cnx()
+        cursor = db.cursor()
+        connector, _ = DatabaseManager(self.env)._get_connector()
+        for table in schema:
+            for stmt in connector.to_sql(table):
+                cursor.execute(stmt)
+
+    def test_testcase_errors_and_failures(self):
+        config = Mock(name='trunk', path='/somewhere')
+        step = Mock(name='foo')
+
+        build = Build(self.env, config=config.name, platform=1, rev=123,
+                      rev_time=42)
+        build.insert()
+        report = Report(self.env, build=build.id, step=step.name,
+                        category='test')
+        report.items += [{'fixture': 'test_foo',
+                          'name': 'foo', 'file': 'foo.c',
+                          'type': 'test', 'status': 'success'},
+                         {'fixture': 'test_bar',
+                          'name': 'bar', 'file': 'bar.c',
+                          'type': 'test', 'status': 'error',
+                          'traceback': 'Error traceback'},
+                         {'fixture': 'test_baz',
+                          'name': 'baz', 'file': 'baz.c',
+                          'type': 'test', 'status': 'failure',
+                          'traceback': 'Failure reason'}]
+        report.insert()
+
+        req = Mock(href=Href('trac'))
+        generator = TestResultsSummarizer(self.env)
+        template, data = generator.render_summary(req,
+                                            config, build, step, 'test')
+        self.assertEquals('bitten_summary_tests.html', template)
+        self.assertEquals(data['totals'],
+                {'ignore': 0, 'failure': 1, 'success': 1, 'error': 1})
+        for fixture in data['fixtures']:
+            if fixture.has_key('failures'):
+                if fixture['failures'][0]['status'] == 'error':
+                    self.assertEquals('test_bar', fixture['name'])
+                    self.assertEquals('Error traceback',
+                                      fixture['failures'][0]['traceback'])
+                if fixture['failures'][0]['status'] == 'failure':
+                    self.assertEquals('test_baz', fixture['name'])
+                    self.assertEquals('Failure reason',
+                                      fixture['failures'][0]['traceback'])
+
+
 def suite():
     suite = unittest.TestSuite()
     suite.addTest(unittest.makeSuite(TestResultsChartGeneratorTestCase))
+    suite.addTest(unittest.makeSuite(TestResultsSummarizerTestCase))
     return suite
 
 if __name__ == '__main__':

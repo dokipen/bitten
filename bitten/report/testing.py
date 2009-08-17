@@ -9,6 +9,7 @@
 # are also available at http://bitten.edgewall.org/wiki/License.
 
 from trac.core import *
+from trac.web.chrome import add_script
 from bitten.api import IReportChartGenerator, IReportSummarizer
 
 __docformat__ = 'restructuredtext en'
@@ -124,6 +125,42 @@ ORDER BY fixture""", (build.id, step.name))
             total_error += num_error
             if file:
                 fixtures[-1]['href'] = req.href.browser(config.path, file)
+
+        # For each fixture, get a list of tests that don't succeed
+        for fixture in fixtures:
+            cursor.execute("""
+SELECT item_status.value AS status, item_name.value AS name,
+       item_traceback.value AS traceback
+FROM bitten_report
+ LEFT OUTER JOIN bitten_report_item AS item_fixture
+  ON (item_fixture.report=bitten_report.id AND
+      item_fixture.name='fixture')
+ LEFT OUTER JOIN bitten_report_item AS item_status
+  ON (item_status.report=bitten_report.id AND
+      item_status.item=item_fixture.item AND
+      item_status.name='status')
+ LEFT OUTER JOIN bitten_report_item AS item_name
+  ON (item_name.report=bitten_report.id AND
+      item_name.item=item_fixture.item AND
+      item_name.name='name')
+ LEFT OUTER JOIN bitten_report_item AS item_traceback
+  ON (item_traceback.report=bitten_report.id AND
+      item_traceback.item=item_fixture.item AND
+      item_traceback.name='traceback')
+WHERE category='test' AND build=%s AND step=%s AND item_status.value<>'success' AND
+      item_fixture.value=%s""", (build.id, step.name, fixture['name']))
+
+            failures = []
+            for status, name, traceback in cursor:
+                # use the fixture name if a name isn't supplied for the
+                # individual test
+                if not name:
+                    name = fixture['name']
+                failures.append({'status': status,
+                                 'name': name,
+                                 'traceback': traceback})
+            if failures:
+                fixture['failures'] = failures
 
         data = {'fixtures': fixtures,
                 'totals': {'success': total_success, 

@@ -8,6 +8,11 @@
   <xi:include href="macros.html" />
   <head>
     <title>$title</title>
+    <script type="text/javascript">
+      jQuery(document).ready(function($){
+        $("table.tests tr.failed th .fixture").enableFolding(true);
+      });
+    </script>
   </head>
   <body>
     <div id="content" class="build">

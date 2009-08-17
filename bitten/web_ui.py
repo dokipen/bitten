@@ -545,6 +545,7 @@ class BuildController(Component):
         chgset = repos.get_changeset(build.rev)
         data['build']['chgset_author'] = chgset.author
 
+        add_script(req, 'common/js/folding.js')
         add_script(req, 'bitten/tabset.js')
         add_stylesheet(req, 'bitten/bitten.css')
         return 'bitten_build.html', data, None

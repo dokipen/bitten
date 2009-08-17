@@ -116,6 +116,7 @@ def junit(ctxt, file_=None, srcdir=None):
                 for testcase in xmlio.parse(fileobj).children('testcase'):
                     test = xmlio.Element('test')
                     test.attr['fixture'] = testcase.attr['classname']
+                    test.attr['name'] = testcase.attr['name']
                     if 'time' in testcase.attr:
                         test.attr['duration'] = testcase.attr['time']
                     if srcdir is not None:
@@ -126,9 +127,16 @@ def junit(ctxt, file_=None, srcdir=None):
                     result = list(testcase.children())
                     if result:
                         test.attr['status'] = result[0].name
-                        test.append(xmlio.Element('traceback')[
-                            result[0].gettext()
-                        ])
+                        # Sometimes the traceback isn't prefixed with the
+                        # exception type and message, so add it in if needed
+                        tracebackprefix = "%s: %s" % (result[0].attr['type'],
+                                                      result[0].attr['message'])
+                        if result[0].gettext().startswith(tracebackprefix):
+                            test.append(xmlio.Element('traceback')[
+                                        result[0].gettext()])
+                        else:
+                            test.append(xmlio.Element('traceback')[
+                                        "\n".join((tracebackprefix, result[0].gettext()))])
                         failed += 1
                     else:
                         test.attr['status'] = 'success'
