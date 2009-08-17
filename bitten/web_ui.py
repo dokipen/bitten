@@ -368,7 +368,8 @@ class BuildConfigController(Component):
             'active': config.active, 'description': description,
             'browser_href': req.href.browser(config.path),
             'builds_pending' : len(pending_builds),
-            'builds_inprogress' : len(inprogress_builds)
+            'builds_inprogress' : len(inprogress_builds),
+            'revsize' : None,
         }
 
         context = Context.from_request(req, config.resource)
@@ -427,6 +428,8 @@ class BuildConfigController(Component):
             elif idx >= (page - 1) * builds_per_page:
                 builds.setdefault(rev, {})
                 builds[rev].setdefault('href', req.href.changeset(rev))
+                data['config']['revsize'] = len(str(rev)) > 10 \
+                                    and 'longrevchgset' or 'shortrevchgset'
                 if build and build.status != Build.PENDING:
                     build_data = _get_build_data(self.env, req, build)
                     build_data['steps'] = []

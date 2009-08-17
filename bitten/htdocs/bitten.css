@@ -57,15 +57,16 @@
 
 #content.build p.path { color: #999; font-size: smaller; margin-top: 0; }
 
-#content.build #charts { clear: right; float: right; width: 44%; }
+#content.build #charts { clear: right; float: right; width: 25%; }
 
 #content.build #builds { clear: none; margin-top: 2em; table-layout: fixed;
-  width: 54%;
+  width: 73%;
 }
 #content.build #builds tbody th, #content.build #builds tbody td {
   background: #fff;
 }
-#content.build #builds th.chgset { width: 6em; }
+#content.build #builds th.longrevchgset { width: 30%; }
+#content.build #builds th.shortrevchgset { width: 6em; }
 #content.build #builds td :link, #content.build #builds td :visited {
   font-weight: bold;
 }
