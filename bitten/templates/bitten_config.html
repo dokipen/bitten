@@ -156,13 +156,13 @@
       <table py:if="config.platforms and config.builds"
              class="listing" id="builds">
         <thead><tr>
-          <th class="${config.revsize}"><abbr title="Changeset">Chgset</abbr></th>
+          <th class="chgset"><abbr title="Changeset">Chgset</abbr></th>
           <th py:for="platform in config.platforms">$platform.name</th>
         </tr></thead>
         <tbody py:if="config.builds">
           <tr py:for="rev_num in sorted(config.builds, reverse=True)"
               py:with="rev = config.builds[rev_num]">
-            <th class="${config.revsize}" scope="row">
+            <th class="chgset" scope="row">
               <a href="$rev.href" title="View Changeset">[$rev_num]</a>
             </th><py:for each="platform in config.platforms"><py:choose>
             <td py:when="platform.id in rev" py:with="build = rev[platform.id]"
@@ -189,10 +189,10 @@
       </h2>
       <table class="listing" id="builds">
         <thead><tr>
-          <th class="${config.revsize}" abbrev="Changeset">Chgset</th><th>Build</th>
+          <th class="chgset" abbrev="Changeset">Chgset</th><th>Build</th>
         </tr></thead><tbody>
         <tr py:for="build in config.builds">
-          <th class="${config.revsize}" scope="row">
+          <th class="chgset" scope="row">
             <a href="$build.rev_href" title="View Changeset">[$build.rev]</a>
           </th>
           <td class="$build.cls">
