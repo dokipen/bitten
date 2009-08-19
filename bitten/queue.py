@@ -134,15 +134,16 @@ class BuildQueue(object):
         # Iterate through pending builds by descending revision timestamp, to
         # avoid the first configuration/platform getting all the builds
         platforms = [p.id for p in self.match_slave(name, properties)]
-        build = None
         builds_to_delete = []
+        build_found = False
         for build in Build.select(self.env, status=Build.PENDING, db=db):
             if self.should_delete_build(build, repos):
                 self.log.info('Scheduling build %d for deletion', build.id)
                 builds_to_delete.append(build)
             elif build.platform in platforms:
+                build_found = True
                 break
-        else:
+        if not build_found:
             self.log.debug('No pending builds.')
             build = None
 
