@@ -15,6 +15,7 @@ from trac.test import EnvironmentStub
 from bitten.model import BuildConfig, TargetPlatform, Build, BuildStep, \
                          BuildLog, Report, schema
 import os
+import shutil
 import tempfile
 
 
@@ -43,7 +44,7 @@ class BaseModelTestCase(unittest.TestCase):
         db.commit()
 
     def tearDown(self):
-        pass
+        shutil.rmtree(self.env.path)
 
 class BuildConfigTestCase(BaseModelTestCase):
 
@@ -497,6 +498,29 @@ class BuildLogTestCase(BaseModelTestCase):
     def test_delete_new(self):
         log = BuildLog(self.env, build=1, step='test', generator='foo')
         self.assertRaises(AssertionError, log.delete)
+
+    def test_insert_and_delete_files(self):
+        # create - files should be created automatically
+        build_log = BuildLog(self.env, build=1, step='test', generator='make')
+        build_log.messages = [(BuildLog.INFO, 'running')]
+        build_log.insert()
+
+        # fetch it fresh - check object and files
+        build_log = BuildLog.fetch(self.env, id=build_log.id)
+        self.assertEquals(build_log.filename, "%s.log" % build_log.id)
+        log_file = build_log.get_log_file(build_log.filename)
+        levels_file = log_file+'.levels'
+        self.failUnless(os.path.exists(log_file), 'log_file does not exist')
+        self.failUnless(os.path.exists(levels_file),
+                                                'levels_file does not exist')
+        self.assertEquals(build_log.messages, [(BuildLog.INFO, 'running')])
+
+        # delete - object and file should be gone
+        build_log.delete()
+        self.assertEquals(None, BuildLog.fetch(self.env, id=build_log.id))
+        self.failIf(os.path.exists(log_file), 'log_file exists after delete()')
+        self.failIf(os.path.exists(levels_file),
+                                        'levels_file exists after delete()')
 
     def test_fetch(self):
         db = self.env.get_db_cnx()

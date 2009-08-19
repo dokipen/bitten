@@ -742,23 +742,25 @@ class BuildLog(object):
         else:
             handle_ta = False
 
-        cursor = db.cursor()
-        cursor.execute("SELECT filename FROM bitten_log WHERE id=%s", (self.id,))
-        log_files = cursor.fetchall() or []
-        cursor.execute("DELETE FROM bitten_log WHERE id=%s", (self.id,))
-        for log_file in log_files:
-            log_file = self.get_log_file(log_file[0])
+        if self.filename:
+            log_file = self.get_log_file(self.filename)
             if os.path.exists(log_file):
                 try:
+                    self.env.log.debug("Deleting log file: %s" % log_file)
                     os.remove(log_file)
                 except Exception, e:
                     self.env.log.warning("Error removing log file %s: %s" % (log_file, e))
-            level_file = self.get_log_file(log_file[1])
-            if os.path.exists(log_file):
+            level_file = log_file + '.levels'
+            if os.path.exists(level_file):
                 try:
+                    self.env.log.debug("Deleting level file: %s" % level_file)
                     os.remove(level_file)
                 except Exception, e:
-                    self.env.log.warning("Error removing log file %s: %s" % (log_file, e))
+                    self.env.log.warning("Error removing level file %s: %s" \
+                                                % (level_file, e))
+
+        cursor = db.cursor()
+        cursor.execute("DELETE FROM bitten_log WHERE id=%s", (self.id,))
 
         if handle_ta:
             db.commit()
