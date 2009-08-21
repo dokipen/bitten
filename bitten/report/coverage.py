@@ -10,7 +10,9 @@
 
 from trac.core import *
 from trac.mimeview.api import IHTMLPreviewAnnotator
-from trac.web.chrome import add_stylesheet
+from trac.resource import Resource
+from trac.web.api import IRequestFilter
+from trac.web.chrome import add_stylesheet, add_ctxtnav
 from bitten.api import IReportChartGenerator, IReportSummarizer
 from bitten.model import BuildConfig, Build, Report
 
@@ -169,7 +171,26 @@ if hasattr(IHTMLPreviewAnnotator, 'get_annotation_data'):
         >>> annotate_row(3, 'y = x')
         '<tr><th class="uncovered">0</th></tr>'
         """
-        implements(IHTMLPreviewAnnotator)
+        implements(IRequestFilter, IHTMLPreviewAnnotator)
+
+        # IRequestFilter methods
+
+        def pre_process_request(self, req, handler):
+            return handler
+
+        def post_process_request(self, req, template, data, content_type):
+            """ Adds a 'Coverage' context navigation menu item. """
+            resource = data and data.get('context') \
+                            and data.get('context').resource or None
+            if resource and isinstance(resource, Resource) \
+                        and resource.realm=='source' and data.get('file') \
+                        and not req.args.get('annotate'):
+                add_ctxtnav(req, 'Coverage',
+                        title='Annotate file with test coverage '
+                              'data (if available)',
+                        href=req.href.browser(resource.id, 
+                            annotate='coverage', rev=data.get('rev')))
+            return template, data, content_type
 
         # IHTMLPreviewAnnotator methods
 
