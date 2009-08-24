@@ -28,7 +28,7 @@ Installation
 ------------
 
 Bitten is written in Python, so make sure that you have Python installed.
-You'll need Python 2.3 or later. Also, make sure that setuptools
+You'll need Python 2.4 or later. Also, make sure that setuptools
 (http://peak.telecommunity.com/DevCenter/setuptools), version 0.6a2 or later,
 is installed.
 
@@ -53,7 +53,7 @@ web interface, or just the build slave. In the latter case, you're already
 done. You might need to install software that the build of your project
 requires, but the Bitten build slave itself doesn't require anything extra.
 
-For the build master and web interface, you'll need to install Trac 0.10 or
+For the build master and web interface, you'll need to install Trac 0.11 or
 later. Please refer to the Trac documentation for information on how it is
 installed.
 
@@ -93,25 +93,6 @@ correctly as described previously, you should see a button for adding new
 build configurations. Click that button and fill out the form. Also, add
 at least one target platform after saving the configuration. Last but not
 least, you'll have to "activate" the build configuration.
-
-
-Running the Build Master
-------------------------
-
-At this point, you're ready to start the Bitten build master. The
-installation of Bitten should have put a `bitten-master` executable on your
-path. If the script is not on your path, look for it in the `bin` or
-`scripts` subdirectory of your Python installation.
-
-To find out about the options and arguments of the master, execute it with
-the `--help` option as follows:
-
-  $ bitten-master --help
-
-Most commonly, you'll want to specify the log level and log file, as well as
-the path to the Trac environment:
-
-  $ bitten-master --verbose --log=/var/log/bittend /var/trac/myproject
 
 
 Running the Build Slave

@@ -13,7 +13,7 @@ Prerequisites
 =============
 
 Bitten is written in Python, so make sure that you have Python installed.
-You'll need Python 2.3 or later. Also, make sure that setuptools_, version 0.6a2
+You'll need Python 2.4 or later. Also, make sure that setuptools_, version 0.6a2
 or later, is installed.
 
 .. _setuptools: http://peak.telecommunity.com/DevCenter/setuptools

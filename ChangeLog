@@ -2,6 +2,7 @@ Version 0.6
 (?, from 0.6.x branch)
 http://svn.edgewall.org/repos/bitten/tags/0.6.0
 
+ * Python 2.4 is now required.
  * Switch to using HTTP for communication between the build master and build
    slaves. This means the `build-master` executable is no longer needed or
    installed, the build simply runs in the scope of the Trac site.
@@ -9,7 +10,25 @@ http://svn.edgewall.org/repos/bitten/tags/0.6.0
    from the version control repository. The slave no longer receives a snapshot
    archive of the code, but performs the checkout itself based on the 
    instructions in the build recipe.
- * Many fixes for compatibility with more recent versions of Trac.
+ * Many fixes for compatibility with more recent versions of Trac, and Bitten
+   now requires Trac 0.11.
+ * Unicode (non-ascii) support for recipes and command-line input and output.
+ * Improved authentication support in bitten-slave, including support for the
+   popular AccountManager plugin.
+ * New command-line execute() using Python subprocess module that in particular
+   improves the situation for slaves executing commands on Windows.
+ * Build logs are moved from database and into project log/bitten directory as
+   text files.
+ * Slave-only install now possible by running 'python setup-slave.py install'.
+ * Fixes related to creating and deleting builds correctly, including database
+   upgrade to avoid thread race conditions.
+ * Some improvements to the Admin user interface for creating/editing
+   configurations and platforms.
+ * Attachment support for configurations and builds, including a new general
+   <attach> command to use in recipes.
+ * <hg:pull> command added.
+ * Many fixes and improvements for pre-existing commands.
+ * Improvements for coverage, lint and test summary display.
 
 
 Version 0.5.3
