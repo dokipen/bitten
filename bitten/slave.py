@@ -159,8 +159,9 @@ class BuildSlave(object):
             return resp
         except urllib2.HTTPError, e:
             if e.code >= 300:
-                if e.headers.getheader('Content-Type', ''
-                                                ).startswith('text/plain'):
+                if hasattr(e, 'headers') and \
+                            e.headers.getheader('Content-Type', ''
+                                        ).startswith('text/plain'):
                     content = e.read()
                 else:
                     content = 'no message available'
