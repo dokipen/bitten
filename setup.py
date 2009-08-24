@@ -19,6 +19,12 @@ try:
 except ImportError:
     build_doc = test_doc = None
 
+# Turn off multiprocessing logging
+# Bug in setuptools/distutils test runner using Python 2.6.2+?
+import logging
+if hasattr(logging, 'logMultiprocessing'):
+    logging.logMultiprocessing = 0
+
 NS = 'http://bitten.cmlenz.net/tools/'
 recipe_commands = [
         NS + 'sh#exec = bitten.build.shtools:exec_',
