@@ -11,6 +11,7 @@
 import os
 import shutil
 import tempfile
+import threading
 import time
 import unittest
 
@@ -260,6 +261,63 @@ class BuildQueueTestCase(unittest.TestCase):
         self.assertEqual('121', builds[4].rev)
         self.assertEqual(platform2.id, builds[5].platform)
         self.assertEqual('120', builds[5].rev)
+
+    def test_populate_thread_race_condition(self):
+        messages = []
+        self.env.log = Mock(info=lambda msg, *args: messages.append(msg))
+        def get_history():
+            yield ('somepath', 123, 'edit')
+            yield ('somepath', 121, 'edit')
+            yield ('somepath', 120, 'edit')
+            time.sleep(1) # sleep to make sure both threads collect
+        self.env.get_repository = lambda authname=None: Mock(
+            get_changeset=lambda rev: Mock(date=to_datetime(rev * 1000, utc)),
+            get_node=lambda path, rev=None: Mock(
+                get_entries=lambda: [Mock(), Mock()],
+                get_history=get_history
+            ),
+            normalize_path=lambda path: path,
+            rev_older_than=lambda rev1, rev2: rev1 < rev2
+        )
+        BuildConfig(self.env, 'test', path='somepath', active=True).insert()
+        platform1 = TargetPlatform(self.env, config='test', name='P1')
+        platform1.insert()
+        platform2 = TargetPlatform(self.env, config='test', name='P2')
+        platform2.insert()
+
+        class BuildPopulator(threading.Thread):
+            def __init__(self, env):
+                self.env = env
+                threading.Thread.__init__(self)
+            def run(self):
+                queue = BuildQueue(self.env, build_all=True)
+                queue.populate()
+        
+        thread1 = BuildPopulator(self.env)
+        thread2 = BuildPopulator(self.env)
+        thread1.start(); thread2.start()
+        thread1.join(); thread2.join()
+
+        # check builds got added
+        builds = list(Build.select(self.env, config='test'))
+        builds.sort(lambda a, b: cmp(a.platform, b.platform))
+        self.assertEqual(6, len(builds))
+        self.assertEqual(platform1.id, builds[0].platform)
+        self.assertEqual('123', builds[0].rev)
+        self.assertEqual(platform1.id, builds[1].platform)
+        self.assertEqual('121', builds[1].rev)
+        self.assertEqual(platform1.id, builds[2].platform)
+        self.assertEqual('120', builds[2].rev)
+        self.assertEqual(platform2.id, builds[3].platform)
+        self.assertEqual('123', builds[3].rev)
+        self.assertEqual(platform2.id, builds[4].platform)
+        self.assertEqual('121', builds[4].rev)
+        self.assertEqual(platform2.id, builds[5].platform)
+        self.assertEqual('120', builds[5].rev)
+
+        # check attempts at duplicate inserts were logged.
+        failure_messages = [x for x in messages if x.startswith('Failed to insert build')]
+        self.assertEqual(6, len(failure_messages))
 
     def test_should_delete_build_platform_dont_exist(self):
         messages = []

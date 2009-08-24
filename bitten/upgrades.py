@@ -358,6 +358,12 @@ def recreate_rule_with_int_id(env, db):
                     cursor.execute(stmt)
                 cursor.execute("INSERT INTO bitten_rule (id,propname,pattern,orderno) SELECT %s,propname,pattern,orderno FROM old_rule" % db.cast('id', 'int'))
 
+def add_config_platform_rev_index_to_build(env, db):
+    """Adds a unique index on (config, platform, rev) to the bitten_build table.
+       Also drops the old index on bitten_build that serves no real purpose anymore."""
+    cursor = db.cursor()
+    cursor.execute("CREATE UNIQUE INDEX bitten_build_config_rev_platform_idx ON bitten_build (config,rev,platform)")
+    cursor.execute("DROP INDEX bitten_build_config_rev_slave_idx")
 
 map = {
     2: [add_log_table],
@@ -368,4 +374,5 @@ map = {
     7: [add_error_table],
     8: [add_filename_to_logs,migrate_logs_to_files],
     9: [recreate_rule_with_int_id],
+   10: [add_config_platform_rev_index_to_build],
 }

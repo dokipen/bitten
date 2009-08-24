@@ -246,9 +246,17 @@ class BuildQueue(object):
                     builds.append(build)
 
         for build in builds:
-            build.insert(db=db)
-
-        db.commit()
+            try:
+                build.insert(db=db)
+                db.commit()
+            except Exception, e:
+                # really only want to catch IntegrityErrors raised when
+                # a second slave attempts to add builds with the same
+                # (config, platform, rev) as an existing build.
+                self.log.info('Failed to insert build of configuration "%s" '
+                    'at revision [%s] on platform [%s]: %s',
+                    build.config, build.rev, build.platform, e)
+                db.rollback()
 
     def reset_orphaned_builds(self):
         """Reset all in-progress builds to ``PENDING`` state if they've been

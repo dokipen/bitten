@@ -341,7 +341,7 @@ class Build(object):
             Column('rev_time', type='int'), Column('platform', type='int'),
             Column('slave'), Column('started', type='int'),
             Column('stopped', type='int'), Column('status', size=1),
-            Index(['config', 'rev', 'slave'])
+            Index(['config', 'rev', 'platform'], unique=True)
         ],
         Table('bitten_slave', key=('build', 'propname'))[
             Column('build', type='int'), Column('propname'), Column('propvalue')
@@ -998,4 +998,4 @@ class Report(object):
 
 schema = BuildConfig._schema + TargetPlatform._schema + Build._schema + \
          BuildStep._schema + BuildLog._schema + Report._schema
-schema_version = 9
+schema_version = 10
