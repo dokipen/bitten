@@ -10,8 +10,12 @@
 
 """Implementation of the build slave."""
 
+import sys
+assert sys.version_info[:2] >= (2,4), "Python 2.4 required."
+
 from datetime import datetime
 import errno
+import urllib
 import urllib2
 import logging
 import os
@@ -20,6 +24,8 @@ import shutil
 import socket
 import tempfile
 import time
+import re
+import cookielib
 
 from bitten.build import BuildError
 from bitten.build.config import Configuration
@@ -29,6 +35,9 @@ from bitten.util import xmlio
 EX_OK = getattr(os, "EX_OK", 0)
 EX_UNAVAILABLE = getattr(os, "EX_UNAVAILABLE", 69)
 EX_PROTOCOL = getattr(os, "EX_PROTOCOL", 76)
+EX_NOPERM = getattr(os, "EX_NOPERM", 77)
+
+FORM_TOKEN_RE = re.compile('__FORM_TOKEN\" value=\"(.+)\"')
 
 __all__ = ['BuildSlave', 'ExitSlave']
 __docformat__ = 'restructuredtext en'
@@ -83,7 +92,7 @@ class BuildSlave(object):
                  work_dir=None, build_dir="build_${build}",
                  keep_files=False, single_build=False,
                  poll_interval=300, username=None, password=None,
-                 dump_reports=False, no_loop=False):
+                 dump_reports=False, no_loop=False, form_auth=False):
         """Create the build slave instance.
         
         :param urls: a list of URLs of the build masters to connect to, or a
@@ -110,6 +119,8 @@ class BuildSlave(object):
                              to the build master
         :param no_loop: for this slave to just perform a single check, regardless
                         of whether a build is done or not
+        :param form_auth: login using AccountManager HTML form instead of
+                                HTTP authentication for all urls
         """
         self.urls = urls
         self.local = len(urls) == 1 and not urls[0].startswith('http://') \
@@ -130,22 +141,29 @@ class BuildSlave(object):
         self.no_loop = no_loop
         self.poll_interval = poll_interval
         self.dump_reports = dump_reports
+        self.cookiejar = cookielib.CookieJar()
+        self.username = username \
+                        or self.config['authentication.username'] or ''
 
         if not self.local:
             self.password_mgr = urllib2.HTTPPasswordMgrWithDefaultRealm()
-            if not username:
-                username = self.config['authentication.username']
-            if not password:
-                password = self.config['authentication.password']
-            self.config.packages.pop('authentication', None)
-            if username and password:
-                log.debug('Enabling authentication with username %r', username)
-                self.password_mgr.add_password(None, urls, username, password)
+            if self.username:
+                log.debug('Enabling authentication with username %r',
+                                self.username)
+                self.form_auth = form_auth
+                password = password \
+                           or self.config['authentication.password'] or ''
+                self.config.packages.pop('authentication', None)
+                urls = [url[:-7] for url in urls]
+                self.password_mgr.add_password(
+                                None, urls, self.username, password)
+                self.auth_map = dict(map(lambda x: (x, False), urls))
 
     def _get_opener(self):
         opener = urllib2.build_opener(SaneHTTPErrorProcessor)
         opener.add_handler(urllib2.HTTPBasicAuthHandler(self.password_mgr))
         opener.add_handler(urllib2.HTTPDigestAuthHandler(self.password_mgr))
+        opener.add_handler(urllib2.HTTPCookieProcessor(self.cookiejar))
         return opener
     opener = property(_get_opener)
 
@@ -186,6 +204,33 @@ class BuildSlave(object):
             url = urls.pop(0)
             try:
                 try:
+                    if self.username and not self.auth_map.get(url):
+                        # First request to url, authentication needed
+                        if self.form_auth:
+                            log.debug('Performing http form authentication')
+                            resp = self.request('POST', url[:-7] + '/login')
+                            match = FORM_TOKEN_RE.search(resp.read())
+                            if not match:
+                                log.error("Project %s does not support form "
+                                          "authentication" % url[:-7])
+                                raise ExitSlave(EX_NOPERM)
+                            values = {'user': self.username, 
+                                      'password':
+                                          self.password_mgr.find_user_password(
+                                                                None, url)[1],
+                                      'referer': '',
+                                      '__FORM_TOKEN': match.group(1)} 
+                            self.request('POST', url[:-7] + '/login',
+                                         body=urllib.urlencode(values))
+                        else:
+                            log.debug('Performing basic/digest authentication')
+                            self.request('HEAD', url[:-7] + '/login')
+                        self.auth_map[url] = True
+                    elif self.username:
+                        log.debug('Reusing authentication information.')
+                    else:
+                        log.debug('Authentication not provided. Attempting to '
+                                  'execute build anonymously.')
                     job_done = self._create_build(url)
                     if job_done:
                         continue
@@ -369,6 +414,10 @@ def main():
         parser.values.password = getpass('Passsword: ')
     parser.add_option('-P', '--ask-password', action='callback',
                       callback=_ask_password, help='Prompt for password')
+    parser.add_option('--form-auth', action='store_true', 
+                      dest='form_auth',
+                      help='login using AccountManager HTML form instead of '
+                           'HTTP authentication for all urls')
 
     group = parser.add_option_group('building')
     group.add_option('-d', '--work-dir', action='store', dest='work_dir',
@@ -403,7 +452,7 @@ def main():
 
     parser.set_defaults(dry_run=False, keep_files=False,
                         loglevel=logging.INFO, single_build=False, no_loop=False,
-                        dump_reports=False, interval=300)
+                        dump_reports=False, interval=300, form_auth=False)
     options, args = parser.parse_args()
 
     if len(args) < 1:
@@ -436,7 +485,8 @@ def main():
                        no_loop=options.no_loop,
                        poll_interval=options.interval,
                        username=options.username, password=options.password,
-                       dump_reports=options.dump_reports)
+                       dump_reports=options.dump_reports,
+                       form_auth=options.form_auth)
     try:
         try:
             exit_code = slave.run()
@@ -455,5 +505,4 @@ def main():
     return exit_code
 
 if __name__ == '__main__':
-    import sys
     sys.exit(main())
