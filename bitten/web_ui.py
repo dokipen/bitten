@@ -88,8 +88,6 @@ class BittenChrome(Component):
             status = ''
             if BuildMaster(self.env).quick_status:
                 repos = self.env.get_repository(req.authname)
-                if hasattr(repos, 'sync'):
-                    repos.sync()
                 for config in BuildConfig.select(self.env, 
                                                  include_inactive=False):
                     prev_rev = None
@@ -185,8 +183,6 @@ class BuildConfigController(Component):
         data['show_all'] = show_all
 
         repos = self.env.get_repository(req.authname)
-        if hasattr(repos, 'sync'):
-            repos.sync()
 
         configs = []
         for config in BuildConfig.select(self.env, include_inactive=show_all):
@@ -274,8 +270,6 @@ class BuildConfigController(Component):
         db = self.env.get_db_cnx()
 
         repos = self.env.get_repository(req.authname)
-        if hasattr(repos, 'sync'):
-            repos.sync()
 
         configs = []
         for config in BuildConfig.select(self.env, include_inactive=False):
@@ -342,8 +336,6 @@ class BuildConfigController(Component):
                                 % config_name)
 
         repos = self.env.get_repository(req.authname)
-        if hasattr(repos, 'sync'):
-            repos.sync()
         repos.authz.assert_permission(config.path)
 
         data = {'title': 'Build Configuration "%s"' \
@@ -414,8 +406,6 @@ class BuildConfigController(Component):
         data['page_number'] = page
 
         repos = self.env.get_repository(req.authname)
-        if hasattr(repos, 'sync'):
-            repos.sync()
 
         builds_per_page = 12 * len(platforms)
         idx = 0
@@ -581,8 +571,6 @@ class BuildController(Component):
                        (start, stop, Build.SUCCESS, Build.FAILURE))
 
         repos = self.env.get_repository(req.authname)
-        if hasattr(repos, 'sync'):
-            repos.sync()
 
         event_kinds = {Build.SUCCESS: 'successbuild',
                        Build.FAILURE: 'failedbuild'}

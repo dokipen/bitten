@@ -209,8 +209,6 @@ class BuildQueue(object):
         configuration being in the build queue.
         """
         repos = self.env.get_repository()
-        if hasattr(repos, 'sync'):
-            repos.sync()
 
         db = self.env.get_db_cnx()
         builds = []
