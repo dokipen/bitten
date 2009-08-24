@@ -562,7 +562,7 @@ class BuildController(Component):
 
         db = self.env.get_db_cnx()
         cursor = db.cursor()
-        cursor.execute("SELECT b.id,b.config,c.label,b.rev,p.name,"
+        cursor.execute("SELECT b.id,b.config,c.label,c.path, b.rev,p.name,"
                        "b.stopped,b.status FROM bitten_build AS b"
                        "  INNER JOIN bitten_config AS c ON (c.name=b.config) "
                        "  INNER JOIN bitten_platform AS p ON (p.id=b.platform) "
@@ -574,25 +574,34 @@ class BuildController(Component):
 
         event_kinds = {Build.SUCCESS: 'successbuild',
                        Build.FAILURE: 'failedbuild'}
-        for id, config, label, rev, platform, stopped, status in cursor:
 
-            config_object = BuildConfig.fetch(self.env, config, db=db)
-            if not repos.authz.has_permission(config_object.path):
+        for id_, config, label, path, rev, platform, stopped, status in cursor:
+            if not repos.authz.has_permission(path):
                 continue
-            
             errors = []
             if status == Build.FAILURE:
-                for step in BuildStep.select(self.env, build=id,
+                for step in BuildStep.select(self.env, build=id_,
                                              status=BuildStep.FAILURE,
                                              db=db):
                     errors += [(step.name, error) for error
                                in step.errors]
 
-            title = tag('Build of ', tag.em('%s [%s]' % (label, rev)),
+            yield (event_kinds[status], to_datetime(stopped, utc), None,
+                        (id_, config, label, rev, platform, status, errors))
+
+    def render_timeline_event(self, context, field, event):
+        id_, config, label, rev, platform, status, errors = event[3]
+
+        if field == 'url':
+            return context.href.build(config, id_)
+
+        elif field == 'title':
+            return tag('Build of ', tag.em('%s [%s]' % (label, rev)),
                         ' on %s %s' % (platform, _status_label[status]))
+
+        elif field == 'description':
             message = ''
-            if req.args.get('format') == 'rss':
-                href = req.abs_href.build(config, id)
+            if context.req.args.get('format') == 'rss':
                 if errors:
                     buf = StringIO()
                     prev_step = None
@@ -607,7 +616,6 @@ class BuildController(Component):
                     buf.write('</ul>')
                     message = Markup(buf.getvalue())
             else:
-                href = req.href.build(config, id)
                 if errors:
                     steps = []
                     for step, error in errors:
@@ -622,9 +630,8 @@ class BuildController(Component):
                         message = Markup(', ').join(steps[:-1]) + ', and ' + \
                                   steps[-1]
                     message = Markup('Step%s %s failed') % (
-                        len(steps) != 1 and 's' or '', message
-                    )
-            yield event_kinds[status], href, title, stopped, None, message
+                                    len(steps) != 1 and 's' or '', message)
+            return message
 
     # Internal methods
 
