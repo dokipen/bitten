@@ -159,7 +159,13 @@ class BuildSlave(object):
             return resp
         except urllib2.HTTPError, e:
             if e.code >= 300:
-                log.warning('Server returned error %d: %s', e.code, e.msg)
+                if e.headers.getheader('Content-Type', ''
+                                                ).startswith('text/plain'):
+                    content = e.read()
+                else:
+                    content = 'no message available'
+                log.debug('Server returned error %d: %s (%s)',
+                                        e.code, e.msg, content)
                 raise
             return e
 

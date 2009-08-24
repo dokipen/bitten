@@ -19,8 +19,7 @@ from trac.db import DatabaseManager
 from trac.perm import PermissionCache, PermissionSystem
 from trac.test import EnvironmentStub, Mock
 from trac.util.datefmt import to_datetime, utc
-from trac.web.api import HTTPBadRequest, HTTPMethodNotAllowed, HTTPNotFound, \
-                         HTTPForbidden, RequestDone
+from trac.web.api import RequestDone
 from trac.web.href import Href
 
 from bitten.master import BuildMaster
@@ -92,47 +91,58 @@ class BuildMasterTestCase(unittest.TestCase):
 
         module = BuildMaster(self.env)
         assert module.match_request(req)
-        try:
-            module.process_request(req)
-            self.fail('Expected RequestDone')
-        except RequestDone:
-            self.assertEqual(201, outheaders['Status'])
-            self.assertEqual('text/plain', outheaders['Content-Type'])
-            location = outheaders['Location']
-            mo = re.match('http://example.org/trac/builds/(\d+)', location)
-            assert mo, 'Location was %r' % location
-            self.assertEqual('Build pending', outbody.getvalue())
-            build = Build.fetch(self.env, int(mo.group(1)))
-            self.assertEqual(Build.IN_PROGRESS, build.status)
-            self.assertEqual('hal', build.slave)
+
+        self.assertRaises(RequestDone, module.process_request, req)
+
+        self.assertEqual(201, outheaders['Status'])
+        self.assertEqual('text/plain', outheaders['Content-Type'])
+        location = outheaders['Location']
+        mo = re.match('http://example.org/trac/builds/(\d+)', location)
+        assert mo, 'Location was %r' % location
+        self.assertEqual('Build pending', outbody.getvalue())
+        build = Build.fetch(self.env, int(mo.group(1)))
+        self.assertEqual(Build.IN_PROGRESS, build.status)
+        self.assertEqual('hal', build.slave)
 
     def test_create_build_invalid_xml(self):
         inheaders = {'Content-Type': 'application/x-bitten+xml'}
         inbody = StringIO('<slave></salve>')
+        outheaders = {}
+        outbody = StringIO()
         req = Mock(method='POST', base_path='', path_info='/builds',
                    href=Href('/trac'), remote_addr='127.0.0.1', args={},
                    perm=PermissionCache(self.env, 'hal'),
-                   get_header=lambda x: inheaders.get(x), read=inbody.read)
+                   get_header=lambda x: inheaders.get(x), read=inbody.read,
+                   send_response=lambda x: outheaders.setdefault('Status', x),
+                   send_header=lambda x, y: outheaders.setdefault(x, y),
+                   write=outbody.write)
 
         module = BuildMaster(self.env)
         assert module.match_request(req)
-        try:
-            module.process_request(req)
-            self.fail('Expected HTTPBadRequest')
-        except HTTPBadRequest, e:
-            self.assertEqual('XML parser error', e.detail)
+
+        self.assertRaises(RequestDone, module.process_request, req)
+
+        self.assertEquals(400, outheaders['Status'])
+        self.assertEqual('XML parser error', outbody.getvalue())
 
     def test_create_build_no_post(self):
+        outheaders = {}
+        outbody = StringIO()
         req = Mock(method='GET', base_path='', path_info='/builds',
                    href=Href('/trac'), remote_addr='127.0.0.1', args={},
-                   perm=PermissionCache(self.env, 'hal'))
+                   perm=PermissionCache(self.env, 'hal'),
+                   send_response=lambda x: outheaders.setdefault('Status', x),
+                   send_header=lambda x, y: outheaders.setdefault(x, y),
+                   write=outbody.write)
+
         module = BuildMaster(self.env)
         assert module.match_request(req)
-        try:
-            module.process_request(req)
-            self.fail('Expected HTTPMethodNotAllowed')
-        except HTTPMethodNotAllowed, e:
-            self.assertEqual('Method not allowed', e.detail)
+
+        self.assertRaises(RequestDone, module.process_request, req)
+
+        self.assertEquals(405, outheaders['Status'])
+        self.assertEquals('Only POST allowed for build creation',
+                    outbody.getvalue())
 
     def test_create_build_no_match(self):
         inheaders = {'Content-Type': 'application/x-bitten+xml'}
@@ -152,12 +162,11 @@ class BuildMasterTestCase(unittest.TestCase):
 
         module = BuildMaster(self.env)
         assert module.match_request(req)
-        try:
-            module.process_request(req)
-            self.fail('Expected RequestDone')
-        except RequestDone:
-            self.assertEqual(204, outheaders['Status'])
-            self.assertEqual('', outbody.getvalue())
+
+        self.assertRaises(RequestDone, module.process_request, req)
+
+        self.assertEqual(204, outheaders['Status'])
+        self.assertEqual('', outbody.getvalue())
 
     def test_cancel_build(self):
         config = BuildConfig(self.env, 'test', path='somepath', active=True,
@@ -179,17 +188,16 @@ class BuildMasterTestCase(unittest.TestCase):
 
         module = BuildMaster(self.env)
         assert module.match_request(req)
-        try:
-            module.process_request(req)
-            self.fail('Expected RequestDone')
-        except RequestDone:
-            self.assertEqual(204, outheaders['Status'])
-            self.assertEqual('', outbody.getvalue())
 
-            # Make sure the started timestamp has been set
-            build = Build.fetch(self.env, build.id)
-            self.assertEqual(Build.PENDING, build.status)
-            assert not build.started
+        self.assertRaises(RequestDone, module.process_request, req)
+
+        self.assertEqual(204, outheaders['Status'])
+        self.assertEqual('', outbody.getvalue())
+
+        # Make sure the started timestamp has been set
+        build = Build.fetch(self.env, build.id)
+        self.assertEqual(Build.PENDING, build.status)
+        assert not build.started
 
     def test_initiate_build(self):
         config = BuildConfig(self.env, 'test', path='somepath', active=True,
@@ -215,38 +223,42 @@ class BuildMasterTestCase(unittest.TestCase):
 
         module = BuildMaster(self.env)
         assert module.match_request(req)
-        try:
-            module.process_request(req)
-            self.fail('Expected RequestDone')
-        except RequestDone:
-            self.assertEqual(200, outheaders['Status'])
-            self.assertEqual('90', outheaders['Content-Length'])
-            self.assertEqual('application/x-bitten+xml',
-                             outheaders['Content-Type'])
-            self.assertEqual('attachment; filename=recipe_test_r123.xml',
-                             outheaders['Content-Disposition'])
-            self.assertEqual('<build build="1" config="test" name="hal"'
-                             ' path="somepath" platform="Unix"'
-                             ' revision="123"/>',
-                             outbody.getvalue())
 
-            # Make sure the started timestamp has been set
-            build = Build.fetch(self.env, build.id)
-            assert build.started
+        self.assertRaises(RequestDone, module.process_request, req)
+
+        self.assertEqual(200, outheaders['Status'])
+        self.assertEqual('90', outheaders['Content-Length'])
+        self.assertEqual('application/x-bitten+xml',
+                         outheaders['Content-Type'])
+        self.assertEqual('attachment; filename=recipe_test_r123.xml',
+                         outheaders['Content-Disposition'])
+        self.assertEqual('<build build="1" config="test" name="hal"'
+                         ' path="somepath" platform="Unix"'
+                         ' revision="123"/>',
+                         outbody.getvalue())
+
+        # Make sure the started timestamp has been set
+        build = Build.fetch(self.env, build.id)
+        assert build.started
 
     def test_initiate_build_no_such_build(self):
+        outheaders = {}
+        outbody = StringIO()
         req = Mock(method='GET', base_path='',
                    path_info='/builds/123', href=Href('/trac'),
                    remote_addr='127.0.0.1', args={},
-                   perm=PermissionCache(self.env, 'hal'))
+                   perm=PermissionCache(self.env, 'hal'),
+                   send_response=lambda x: outheaders.setdefault('Status', x),
+                   send_header=lambda x, y: outheaders.setdefault(x, y),
+                   write=outbody.write)
 
         module = BuildMaster(self.env)
         assert module.match_request(req)
-        try:
-            module.process_request(req)
-            self.fail('Expected HTTPNotFound')
-        except HTTPNotFound, e:
-            self.assertEqual('No such build', e.detail)
+
+        self.assertRaises(RequestDone, module.process_request, req)
+
+        self.assertEquals(404, outheaders['Status'])
+        self.assertEquals('No such build (123)', outbody.getvalue())
 
     def test_process_unknown_collection(self):
         BuildConfig(self.env, 'test', path='somepath', active=True,
@@ -254,18 +266,23 @@ class BuildMasterTestCase(unittest.TestCase):
         build = Build(self.env, 'test', '123', 1, slave='hal', rev_time=42)
         build.insert()
 
+        outheaders = {}
+        outbody = StringIO()
         req = Mock(method='POST', base_path='',
                    path_info='/builds/%d/files/' % build.id,
                    href=Href('/trac'), remote_addr='127.0.0.1', args={},
-                   perm=PermissionCache(self.env, 'hal'))
+                   perm=PermissionCache(self.env, 'hal'),
+                   send_response=lambda x: outheaders.setdefault('Status', x),
+                   send_header=lambda x, y: outheaders.setdefault(x, y),
+                   write=outbody.write)
 
         module = BuildMaster(self.env)
         assert module.match_request(req)
-        try:
-            module.process_request(req)
-            self.fail('Expected HTTPNotFound')
-        except HTTPNotFound, e:
-            self.assertEqual('No such collection', e.detail)
+
+        self.assertRaises(RequestDone, module.process_request, req)
+
+        self.assertEqual(404, outheaders['Status'])
+        self.assertEqual("No such collection 'files'", outbody.getvalue())
 
     def test_process_build_step_success(self):
         recipe = """<build>
@@ -296,24 +313,23 @@ class BuildMasterTestCase(unittest.TestCase):
                    write=outbody.write)
         module = BuildMaster(self.env)
         assert module.match_request(req)
-        try:
-            module.process_request(req)
-            self.fail('Expected RequestDone')
-        except RequestDone:
-            self.assertEqual(201, outheaders['Status'])
-            self.assertEqual('20', outheaders['Content-Length'])
-            self.assertEqual('text/plain', outheaders['Content-Type'])
-            self.assertEqual('Build step processed', outbody.getvalue())
 
-            build = Build.fetch(self.env, build.id)
-            self.assertEqual(Build.SUCCESS, build.status)
-            assert build.stopped
-            assert build.stopped > build.started
+        self.assertRaises(RequestDone, module.process_request, req)
 
-            steps = list(BuildStep.select(self.env, build.id))
-            self.assertEqual(1, len(steps))
-            self.assertEqual('foo', steps[0].name)
-            self.assertEqual(BuildStep.SUCCESS, steps[0].status)
+        self.assertEqual(201, outheaders['Status'])
+        self.assertEqual('20', outheaders['Content-Length'])
+        self.assertEqual('text/plain', outheaders['Content-Type'])
+        self.assertEqual('Build step processed', outbody.getvalue())
+
+        build = Build.fetch(self.env, build.id)
+        self.assertEqual(Build.SUCCESS, build.status)
+        assert build.stopped
+        assert build.stopped > build.started
+
+        steps = list(BuildStep.select(self.env, build.id))
+        self.assertEqual(1, len(steps))
+        self.assertEqual('foo', steps[0].name)
+        self.assertEqual(BuildStep.SUCCESS, steps[0].status)
 
     def test_process_build_step_success_with_log(self):
         recipe = """<build>
@@ -348,32 +364,31 @@ class BuildMasterTestCase(unittest.TestCase):
                    write=outbody.write)
         module = BuildMaster(self.env)
         assert module.match_request(req)
-        try:
-            module.process_request(req)
-            self.fail('Expected RequestDone')
-        except RequestDone:
-            self.assertEqual(201, outheaders['Status'])
-            self.assertEqual('20', outheaders['Content-Length'])
-            self.assertEqual('text/plain', outheaders['Content-Type'])
-            self.assertEqual('Build step processed', outbody.getvalue())
 
-            build = Build.fetch(self.env, build.id)
-            self.assertEqual(Build.SUCCESS, build.status)
-            assert build.stopped
-            assert build.stopped > build.started
+        self.assertRaises(RequestDone, module.process_request, req)
 
-            steps = list(BuildStep.select(self.env, build.id))
-            self.assertEqual(1, len(steps))
-            self.assertEqual('foo', steps[0].name)
-            self.assertEqual(BuildStep.SUCCESS, steps[0].status)
+        self.assertEqual(201, outheaders['Status'])
+        self.assertEqual('20', outheaders['Content-Length'])
+        self.assertEqual('text/plain', outheaders['Content-Type'])
+        self.assertEqual('Build step processed', outbody.getvalue())
 
-            logs = list(BuildLog.select(self.env, build=build.id, step='foo'))
-            self.assertEqual(1, len(logs))
-            self.assertEqual('http://bitten.cmlenz.net/tools/python#unittest',
-                             logs[0].generator)
-            self.assertEqual(2, len(logs[0].messages))
-            self.assertEqual((u'info', u'Doing stuff'), logs[0].messages[0])
-            self.assertEqual((u'error', u'Ouch that hurt'), logs[0].messages[1])
+        build = Build.fetch(self.env, build.id)
+        self.assertEqual(Build.SUCCESS, build.status)
+        assert build.stopped
+        assert build.stopped > build.started
+
+        steps = list(BuildStep.select(self.env, build.id))
+        self.assertEqual(1, len(steps))
+        self.assertEqual('foo', steps[0].name)
+        self.assertEqual(BuildStep.SUCCESS, steps[0].status)
+
+        logs = list(BuildLog.select(self.env, build=build.id, step='foo'))
+        self.assertEqual(1, len(logs))
+        self.assertEqual('http://bitten.cmlenz.net/tools/python#unittest',
+                         logs[0].generator)
+        self.assertEqual(2, len(logs[0].messages))
+        self.assertEqual((u'info', u'Doing stuff'), logs[0].messages[0])
+        self.assertEqual((u'error', u'Ouch that hurt'), logs[0].messages[1])
 
     def test_process_build_step_success_with_report(self):
         recipe = """<build>
@@ -410,37 +425,36 @@ class BuildMasterTestCase(unittest.TestCase):
                    write=outbody.write)
         module = BuildMaster(self.env)
         assert module.match_request(req)
-        try:
-            module.process_request(req)
-            self.fail('Expected RequestDone')
-        except RequestDone:
-            self.assertEqual(201, outheaders['Status'])
-            self.assertEqual('20', outheaders['Content-Length'])
-            self.assertEqual('text/plain', outheaders['Content-Type'])
-            self.assertEqual('Build step processed', outbody.getvalue())
 
-            build = Build.fetch(self.env, build.id)
-            self.assertEqual(Build.SUCCESS, build.status)
-            assert build.stopped
-            assert build.stopped > build.started
+        self.assertRaises(RequestDone, module.process_request, req)
 
-            steps = list(BuildStep.select(self.env, build.id))
-            self.assertEqual(1, len(steps))
-            self.assertEqual('foo', steps[0].name)
-            self.assertEqual(BuildStep.SUCCESS, steps[0].status)
+        self.assertEqual(201, outheaders['Status'])
+        self.assertEqual('20', outheaders['Content-Length'])
+        self.assertEqual('text/plain', outheaders['Content-Type'])
+        self.assertEqual('Build step processed', outbody.getvalue())
 
-            reports = list(Report.select(self.env, build=build.id, step='foo'))
-            self.assertEqual(1, len(reports))
-            self.assertEqual('test', reports[0].category)
-            self.assertEqual('http://bitten.cmlenz.net/tools/python#unittest',
-                             reports[0].generator)
-            self.assertEqual(1, len(reports[0].items))
-            self.assertEqual({
-                'fixture': 'my.Fixture', 
-                'file': 'my/test/file.py', 
-                'stdout': 'Doing my thing',
-                'type': 'test',
-            }, reports[0].items[0])
+        build = Build.fetch(self.env, build.id)
+        self.assertEqual(Build.SUCCESS, build.status)
+        assert build.stopped
+        assert build.stopped > build.started
+
+        steps = list(BuildStep.select(self.env, build.id))
+        self.assertEqual(1, len(steps))
+        self.assertEqual('foo', steps[0].name)
+        self.assertEqual(BuildStep.SUCCESS, steps[0].status)
+
+        reports = list(Report.select(self.env, build=build.id, step='foo'))
+        self.assertEqual(1, len(reports))
+        self.assertEqual('test', reports[0].category)
+        self.assertEqual('http://bitten.cmlenz.net/tools/python#unittest',
+                         reports[0].generator)
+        self.assertEqual(1, len(reports[0].items))
+        self.assertEqual({
+            'fixture': 'my.Fixture', 
+            'file': 'my/test/file.py', 
+            'stdout': 'Doing my thing',
+            'type': 'test',
+        }, reports[0].items[0])
 
     def test_process_build_step_success_with_attach(self):
         # Parse input and create attachments for config + build
@@ -552,19 +566,19 @@ class BuildMasterTestCase(unittest.TestCase):
                    write=outbody.write)
         module = BuildMaster(self.env)
         assert module.match_request(req)
-        try:
-            module.process_request(req)
-            self.fail('Expected HTTPForbidden')
-        except HTTPForbidden, e:
-            self.assertEqual('Build 1 has been invalidated for host 127.0.0.1.', e.detail)
 
-            build = Build.fetch(self.env, build.id)
-            self.assertEqual(Build.IN_PROGRESS, build.status)
-            assert not build.stopped
+        self.assertRaises(RequestDone, module.process_request, req)
 
-            steps = list(BuildStep.select(self.env, build.id))
-            self.assertEqual(0, len(steps))
+        self.assertEqual(403, outheaders['Status'])
+        self.assertEqual('Build 1 has been invalidated for host 127.0.0.1.',
+                        outbody.getvalue())
 
+        build = Build.fetch(self.env, build.id)
+        self.assertEqual(Build.IN_PROGRESS, build.status)
+        assert not build.stopped
+
+        steps = list(BuildStep.select(self.env, build.id))
+        self.assertEqual(0, len(steps))
 
     def test_process_build_step_invalidated_build(self):
         recipe = """<build>
@@ -601,16 +615,15 @@ class BuildMasterTestCase(unittest.TestCase):
                    write=outbody.write)
         module = BuildMaster(self.env)
         assert module.match_request(req)
-        try:
-            module.process_request(req)
-            self.fail('Expected RequestDone')
-        except RequestDone:            
-            build = Build.fetch(self.env, build.id)
-            self.assertEqual(Build.IN_PROGRESS, build.status)
-            assert not build.stopped
 
-            steps = list(BuildStep.select(self.env, build.id))
-            self.assertEqual(1, len(steps))
+        self.assertRaises(RequestDone, module.process_request, req)
+
+        build = Build.fetch(self.env, build.id)
+        self.assertEqual(Build.IN_PROGRESS, build.status)
+        assert not build.stopped
+
+        steps = list(BuildStep.select(self.env, build.id))
+        self.assertEqual(1, len(steps))
 
         # invalidate the build. 
 
@@ -640,14 +653,15 @@ class BuildMasterTestCase(unittest.TestCase):
                    write=outbody.write)
         module = BuildMaster(self.env)
         assert module.match_request(req)
-        try:
-            module.process_request(req)
-            self.fail('Build was invalidated. Should fail.');
-        except HTTPForbidden, e:
-            self.assertEqual('Build 1 has been invalidated for host 127.0.0.1.', e.detail)            
 
-            build = Build.fetch(self.env, build.id)
-            self.assertEqual(Build.PENDING, build.status)
+        self.assertRaises(RequestDone, module.process_request, req)
+
+        self.assertEquals(403, outheaders['Status'])
+        self.assertEquals('Build 1 has been invalidated for host 127.0.0.1.',
+                        outbody.getvalue())            
+
+        build = Build.fetch(self.env, build.id)
+        self.assertEqual(Build.PENDING, build.status)
 
     def test_process_build_step_failure(self):
         recipe = """<build>
@@ -678,24 +692,23 @@ class BuildMasterTestCase(unittest.TestCase):
                    write=outbody.write)
         module = BuildMaster(self.env)
         assert module.match_request(req)
-        try:
-            module.process_request(req)
-            self.fail('Expected RequestDone')
-        except RequestDone:
-            self.assertEqual(201, outheaders['Status'])
-            self.assertEqual('20', outheaders['Content-Length'])
-            self.assertEqual('text/plain', outheaders['Content-Type'])
-            self.assertEqual('Build step processed', outbody.getvalue())
 
-            build = Build.fetch(self.env, build.id)
-            self.assertEqual(Build.FAILURE, build.status)
-            assert build.stopped
-            assert build.stopped > build.started
+        self.assertRaises(RequestDone, module.process_request, req)
 
-            steps = list(BuildStep.select(self.env, build.id))
-            self.assertEqual(1, len(steps))
-            self.assertEqual('foo', steps[0].name)
-            self.assertEqual(BuildStep.FAILURE, steps[0].status)
+        self.assertEqual(201, outheaders['Status'])
+        self.assertEqual('20', outheaders['Content-Length'])
+        self.assertEqual('text/plain', outheaders['Content-Type'])
+        self.assertEqual('Build step processed', outbody.getvalue())
+
+        build = Build.fetch(self.env, build.id)
+        self.assertEqual(Build.FAILURE, build.status)
+        assert build.stopped
+        assert build.stopped > build.started
+
+        steps = list(BuildStep.select(self.env, build.id))
+        self.assertEqual(1, len(steps))
+        self.assertEqual('foo', steps[0].name)
+        self.assertEqual(BuildStep.FAILURE, steps[0].status)
 
     def test_process_build_step_failure_ignored(self):
         recipe = """<build>
@@ -727,24 +740,23 @@ class BuildMasterTestCase(unittest.TestCase):
                    write=outbody.write)
         module = BuildMaster(self.env)
         assert module.match_request(req)
-        try:
-            module.process_request(req)
-            self.fail('Expected RequestDone')
-        except RequestDone:
-            self.assertEqual(201, outheaders['Status'])
-            self.assertEqual('20', outheaders['Content-Length'])
-            self.assertEqual('text/plain', outheaders['Content-Type'])
-            self.assertEqual('Build step processed', outbody.getvalue())
 
-            build = Build.fetch(self.env, build.id)
-            self.assertEqual(Build.SUCCESS, build.status)
-            assert build.stopped
-            assert build.stopped > build.started
+        self.assertRaises(RequestDone, module.process_request, req)
 
-            steps = list(BuildStep.select(self.env, build.id))
-            self.assertEqual(1, len(steps))
-            self.assertEqual('foo', steps[0].name)
-            self.assertEqual(BuildStep.FAILURE, steps[0].status)
+        self.assertEqual(201, outheaders['Status'])
+        self.assertEqual('20', outheaders['Content-Length'])
+        self.assertEqual('text/plain', outheaders['Content-Type'])
+        self.assertEqual('Build step processed', outbody.getvalue())
+
+        build = Build.fetch(self.env, build.id)
+        self.assertEqual(Build.SUCCESS, build.status)
+        assert build.stopped
+        assert build.stopped > build.started
+
+        steps = list(BuildStep.select(self.env, build.id))
+        self.assertEqual(1, len(steps))
+        self.assertEqual('foo', steps[0].name)
+        self.assertEqual(BuildStep.FAILURE, steps[0].status)
 
     def test_process_build_step_invalid_xml(self):
         recipe = """<build>
@@ -758,19 +770,24 @@ class BuildMasterTestCase(unittest.TestCase):
         build.insert()
 
         inbody = StringIO("""<result></rsleut>""")
+        outheaders = {}
+        outbody = StringIO()
         req = Mock(method='POST', base_path='',
                    path_info='/builds/%d/steps/' % build.id,
                    href=Href('/trac'), remote_addr='127.0.0.1', args={},
                    perm=PermissionCache(self.env, 'hal'),
-                   read=inbody.read)
+                   read=inbody.read,
+                   send_response=lambda x: outheaders.setdefault('Status', x),
+                   send_header=lambda x, y: outheaders.setdefault(x, y),
+                   write=outbody.write)
 
         module = BuildMaster(self.env)
         assert module.match_request(req)
-        try:
-            module.process_request(req)
-            self.fail('Expected HTTPBadRequest')
-        except HTTPBadRequest, e:
-            self.assertEqual('XML parser error', e.detail)
+
+        self.assertRaises(RequestDone, module.process_request, req)
+
+        self.assertEquals(400, outheaders['Status'])
+        self.assertEquals('XML parser error', outbody.getvalue())
 
     def test_process_build_step_invalid_datetime(self):
         recipe = """<build>
@@ -788,20 +805,25 @@ class BuildMasterTestCase(unittest.TestCase):
                                      time="sometime tomorrow maybe"
                                      duration="3.45">
 </result>""")
+        outheaders = {}
+        outbody = StringIO()
         req = Mock(method='POST', base_path='',
                    path_info='/builds/%d/steps/' % build.id,
                    href=Href('/trac'), remote_addr='127.0.0.1', args={},
                    perm=PermissionCache(self.env, 'hal'),
-                   read=inbody.read)
+                   read=inbody.read,
+                   send_response=lambda x: outheaders.setdefault('Status', x),
+                   send_header=lambda x, y: outheaders.setdefault(x, y),
+                   write=outbody.write)
 
         module = BuildMaster(self.env)
         assert module.match_request(req)
-        try:
-            module.process_request(req)
-            self.fail('Expected HTTPBadRequest')
-        except HTTPBadRequest, e:
-            self.assertEqual("Invalid ISO date/time 'sometime tomorrow maybe'",
-                             e.detail)
+
+        self.assertRaises(RequestDone, module.process_request, req)
+
+        self.assertEquals(400, outheaders['Status'])
+        self.assertEquals("Invalid ISO date/time 'sometime tomorrow maybe'",
+                             outbody.getvalue())
 
     def test_process_build_step_no_post(self):
         BuildConfig(self.env, 'test', path='somepath', active=True,
@@ -810,18 +832,23 @@ class BuildMasterTestCase(unittest.TestCase):
                       started=42)
         build.insert()
 
+        outheaders = {}
+        outbody = StringIO()
         req = Mock(method='GET', base_path='',
                    path_info='/builds/%d/steps/' % build.id,
                    href=Href('/trac'), remote_addr='127.0.0.1', args={},
-                   perm=PermissionCache(self.env, 'hal'))
+                   perm=PermissionCache(self.env, 'hal'),
+                   send_response=lambda x: outheaders.setdefault('Status', x),
+                   send_header=lambda x, y: outheaders.setdefault(x, y),
+                   write=outbody.write)
 
         module = BuildMaster(self.env)
         assert module.match_request(req)
-        try:
-            module.process_request(req)
-            self.fail('Expected HTTPMethodNotAllowed')
-        except HTTPMethodNotAllowed, e:
-            self.assertEqual('Method not allowed', e.detail)
+        
+        self.assertRaises(RequestDone, module.process_request, req)
+
+        self.assertEqual(405, outheaders['Status'])
+        self.assertEqual('Method GET not allowed', outbody.getvalue())
 
 
 def suite():

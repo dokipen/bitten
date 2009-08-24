@@ -19,9 +19,7 @@ from trac.attachment import Attachment
 from trac.config import BoolOption, IntOption, Option
 from trac.core import *
 from trac.resource import ResourceNotFound
-from trac.web import IRequestHandler, HTTPBadRequest, HTTPConflict, \
-                     HTTPForbidden, HTTPMethodNotAllowed, HTTPNotFound, \
-                     RequestDone
+from trac.web import IRequestHandler, RequestDone
 
 from bitten.model import BuildConfig, Build, BuildStep, BuildLog, Report, \
                      TargetPlatform
@@ -33,6 +31,13 @@ from bitten.util import xmlio
 
 __all__ = ['BuildMaster']
 __docformat__ = 'restructuredtext en'
+
+
+HTTP_BAD_REQUEST = 400
+HTTP_FORBIDDEN = 403
+HTTP_NOT_FOUND = 404
+HTTP_METHOD_NOT_ALLOWED = 405
+HTTP_CONFLICT = 409
 
 
 class BuildMaster(Component):
@@ -88,12 +93,14 @@ class BuildMaster(Component):
 
         if 'id' not in req.args:
             if req.method != 'POST':
-                raise HTTPMethodNotAllowed('Method not allowed')
+                self._send_error(req, HTTP_METHOD_NOT_ALLOWED,
+                                      'Only POST allowed for build creation')
             return self._process_build_creation(req)
 
         build = Build.fetch(self.env, req.args['id'])
         if not build:
-            raise HTTPNotFound('No such build')
+            self._send_error(req, HTTP_NOT_FOUND,
+                                  'No such build (%s)' % req.args['id'])
         config = BuildConfig.fetch(self.env, build.config)
 
         if not req.args['collection']:
@@ -103,12 +110,31 @@ class BuildMaster(Component):
                 return self._process_build_initiation(req, config, build)
 
         if req.method != 'POST':
-            raise HTTPMethodNotAllowed('Method not allowed')
+            self._send_error(req, HTTP_METHOD_NOT_ALLOWED,
+                                  'Method %s not allowed' % req.method)
 
         if req.args['collection'] == 'steps':
             return self._process_build_step(req, config, build)
         else:
-            raise HTTPNotFound('No such collection')
+            self._send_error(req, HTTP_NOT_FOUND,
+                    "No such collection '%s'" % req.args['collection'])
+
+    # Internal methods
+
+    def _send_response(self, req, code=200, body='', headers=None):
+        """ Formats and sends the response, raising ``RequestDone``. """
+        req.send_response(code)
+        headers = headers or {}
+        for header in headers:
+            req.send_header(header, headers[header])
+        req.write(body)
+        raise RequestDone
+
+    def _send_error(self, req, code=500, message=''):
+        """ Formats and sends the error, raising ``RequestDone``. """
+        headers = {'Content-Type': 'text/plain',
+                   'Content-Length': str(len(message))}
+        self._send_response(req, code, body=message, headers=headers)
 
     def _process_build_creation(self, req):
         queue = BuildQueue(self.env, build_all=self.build_all, 
@@ -121,7 +147,7 @@ class BuildMaster(Component):
         except xmlio.ParseError, e:
             self.log.error('Error parsing build initialization request: %s', e,
                            exc_info=True)
-            raise HTTPBadRequest('XML parser error')
+            self._send_error(req, HTTP_BAD_REQUEST, 'XML parser error')
 
         slavename = elem.attr['name']
         properties = {'name': slavename, Build.IP_ADDRESS: req.remote_addr}
@@ -146,15 +172,11 @@ class BuildMaster(Component):
 
         build = queue.get_build_for_slave(slavename, properties)
         if not build:
-            req.send_response(204)
-            req.write('')
-            raise RequestDone
+            self._send_response(req, 204, '', {})
 
-        req.send_response(201)
-        req.send_header('Content-Type', 'text/plain')
-        req.send_header('Location', req.abs_href.builds(build.id))
-        req.write('Build pending')
-        raise RequestDone
+        self._send_response(req, 201, 'Build pending', headers={
+                            'Content-Type': 'text/plain',
+                            'Location': req.abs_href.builds(build.id)})
 
     def _process_build_cancellation(self, req, config, build):
         self.log.info('Build slave %r cancelled build %d', build.slave,
@@ -172,9 +194,7 @@ class BuildMaster(Component):
         for listener in BuildSystem(self.env).listeners:
             listener.build_aborted(build)
 
-        req.send_response(204)
-        req.write('')
-        raise RequestDone
+        self._send_response(req, 204, '', {})
 
     def _process_build_initiation(self, req, config, build):
         self.log.info('Build slave %r initiated build %d', build.slave,
@@ -198,14 +218,12 @@ class BuildMaster(Component):
         self.log.info('Build slave %r initiated build %d', build.slave,
                       build.id)
 
-        req.send_response(200)
-        req.send_header('Content-Type', 'application/x-bitten+xml')
-        req.send_header('Content-Length', str(len(body)))
-        req.send_header('Content-Disposition',
+        self._send_response(req, 200, body, headers={
+                    'Content-Type': 'application/x-bitten+xml',
+                    'Content-Length': str(len(body)),
+                    'Content-Disposition':
                         'attachment; filename=recipe_%s_r%s.xml' %
-                        (config.name, build.rev))
-        req.write(body)
-        raise RequestDone
+                        (config.name, build.rev)})
 
     def _process_build_step(self, req, config, build):
         try:
@@ -213,18 +231,19 @@ class BuildMaster(Component):
         except xmlio.ParseError, e:
             self.log.error('Error parsing build step result: %s', e,
                            exc_info=True)
-            raise HTTPBadRequest('XML parser error')
+            self._send_error(req, HTTP_BAD_REQUEST, 'XML parser error')
         stepname = elem.attr['step']
 
         # make sure it's the right slave.
         if build.status != Build.IN_PROGRESS or \
                 build.slave_info.get(Build.IP_ADDRESS) != req.remote_addr:
-            raise HTTPForbidden('Build %s has been invalidated for host %s.'
-                                % (build.id, req.remote_addr))
+            self._send_error(req, HTTP_FORBIDDEN,
+                                'Build %s has been invalidated for host %s.'
+                                        % (build.id, req.remote_addr))
 
         step = BuildStep.fetch(self.env, build=build.id, name=stepname)
         if step:
-            raise HTTPConflict('Build step already exists')
+            self._send_error(req, HTTP_CONFLICT, 'Build step already exists')
 
         recipe = Recipe(xmlio.parse(config.recipe))
         index = None
@@ -234,7 +253,8 @@ class BuildMaster(Component):
                 index = num
                 current_step = recipe_step
         if index is None:
-            raise HTTPForbidden('No such build step')
+            self._send_error(req, HTTP_FORBIDDEN,
+                                'No such build step' % stepname)
         last_step = index == num
 
         self.log.debug('Slave %s (build %d) completed step %d (%s) with '
@@ -250,7 +270,7 @@ class BuildMaster(Component):
         except ValueError, e:
             self.log.error('Error parsing build step timestamp: %s', e,
                            exc_info=True)
-            raise HTTPBadRequest(e.args[0])
+            self._send_error(req, HTTP_BAD_REQUEST, e.args[0])
         if elem.attr['status'] == 'failure':
             self.log.warning('Build %s step %s failed', build.id, stepname)
             step.status = BuildStep.FAILURE
@@ -330,13 +350,11 @@ class BuildMaster(Component):
                 listener.build_completed(build)
 
         body = 'Build step processed'
-        req.send_response(201)
-        req.send_header('Content-Type', 'text/plain')
-        req.send_header('Content-Length', str(len(body)))
-        req.send_header('Location', req.abs_href.builds(build.id, 'steps',
-                        stepname))
-        req.write(body)
-        raise RequestDone
+        self._send_response(req, 201, body, {
+                            'Content-Type': 'text/plain',
+                            'Content-Length': str(len(body)),
+                            'Location': req.abs_href.builds(
+                                    build.id, 'steps', stepname)})
 
 
 def _parse_iso_datetime(string):
