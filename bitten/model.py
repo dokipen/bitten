@@ -362,6 +362,7 @@ class Build(object):
     OS_VERSION = 'version'
     MACHINE = 'machine'
     PROCESSOR = 'processor'
+    TOKEN = 'token'
 
     def __init__(self, env, config=None, rev=None, platform=None, slave=None,
                  started=0, stopped=0, rev_time=0, status=PENDING):

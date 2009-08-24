@@ -27,6 +27,7 @@ from bitten.model import BuildConfig, Build, BuildStep, BuildLog, Report, \
 from bitten.main import BuildSystem
 from bitten.queue import BuildQueue
 from bitten.recipe import Recipe
+from bitten.slave import PROTOCOL_VERSION
 from bitten.util import xmlio
 
 __all__ = ['BuildMaster']
@@ -91,16 +92,28 @@ class BuildMaster(Component):
     def process_request(self, req):
         req.perm.assert_permission('BUILD_EXEC')
 
+        if 'trac_auth' in req.incookie:
+            slave_token = req.incookie['trac_auth'].value
+        else:
+            slave_token = req.session.sid
+
         if 'id' not in req.args:
             if req.method != 'POST':
                 self._send_error(req, HTTP_METHOD_NOT_ALLOWED,
                                       'Only POST allowed for build creation')
-            return self._process_build_creation(req)
+            return self._process_build_creation(req, slave_token)
 
         build = Build.fetch(self.env, req.args['id'])
         if not build:
             self._send_error(req, HTTP_NOT_FOUND,
                                   'No such build (%s)' % req.args['id'])
+
+        build_token = build.slave_info.get('token', '')
+        if build_token != slave_token:
+            self._send_error(req, HTTP_CONFLICT,
+                          'Token mismatch (wrong slave): slave=%s, build=%s' \
+                               % (slave_token, build_token))
+
         config = BuildConfig.fetch(self.env, build.config)
 
         if not req.args['collection']:
@@ -136,7 +149,7 @@ class BuildMaster(Component):
                    'Content-Length': str(len(message))}
         self._send_response(req, code, body=message, headers=headers)
 
-    def _process_build_creation(self, req):
+    def _process_build_creation(self, req, slave_token):
         queue = BuildQueue(self.env, build_all=self.build_all, 
                            stabilize_wait=self.stabilize_wait,
                            timeout=self.slave_timeout)
@@ -149,10 +162,17 @@ class BuildMaster(Component):
                            exc_info=True)
             self._send_error(req, HTTP_BAD_REQUEST, 'XML parser error')
 
+        slave_version = int(elem.attr.get('version', 1))
+        if slave_version != PROTOCOL_VERSION:
+            self._send_error(req, HTTP_BAD_REQUEST,
+                    "Master-Slave version mismatch: master=%d, slave=%d" % \
+                                (PROTOCOL_VERSION, slave_version))
+
         slavename = elem.attr['name']
-        properties = {'name': slavename, Build.IP_ADDRESS: req.remote_addr}
-        self.log.info('Build slave %r connected from %s', slavename,
-                      req.remote_addr)
+        properties = {'name': slavename, Build.IP_ADDRESS: req.remote_addr,
+                    Build.TOKEN: slave_token}
+        self.log.info('Build slave %r connected from %s with token %s',
+                    slavename, req.remote_addr, slave_token)
 
         for child in elem.children():
             if child.name == 'platform':
@@ -235,10 +255,9 @@ class BuildMaster(Component):
         stepname = elem.attr['step']
 
         # make sure it's the right slave.
-        if build.status != Build.IN_PROGRESS or \
-                build.slave_info.get(Build.IP_ADDRESS) != req.remote_addr:
-            self._send_error(req, HTTP_FORBIDDEN,
-                                'Build %s has been invalidated for host %s.'
+        if build.status != Build.IN_PROGRESS:
+            self._send_error(req, HTTP_CONFLICT,
+                        'Build %s has been invalidated for host %s.' \
                                         % (build.id, req.remote_addr))
 
         step = BuildStep.fetch(self.env, build=build.id, name=stepname)

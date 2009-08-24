@@ -14,6 +14,7 @@ import shutil
 from StringIO import StringIO
 import tempfile
 import unittest
+from Cookie import SimpleCookie as Cookie
 
 from trac.db import DatabaseManager
 from trac.perm import PermissionCache, PermissionSystem
@@ -25,7 +26,7 @@ from trac.web.href import Href
 from bitten.master import BuildMaster
 from bitten.model import BuildConfig, TargetPlatform, Build, BuildStep, \
                          BuildLog, Report, schema
-
+from bitten.slave import PROTOCOL_VERSION
 
 class BuildMasterTestCase(unittest.TestCase):
 
@@ -73,11 +74,11 @@ class BuildMasterTestCase(unittest.TestCase):
         )
 
         inheaders = {'Content-Type': 'application/x-bitten+xml'}
-        inbody = StringIO("""<slave name="hal">
+        inbody = StringIO("""<slave name="hal" version="%d">
   <platform>Power Macintosh</platform>
   <os family="posix" version="8.1.0">Darwin</os>
   <package name="java" version="2.4.3"/>
-</slave>""")
+</slave>""" % PROTOCOL_VERSION)
         outheaders = {}
         outbody = StringIO()
         req = Mock(method='POST', base_path='', path_info='/builds',
@@ -87,7 +88,8 @@ class BuildMasterTestCase(unittest.TestCase):
                    get_header=lambda x: inheaders.get(x), read=inbody.read,
                    send_response=lambda x: outheaders.setdefault('Status', x),
                    send_header=lambda x, y: outheaders.setdefault(x, y),
-                   write=outbody.write)
+                   write=outbody.write,
+                   incookie=Cookie('trac_auth='))
 
         module = BuildMaster(self.env)
         assert module.match_request(req)
@@ -115,7 +117,8 @@ class BuildMasterTestCase(unittest.TestCase):
                    get_header=lambda x: inheaders.get(x), read=inbody.read,
                    send_response=lambda x: outheaders.setdefault('Status', x),
                    send_header=lambda x, y: outheaders.setdefault(x, y),
-                   write=outbody.write)
+                   write=outbody.write,
+                   incookie=Cookie('trac_auth='))
 
         module = BuildMaster(self.env)
         assert module.match_request(req)
@@ -133,7 +136,8 @@ class BuildMasterTestCase(unittest.TestCase):
                    perm=PermissionCache(self.env, 'hal'),
                    send_response=lambda x: outheaders.setdefault('Status', x),
                    send_header=lambda x, y: outheaders.setdefault(x, y),
-                   write=outbody.write)
+                   write=outbody.write,
+                   incookie=Cookie('trac_auth='))
 
         module = BuildMaster(self.env)
         assert module.match_request(req)
@@ -145,6 +149,58 @@ class BuildMasterTestCase(unittest.TestCase):
                     outbody.getvalue())
 
     def test_create_build_no_match(self):
+        inheaders = {'Content-Type': 'application/x-bitten+xml'}
+        inbody = StringIO("""<slave name="hal" version="%d">
+  <platform>Power Macintosh</platform>
+  <os family="posix" version="8.1.0">Darwin</os>
+</slave>""" % PROTOCOL_VERSION)
+        outheaders = {}
+        outbody = StringIO()
+        req = Mock(method='POST', base_path='', path_info='/builds',
+                   href=Href('/trac'), remote_addr='127.0.0.1', args={},
+                   perm=PermissionCache(self.env, 'hal'),
+                   get_header=lambda x: inheaders.get(x), read=inbody.read,
+                   send_response=lambda x: outheaders.setdefault('Status', x),
+                   send_header=lambda x, y: outheaders.setdefault(x, y),
+                   write=outbody.write,
+                   incookie=Cookie('trac_auth='))
+
+        module = BuildMaster(self.env)
+        assert module.match_request(req)
+
+        self.assertRaises(RequestDone, module.process_request, req)
+
+        self.assertEqual(204, outheaders['Status'])
+        self.assertEqual('', outbody.getvalue())
+
+    def test_create_build_protocol_wrong_version(self):
+        inheaders = {'Content-Type': 'application/x-bitten+xml'}
+        inbody = StringIO("""<slave name="hal" version="%d">
+  <platform>Power Macintosh</platform>
+  <os family="posix" version="8.1.0">Darwin</os>
+</slave>""" % (PROTOCOL_VERSION-1,))
+        outheaders = {}
+        outbody = StringIO()
+        req = Mock(method='POST', base_path='', path_info='/builds',
+                   href=Href('/trac'), remote_addr='127.0.0.1', args={},
+                   perm=PermissionCache(self.env, 'hal'),
+                   get_header=lambda x: inheaders.get(x), read=inbody.read,
+                   send_response=lambda x: outheaders.setdefault('Status', x),
+                   send_header=lambda x, y: outheaders.setdefault(x, y),
+                   write=outbody.write,
+                   incookie=Cookie('trac_auth='))
+
+        module = BuildMaster(self.env)
+        assert module.match_request(req)
+
+        self.assertRaises(RequestDone, module.process_request, req)
+
+        self.assertEqual(400, outheaders['Status'])
+        self.assertEqual('Master-Slave version mismatch: master=%d, slave=%d' \
+                                % (PROTOCOL_VERSION, PROTOCOL_VERSION-1),
+                            outbody.getvalue())
+
+    def test_create_build_protocol_no_version(self):
         inheaders = {'Content-Type': 'application/x-bitten+xml'}
         inbody = StringIO("""<slave name="hal">
   <platform>Power Macintosh</platform>
@@ -158,15 +214,18 @@ class BuildMasterTestCase(unittest.TestCase):
                    get_header=lambda x: inheaders.get(x), read=inbody.read,
                    send_response=lambda x: outheaders.setdefault('Status', x),
                    send_header=lambda x, y: outheaders.setdefault(x, y),
-                   write=outbody.write)
+                   write=outbody.write,
+                   incookie=Cookie('trac_auth='))
 
         module = BuildMaster(self.env)
         assert module.match_request(req)
 
         self.assertRaises(RequestDone, module.process_request, req)
 
-        self.assertEqual(204, outheaders['Status'])
-        self.assertEqual('', outbody.getvalue())
+        self.assertEqual(400, outheaders['Status'])
+        self.assertEqual('Master-Slave version mismatch: master=%d, slave=1' \
+                                % (PROTOCOL_VERSION,),
+                            outbody.getvalue())
 
     def test_cancel_build(self):
         config = BuildConfig(self.env, 'test', path='somepath', active=True,
@@ -184,7 +243,8 @@ class BuildMasterTestCase(unittest.TestCase):
                    perm=PermissionCache(self.env, 'hal'),
                    send_response=lambda x: outheaders.setdefault('Status', x),
                    send_header=lambda x, y: outheaders.setdefault(x, y),
-                   write=outbody.write)
+                   write=outbody.write,
+                   incookie=Cookie('trac_auth='))
 
         module = BuildMaster(self.env)
         assert module.match_request(req)
@@ -219,7 +279,8 @@ class BuildMasterTestCase(unittest.TestCase):
                    perm=PermissionCache(self.env, 'hal'),
                    send_response=lambda x: outheaders.setdefault('Status', x),
                    send_header=lambda x, y: outheaders.setdefault(x, y),
-                   write=outbody.write)
+                   write=outbody.write,
+                   incookie=Cookie('trac_auth='))
 
         module = BuildMaster(self.env)
         assert module.match_request(req)
@@ -250,7 +311,8 @@ class BuildMasterTestCase(unittest.TestCase):
                    perm=PermissionCache(self.env, 'hal'),
                    send_response=lambda x: outheaders.setdefault('Status', x),
                    send_header=lambda x, y: outheaders.setdefault(x, y),
-                   write=outbody.write)
+                   write=outbody.write,
+                   incookie=Cookie('trac_auth='))
 
         module = BuildMaster(self.env)
         assert module.match_request(req)
@@ -274,7 +336,8 @@ class BuildMasterTestCase(unittest.TestCase):
                    perm=PermissionCache(self.env, 'hal'),
                    send_response=lambda x: outheaders.setdefault('Status', x),
                    send_header=lambda x, y: outheaders.setdefault(x, y),
-                   write=outbody.write)
+                   write=outbody.write,
+                   incookie=Cookie('trac_auth='))
 
         module = BuildMaster(self.env)
         assert module.match_request(req)
@@ -293,7 +356,7 @@ class BuildMasterTestCase(unittest.TestCase):
                     recipe=recipe).insert()
         build = Build(self.env, 'test', '123', 1, slave='hal', rev_time=42,
                       started=42, status=Build.IN_PROGRESS)
-        build.slave_info[Build.IP_ADDRESS] = '127.0.0.1';
+        build.slave_info[Build.TOKEN] = '123';
         build.insert()
 
         inbody = StringIO("""<result step="foo" status="success"
@@ -310,7 +373,8 @@ class BuildMasterTestCase(unittest.TestCase):
                    read=inbody.read,
                    send_response=lambda x: outheaders.setdefault('Status', x),
                    send_header=lambda x, y: outheaders.setdefault(x, y),
-                   write=outbody.write)
+                   write=outbody.write,
+                   incookie=Cookie('trac_auth=123'))
         module = BuildMaster(self.env)
         assert module.match_request(req)
 
@@ -340,7 +404,7 @@ class BuildMasterTestCase(unittest.TestCase):
                     recipe=recipe).insert()
         build = Build(self.env, 'test', '123', 1, slave='hal', rev_time=42,
                       started=42, status=Build.IN_PROGRESS)
-        build.slave_info[Build.IP_ADDRESS] = '127.0.0.1';
+        build.slave_info[Build.TOKEN] = '123';
         build.insert()
 
         inbody = StringIO("""<result step="foo" status="success"
@@ -361,7 +425,8 @@ class BuildMasterTestCase(unittest.TestCase):
                    read=inbody.read,
                    send_response=lambda x: outheaders.setdefault('Status', x),
                    send_header=lambda x, y: outheaders.setdefault(x, y),
-                   write=outbody.write)
+                   write=outbody.write,
+                   incookie=Cookie('trac_auth=123'))
         module = BuildMaster(self.env)
         assert module.match_request(req)
 
@@ -399,7 +464,7 @@ class BuildMasterTestCase(unittest.TestCase):
                     recipe=recipe).insert()
         build = Build(self.env, 'test', '123', 1, slave='hal', rev_time=42,
                       started=42, status=Build.IN_PROGRESS)
-        build.slave_info[Build.IP_ADDRESS] = '127.0.0.1';
+        build.slave_info[Build.TOKEN] = '123';
         build.insert()
 
         inbody = StringIO("""<result step="foo" status="success"
@@ -422,7 +487,8 @@ class BuildMasterTestCase(unittest.TestCase):
                    read=inbody.read,
                    send_response=lambda x: outheaders.setdefault('Status', x),
                    send_header=lambda x, y: outheaders.setdefault(x, y),
-                   write=outbody.write)
+                   write=outbody.write,
+                   incookie=Cookie('trac_auth=123'))
         module = BuildMaster(self.env)
         assert module.match_request(req)
 
@@ -468,7 +534,7 @@ class BuildMasterTestCase(unittest.TestCase):
                     recipe=recipe).insert()
         build = Build(self.env, 'test', '123', 1, slave='hal', rev_time=42,
                       started=42, status=Build.IN_PROGRESS)
-        build.slave_info[Build.IP_ADDRESS] = '127.0.0.1';
+        build.slave_info[Build.TOKEN] = '123';
         build.insert()
 
         inbody = StringIO("""<result step="foo" status="success"
@@ -494,7 +560,8 @@ class BuildMasterTestCase(unittest.TestCase):
                    read=inbody.read,
                    send_response=lambda x: outheaders.setdefault('Status', x),
                    send_header=lambda x, y: outheaders.setdefault(x, y),
-                   write=outbody.write)
+                   write=outbody.write,
+                   incookie=Cookie('trac_auth=123'))
         module = BuildMaster(self.env)
         assert module.match_request(req)
 
@@ -542,7 +609,7 @@ class BuildMasterTestCase(unittest.TestCase):
                     recipe=recipe).insert()
         build = Build(self.env, 'test', '123', 1, slave='hal', rev_time=42,
                       started=42, status=Build.IN_PROGRESS)
-        build.slave_info[Build.IP_ADDRESS] = '192.168.1.1';
+        build.slave_info[Build.TOKEN] = '123';
         build.insert()
 
         inbody = StringIO("""<result step="foo" status="success"
@@ -563,14 +630,15 @@ class BuildMasterTestCase(unittest.TestCase):
                    read=inbody.read,
                    send_response=lambda x: outheaders.setdefault('Status', x),
                    send_header=lambda x, y: outheaders.setdefault(x, y),
-                   write=outbody.write)
+                   write=outbody.write,
+                   incookie=Cookie('trac_auth='))
         module = BuildMaster(self.env)
         assert module.match_request(req)
 
         self.assertRaises(RequestDone, module.process_request, req)
 
-        self.assertEqual(403, outheaders['Status'])
-        self.assertEqual('Build 1 has been invalidated for host 127.0.0.1.',
+        self.assertEqual(409, outheaders['Status'])
+        self.assertEqual('Token mismatch (wrong slave): slave=, build=123',
                         outbody.getvalue())
 
         build = Build.fetch(self.env, build.id)
@@ -591,7 +659,7 @@ class BuildMasterTestCase(unittest.TestCase):
                     recipe=recipe).insert()
         build = Build(self.env, 'test', '123', 1, slave='hal', rev_time=42,
                       started=42, status=Build.IN_PROGRESS)
-        build.slave_info[Build.IP_ADDRESS] = '127.0.0.1';
+        build.slave_info[Build.TOKEN] = '123';
         build.insert()
 
         inbody = StringIO("""<result step="foo" status="success"
@@ -612,7 +680,8 @@ class BuildMasterTestCase(unittest.TestCase):
                    read=inbody.read,
                    send_response=lambda x: outheaders.setdefault('Status', x),
                    send_header=lambda x, y: outheaders.setdefault(x, y),
-                   write=outbody.write)
+                   write=outbody.write,
+                   incookie=Cookie('trac_auth=123'))
         module = BuildMaster(self.env)
         assert module.match_request(req)
 
@@ -650,13 +719,14 @@ class BuildMasterTestCase(unittest.TestCase):
                    read=inbody.read,
                    send_response=lambda x: outheaders.setdefault('Status', x),
                    send_header=lambda x, y: outheaders.setdefault(x, y),
-                   write=outbody.write)
+                   write=outbody.write,
+                   incookie=Cookie('trac_auth=123'))
         module = BuildMaster(self.env)
         assert module.match_request(req)
 
         self.assertRaises(RequestDone, module.process_request, req)
 
-        self.assertEquals(403, outheaders['Status'])
+        self.assertEquals(409, outheaders['Status'])
         self.assertEquals('Build 1 has been invalidated for host 127.0.0.1.',
                         outbody.getvalue())            
 
@@ -672,7 +742,7 @@ class BuildMasterTestCase(unittest.TestCase):
                     recipe=recipe).insert()
         build = Build(self.env, 'test', '123', 1, slave='hal', rev_time=42,
                       started=42, status=Build.IN_PROGRESS)
-        build.slave_info[Build.IP_ADDRESS] = '127.0.0.1';
+        build.slave_info[Build.TOKEN] = '123';
         build.insert()
 
         inbody = StringIO("""<result step="foo" status="failure"
@@ -689,7 +759,8 @@ class BuildMasterTestCase(unittest.TestCase):
                    read=inbody.read,
                    send_response=lambda x: outheaders.setdefault('Status', x),
                    send_header=lambda x, y: outheaders.setdefault(x, y),
-                   write=outbody.write)
+                   write=outbody.write,
+                   incookie=Cookie('trac_auth=123'))
         module = BuildMaster(self.env)
         assert module.match_request(req)
 
@@ -719,7 +790,7 @@ class BuildMasterTestCase(unittest.TestCase):
                     recipe=recipe).insert()
         build = Build(self.env, 'test', '123', 1, slave='hal', rev_time=42,
                       started=42, status=Build.IN_PROGRESS)
-        build.slave_info[Build.IP_ADDRESS] = '127.0.0.1';
+        build.slave_info[Build.TOKEN] = '123';
 
         build.insert()
 
@@ -737,7 +808,8 @@ class BuildMasterTestCase(unittest.TestCase):
                    read=inbody.read,
                    send_response=lambda x: outheaders.setdefault('Status', x),
                    send_header=lambda x, y: outheaders.setdefault(x, y),
-                   write=outbody.write)
+                   write=outbody.write,
+                   incookie=Cookie('trac_auth=123'))
         module = BuildMaster(self.env)
         assert module.match_request(req)
 
@@ -779,7 +851,8 @@ class BuildMasterTestCase(unittest.TestCase):
                    read=inbody.read,
                    send_response=lambda x: outheaders.setdefault('Status', x),
                    send_header=lambda x, y: outheaders.setdefault(x, y),
-                   write=outbody.write)
+                   write=outbody.write,
+                   incookie=Cookie('trac_auth='))
 
         module = BuildMaster(self.env)
         assert module.match_request(req)
@@ -798,7 +871,7 @@ class BuildMasterTestCase(unittest.TestCase):
                     recipe=recipe).insert()
         build = Build(self.env, 'test', '123', 1, slave='hal', rev_time=42,
                       started=42, status=Build.IN_PROGRESS)
-        build.slave_info[Build.IP_ADDRESS] = '127.0.0.1';
+        build.slave_info[Build.TOKEN] = '123';
         build.insert()
 
         inbody = StringIO("""<result step="foo" status="success"
@@ -814,7 +887,8 @@ class BuildMasterTestCase(unittest.TestCase):
                    read=inbody.read,
                    send_response=lambda x: outheaders.setdefault('Status', x),
                    send_header=lambda x, y: outheaders.setdefault(x, y),
-                   write=outbody.write)
+                   write=outbody.write,
+                   incookie=Cookie('trac_auth=123'))
 
         module = BuildMaster(self.env)
         assert module.match_request(req)
@@ -840,7 +914,8 @@ class BuildMasterTestCase(unittest.TestCase):
                    perm=PermissionCache(self.env, 'hal'),
                    send_response=lambda x: outheaders.setdefault('Status', x),
                    send_header=lambda x, y: outheaders.setdefault(x, y),
-                   write=outbody.write)
+                   write=outbody.write,
+                   incookie=Cookie('trac_auth='))
 
         module = BuildMaster(self.env)
         assert module.match_request(req)

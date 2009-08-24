@@ -32,6 +32,9 @@ from bitten.build.config import Configuration
 from bitten.recipe import Recipe
 from bitten.util import xmlio
 
+# The master-slave protocol/configuration version
+PROTOCOL_VERSION = 2
+
 EX_OK = getattr(os, "EX_OK", 0)
 EX_UNAVAILABLE = getattr(os, "EX_UNAVAILABLE", 69)
 EX_PROTOCOL = getattr(os, "EX_PROTOCOL", 76)
@@ -258,7 +261,7 @@ class BuildSlave(object):
         raise ExitSlave(EX_OK)
 
     def _create_build(self, url):
-        xml = xmlio.Element('slave', name=self.name)[
+        xml = xmlio.Element('slave', name=self.name, version=PROTOCOL_VERSION)[
             xmlio.Element('platform', processor=self.config['processor'])[
                 self.config['machine']
             ],
