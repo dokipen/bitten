@@ -2,7 +2,8 @@ Version 0.6
 (?, from 0.6.x branch)
 http://svn.edgewall.org/repos/bitten/tags/0.6.0
 
- * Python 2.4 is now required.
+ * Python 2.4 is now required for slave, while master should still work using
+   Python 2.3 (as is also Trac 0.11 minimum).
  * Switch to using HTTP for communication between the build master and build
    slaves. This means the `build-master` executable is no longer needed or
    installed, the build simply runs in the scope of the Trac site.
@@ -12,6 +13,8 @@ http://svn.edgewall.org/repos/bitten/tags/0.6.0
    instructions in the build recipe.
  * Many fixes for compatibility with more recent versions of Trac, and Bitten
    now requires Trac 0.11.
+ * The administration interface is now properly integrated with the Trac web
+   administration component.
  * Unicode (non-ascii) support for recipes and command-line input and output.
  * Improved authentication support in bitten-slave, including support for the
    popular AccountManager plugin.

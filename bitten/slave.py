@@ -10,9 +10,6 @@
 
 """Implementation of the build slave."""
 
-import sys
-assert sys.version_info[:2] >= (2,4), "Python 2.4 required."
-
 from datetime import datetime
 import errno
 import urllib
@@ -22,18 +19,17 @@ import os
 import platform
 import shutil
 import socket
+import sys
 import tempfile
 import time
 import re
 import cookielib
 
+from bitten import PROTOCOL_VERSION
 from bitten.build import BuildError
 from bitten.build.config import Configuration
 from bitten.recipe import Recipe
 from bitten.util import xmlio
-
-# The master-slave protocol/configuration version
-PROTOCOL_VERSION = 2
 
 EX_OK = getattr(os, "EX_OK", 0)
 EX_UNAVAILABLE = getattr(os, "EX_UNAVAILABLE", 69)

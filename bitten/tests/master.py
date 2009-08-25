@@ -26,7 +26,7 @@ from trac.web.href import Href
 from bitten.master import BuildMaster
 from bitten.model import BuildConfig, TargetPlatform, Build, BuildStep, \
                          BuildLog, Report, schema
-from bitten.slave import PROTOCOL_VERSION
+from bitten import PROTOCOL_VERSION
 
 class BuildMasterTestCase(unittest.TestCase):
 

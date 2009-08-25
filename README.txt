@@ -23,7 +23,8 @@ Installation
 ------------
 
 Bitten is written in Python, so make sure that you have Python installed.
-You'll need Python 2.4 or later. Also, make sure that setuptools
+You'll need Python 2.4 or later for running build slave, while the Trac plugin
+(master) should still work using Python 2.3. Also, make sure that setuptools
 (http://peak.telecommunity.com/DevCenter/setuptools), version 0.6a2 or later,
 is installed.
 

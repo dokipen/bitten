@@ -21,13 +21,13 @@ from trac.core import *
 from trac.resource import ResourceNotFound
 from trac.web import IRequestHandler, RequestDone
 
+from bitten import PROTOCOL_VERSION
 from bitten.model import BuildConfig, Build, BuildStep, BuildLog, Report, \
                      TargetPlatform
 
 from bitten.main import BuildSystem
 from bitten.queue import BuildQueue
 from bitten.recipe import Recipe
-from bitten.slave import PROTOCOL_VERSION
 from bitten.util import xmlio
 
 __all__ = ['BuildMaster']
