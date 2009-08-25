@@ -77,7 +77,7 @@
       <table class="builds"><tbody><tr>
         <th py:with="youngest_rev = config.youngest_rev">
           <a href="$youngest_rev.href">[$youngest_rev.id]</a>
-          by $youngest_rev.author<p class="date">$youngest_rev.date</p>
+          by ${format_author(youngest_rev.author)}<p class="date">$youngest_rev.date</p>
           <p class="message">$youngest_rev.message</p>
         </th>
         <td py:for="build in config.builds" class="$build.cls"><py:choose>
