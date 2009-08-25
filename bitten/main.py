@@ -26,13 +26,9 @@ __all__ = ['BuildSystem']
 __docformat__ = 'restructuredtext en'
 
 
-class BuildSystem(Component):
+class BuildSetup(Component):
 
-    implements(IEnvironmentSetupParticipant, IPermissionRequestor,
-               IWikiSyntaxProvider, IResourceManager,
-               ILegacyAttachmentPolicyDelegate)
-
-    listeners = ExtensionPoint(IBuildListener)
+    implements(IEnvironmentSetupParticipant)
 
     # IEnvironmentSetupParticipant methods
 
@@ -80,6 +76,14 @@ class BuildSystem(Component):
                            "name='bitten_version'", (schema_version,))
             self.log.info('Upgraded Bitten tables from version %d to %d',
                           current_version, schema_version)
+
+class BuildSystem(Component):
+
+    implements(IPermissionRequestor,
+               IWikiSyntaxProvider, IResourceManager,
+               ILegacyAttachmentPolicyDelegate)
+
+    listeners = ExtensionPoint(IBuildListener)
 
     # IPermissionRequestor methods
 
