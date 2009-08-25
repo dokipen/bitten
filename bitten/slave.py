@@ -61,20 +61,6 @@ def _rmtree(root):
     else:
         return False
 
-# Python 2.3 doesn't include HTTPErrorProcessor in urllib2. So instead of deriving we just make our own one
-class SaneHTTPErrorProcessor(urllib2.BaseHandler):
-    "The HTTPErrorProcessor defined in urllib needs some love."
-
-    handler_order = 1000
-
-    def http_response(self, request, response):
-        code, msg, hdrs = response.code, response.msg, response.info()
-        if code >= 300:
-            response = self.parent.error(
-                'http', request, response, code, msg, hdrs)
-        return response
-
-    https_response = http_response
 
 class SaneHTTPRequest(urllib2.Request):
 
@@ -163,7 +149,7 @@ class BuildSlave(object):
                 self.auth_map = dict(map(lambda x: (x, False), urls))
 
     def _get_opener(self):
-        opener = urllib2.build_opener(SaneHTTPErrorProcessor)
+        opener = urllib2.build_opener(urllib2.HTTPErrorProcessor())
         opener.add_handler(urllib2.HTTPBasicAuthHandler(self.password_mgr))
         opener.add_handler(urllib2.HTTPDigestAuthHandler(self.password_mgr))
         opener.add_handler(urllib2.HTTPCookieProcessor(self.cookiejar))

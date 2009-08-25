@@ -127,113 +127,111 @@ ORDER BY item_name.value""", (build.id, step.name))
         }
 
 
-# Coverage annotation requires the new interface from 0.11
-if hasattr(IHTMLPreviewAnnotator, 'get_annotation_data'):
-    class TestCoverageAnnotator(Component):
-        """
-        >>> from genshi.builder import tag
-        >>> from trac.test import Mock, MockPerm
-        >>> from trac.mimeview import Context
-        >>> from trac.web.href import Href
-        >>> from bitten.model import BuildConfig, Build, Report
-        >>> from bitten.report.tests.coverage import env_stub_with_tables
-        >>> env = env_stub_with_tables()
+class TestCoverageAnnotator(Component):
+    """
+    >>> from genshi.builder import tag
+    >>> from trac.test import Mock, MockPerm
+    >>> from trac.mimeview import Context
+    >>> from trac.web.href import Href
+    >>> from bitten.model import BuildConfig, Build, Report
+    >>> from bitten.report.tests.coverage import env_stub_with_tables
+    >>> env = env_stub_with_tables()
 
-        >>> BuildConfig(env, name='trunk', path='trunk').insert()
-        >>> Build(env, rev=123, config='trunk', rev_time=12345, platform=1).insert()
-        >>> rpt = Report(env, build=1, step='test', category='coverage')
-        >>> rpt.items.append({'file': 'foo.py', 'line_hits': '5 - 0'})
-        >>> rpt.insert()
+    >>> BuildConfig(env, name='trunk', path='trunk').insert()
+    >>> Build(env, rev=123, config='trunk', rev_time=12345, platform=1).insert()
+    >>> rpt = Report(env, build=1, step='test', category='coverage')
+    >>> rpt.items.append({'file': 'foo.py', 'line_hits': '5 - 0'})
+    >>> rpt.insert()
 
-        >>> ann = TestCoverageAnnotator(env)
-        >>> req = Mock(href=Href('/'), perm=MockPerm(), chrome={})
+    >>> ann = TestCoverageAnnotator(env)
+    >>> req = Mock(href=Href('/'), perm=MockPerm(), chrome={})
 
-        Version in the branch should not match:
-        >>> context = Context.from_request(req, 'source', '/branches/blah/foo.py', 123)
-        >>> ann.get_annotation_data(context)
-        []
+    Version in the branch should not match:
+    >>> context = Context.from_request(req, 'source', '/branches/blah/foo.py', 123)
+    >>> ann.get_annotation_data(context)
+    []
 
-        Version in the trunk should match:
-        >>> context = Context.from_request(req, 'source', '/trunk/foo.py', 123)
-        >>> data = ann.get_annotation_data(context)
-        >>> print data
-        [u'5', u'-', u'0']
+    Version in the trunk should match:
+    >>> context = Context.from_request(req, 'source', '/trunk/foo.py', 123)
+    >>> data = ann.get_annotation_data(context)
+    >>> print data
+    [u'5', u'-', u'0']
 
-        >>> def annotate_row(lineno, line):
-        ...     row = tag.tr()
-        ...     ann.annotate_row(context, row, lineno, line, data)
-        ...     return row.generate().render('html')
+    >>> def annotate_row(lineno, line):
+    ...     row = tag.tr()
+    ...     ann.annotate_row(context, row, lineno, line, data)
+    ...     return row.generate().render('html')
 
-        >>> annotate_row(1, 'x = 1')
-        '<tr><th class="covered">5</th></tr>'
-        >>> annotate_row(2, '')
-        '<tr><th></th></tr>'
-        >>> annotate_row(3, 'y = x')
-        '<tr><th class="uncovered">0</th></tr>'
-        """
-        implements(IRequestFilter, IHTMLPreviewAnnotator)
+    >>> annotate_row(1, 'x = 1')
+    '<tr><th class="covered">5</th></tr>'
+    >>> annotate_row(2, '')
+    '<tr><th></th></tr>'
+    >>> annotate_row(3, 'y = x')
+    '<tr><th class="uncovered">0</th></tr>'
+    """
+    implements(IRequestFilter, IHTMLPreviewAnnotator)
 
-        # IRequestFilter methods
+    # IRequestFilter methods
 
-        def pre_process_request(self, req, handler):
-            return handler
+    def pre_process_request(self, req, handler):
+        return handler
 
-        def post_process_request(self, req, template, data, content_type):
-            """ Adds a 'Coverage' context navigation menu item. """
-            resource = data and data.get('context') \
-                            and data.get('context').resource or None
-            if resource and isinstance(resource, Resource) \
-                        and resource.realm=='source' and data.get('file') \
-                        and not req.args.get('annotate'):
-                add_ctxtnav(req, 'Coverage',
-                        title='Annotate file with test coverage '
-                              'data (if available)',
-                        href=req.href.browser(resource.id, 
-                            annotate='coverage', rev=data.get('rev')))
-            return template, data, content_type
+    def post_process_request(self, req, template, data, content_type):
+        """ Adds a 'Coverage' context navigation menu item. """
+        resource = data and data.get('context') \
+                        and data.get('context').resource or None
+        if resource and isinstance(resource, Resource) \
+                    and resource.realm=='source' and data.get('file') \
+                    and not req.args.get('annotate'):
+            add_ctxtnav(req, 'Coverage',
+                    title='Annotate file with test coverage '
+                          'data (if available)',
+                    href=req.href.browser(resource.id, 
+                        annotate='coverage', rev=data.get('rev')))
+        return template, data, content_type
 
-        # IHTMLPreviewAnnotator methods
+    # IHTMLPreviewAnnotator methods
 
-        def get_annotation_type(self):
-            return 'coverage', 'Cov', 'Code coverage'
+    def get_annotation_type(self):
+        return 'coverage', 'Cov', 'Code coverage'
 
-        def get_annotation_data(self, context):
-            add_stylesheet(context.req, 'bitten/bitten_coverage.css')
+    def get_annotation_data(self, context):
+        add_stylesheet(context.req, 'bitten/bitten_coverage.css')
 
-            resource = context.resource
-            self.log.debug("Looking for coverage report for %s@%s..." % (
-                            resource.id, str(resource.version)))
-            builds = Build.select(self.env, rev=resource.version)
-            reports = []
-            for build in builds:
-                config = BuildConfig.fetch(self.env, build.config)
-                if not resource.id.startswith('/' + config.path.lstrip('/')):
-                    continue
-                reports = Report.select(self.env, build=build.id,
-                                        category='coverage')
-                path_in_config = resource.id[len(config.path)+1:].lstrip('/')
-                for report in reports:
-                    for item in report.items:
-                        if item.get('file') == path_in_config:
-                            coverage = item.get('line_hits', '').split()
-                            if coverage:
-                                # Return first result with line data
-                                self.log.debug(
-                                    "Coverage annotate for %s@%s: %s" % \
-                                    (resource.id, resource.version, coverage))
-                                return coverage
-            return []
+        resource = context.resource
+        self.log.debug("Looking for coverage report for %s@%s..." % (
+                        resource.id, str(resource.version)))
+        builds = Build.select(self.env, rev=resource.version)
+        reports = []
+        for build in builds:
+            config = BuildConfig.fetch(self.env, build.config)
+            if not resource.id.startswith('/' + config.path.lstrip('/')):
+                continue
+            reports = Report.select(self.env, build=build.id,
+                                    category='coverage')
+            path_in_config = resource.id[len(config.path)+1:].lstrip('/')
+            for report in reports:
+                for item in report.items:
+                    if item.get('file') == path_in_config:
+                        coverage = item.get('line_hits', '').split()
+                        if coverage:
+                            # Return first result with line data
+                            self.log.debug(
+                                "Coverage annotate for %s@%s: %s" % \
+                                (resource.id, resource.version, coverage))
+                            return coverage
+        return []
 
-        def annotate_row(self, context, row, lineno, line, data):
-            from genshi.builder import tag
-            lineno -= 1 # 0-based index for data
-            if lineno >= len(data):
-                row.append(tag.th())
-                return
-            row_data = data[lineno]
-            if row_data == '-':
-                row.append(tag.th())
-            elif row_data == '0':
-                row.append(tag.th(row_data, class_='uncovered'))
-            else:
-                row.append(tag.th(row_data, class_='covered'))
+    def annotate_row(self, context, row, lineno, line, data):
+        from genshi.builder import tag
+        lineno -= 1 # 0-based index for data
+        if lineno >= len(data):
+            row.append(tag.th())
+            return
+        row_data = data[lineno]
+        if row_data == '-':
+            row.append(tag.th())
+        elif row_data == '0':
+            row.append(tag.th(row_data, class_='uncovered'))
+        else:
+            row.append(tag.th(row_data, class_='covered'))
