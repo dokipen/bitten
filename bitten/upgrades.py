@@ -14,6 +14,7 @@ in the Trac environment."""
 import os
 import sys
 
+from trac.core import TracError
 from trac.db import DatabaseManager
 from trac.util.text import to_unicode
 import codecs
@@ -361,9 +362,41 @@ def recreate_rule_with_int_id(env, db):
 def add_config_platform_rev_index_to_build(env, db):
     """Adds a unique index on (config, platform, rev) to the bitten_build table.
        Also drops the old index on bitten_build that serves no real purpose anymore."""
-    cursor = db.cursor()
-    cursor.execute("CREATE UNIQUE INDEX bitten_build_config_rev_platform_idx ON bitten_build (config,rev,platform)")
-    cursor.execute("DROP INDEX bitten_build_config_rev_slave_idx")
+    # check for existing duplicates
+    duplicates_cursor = db.cursor()
+    build_cursor = db.cursor()
+
+    duplicates_cursor.execute("SELECT config, rev, platform FROM bitten_build GROUP BY config, rev, platform HAVING COUNT(config) > 1")
+    duplicates_exist = False
+    for config, rev, platform in duplicates_cursor.fetchall():
+        if not duplicates_exist:
+            duplicates_exist = True
+            print "\nConfig Name, Revision, Platform :: [<list of build ids>]"
+            print "--------------------------------------------------------"
+
+        build_cursor.execute("SELECT id FROM bitten_build WHERE config='%s' AND rev='%s' AND platform='%s'" % (config, rev, platform))
+        build_ids = [row[0] for row in build_cursor.fetchall()]
+        print "%s, %s, %s :: %s" % (config, rev, platform, build_ids)
+
+    if duplicates_exist:
+        print "--------------------------------------------------------\n"
+        print "Duplicate builds found. You can remove the builds you don't want to"
+        print "keep by using this one-line command:\n"
+        print "$  python -c \"from bitten.model import Build; from trac.env import Environment; " \
+                        "Build.fetch(Environment('%s'), <buildid>).delete()\"" % env.path
+        print "\n...where <buildid> is the id of the build to remove.\n"
+        print "Upgrades cannot be performed until conflicts are resolved."
+        print "The upgrade script will now exit with an error:\n"
+
+    duplicates_cursor.close()
+    build_cursor.close()
+
+    if not duplicates_exist:
+        cursor = db.cursor()
+        cursor.execute("CREATE UNIQUE INDEX bitten_build_config_rev_platform_idx ON bitten_build (config,rev,platform)")
+        cursor.execute("DROP INDEX bitten_build_config_rev_slave_idx")
+    else:
+        raise TracError('')
 
 map = {
     2: [add_log_table],
