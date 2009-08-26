@@ -170,11 +170,10 @@ class Context(object):
         :param description: description saved with attachment
         :resource: which resource to attach the file to,
                    either 'build' (default) or 'config'
-        :replace: non-empty to replace existing attachment with same name
         """
         filename = self.resolve(file_)
         try:
-            fileobj = file(filename, 'r')
+            fileobj = open(filename, 'rb')
             try:
                 xml_elem = xmlio.Element('file',
                                 filename=os.path.basename(filename),
@@ -182,7 +181,6 @@ class Context(object):
                                 resource=resource or 'build')
                 xml_elem.append(fileobj.read().encode('base64'))
                 self.output.append((Recipe.ATTACH, None, None, xml_elem))
-                
             finally:
                 fileobj.close()
         except IOError, e:
