@@ -14,9 +14,10 @@ Prerequisites
 
 Bitten is written in Python, so make sure that you have Python installed.
 You'll need Python 2.4 or later for running build slave. The build master is
-a plugin for Trac 0.11, and should still work with Python 2.3. Also, make
+a plugin for Trac_ 0.11, and should still work with Python 2.3. Also, make
 sure that setuptools_, version 0.6a2 or later, is installed.
 
+.. _trac:       http://trac.edgewall.org
 .. _setuptools: http://peak.telecommunity.com/DevCenter/setuptools
 
 If that's taken care of, you just need to download and unpack the Bitten
@@ -48,8 +49,6 @@ requires, but the Bitten build slave itself doesn't require anything extra.
 
 For the build master and web interface, you'll need to install Trac_ 0.11 or
 later. Please refer to the Trac documentation for information on how it is installed.
-
-.. _trac: http://trac.edgewall.org/
 
 
 Build Master Configuration
