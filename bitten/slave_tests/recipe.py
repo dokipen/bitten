@@ -32,7 +32,10 @@ class ContextTestCase(unittest.TestCase):
                         config, {'path': 'bar'})
 
         self.assertEquals(os.path.realpath('/foo/bar/baz'),
-                        ctxt.vars['basedir'])
+                        os.path.realpath(ctxt.vars['basedir']))
+        if os.name == 'nt':
+            # Make sure paths are double-escaped
+            self.failUnless('\\\\' in ctxt.vars['basedir'])
 
     def test_run_wrong_arg(self):
         ctxt = Context(self.basedir)
