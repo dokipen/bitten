@@ -375,6 +375,14 @@ def trace(ctxt, summary=None, coverdir=None, include=None, exclude=None):
         log.warning('Error opening coverage summary file (%s)', e)
 
 def figleaf(ctxt, summary=None, include=None, exclude=None):
+    """Extract data from a ``Figleaf`` run.
+    
+    :param ctxt: the build context
+    :type ctxt: `Context`
+    :param summary: path to the file containing the coverage summary
+    :param include: patterns of files or directories to include in the report
+    :param exclude: patterns of files or directories to exclude from the report
+    """
     from figleaf import get_lines
     coverage = xmlio.Fragment()
     try:

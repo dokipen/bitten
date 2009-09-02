@@ -796,6 +796,43 @@ Examples
 
   <python:trace summary="build/trace.out" coverdir="build/coverage" />
 
+
+--------------------
+``<python:figleaf>``
+--------------------
+
+Extracts coverage information recorded by Figleaf_.
+
+.. _figleaf: http://darcs.idyll.org/~t/projects/figleaf/doc/
+
+Parameters
+----------
+
++--------------+-------------------------------------------------------------+
+| Name         | Description                                                 |
++==============+=============================================================+
+| ``summary``  | Path to the summary file written by ``figleaf``,            |
+|              | relative to the project source directory.                   |
++--------------+-------------------------------------------------------------+
+| ``include``  | List of glob patterns (separated by space) that specify     |
+|              | which Python file should be included in the coverage report |
++--------------+-------------------------------------------------------------+
+| ``exclude``  | List of glob patterns (separated by space) that specify     |
+|              | which Python file should be excluded from the coverage      |
+|              | report                                                      |
++--------------+-------------------------------------------------------------+
+
+Examples
+--------
+
+.. code-block:: xml
+
+  <step id="figleaf" description="Figleaf coverage">
+    <sh:exec executable="figleaf" args="setup.py test"/>
+    <python:figleaf summary=".figleaf" exclude="build/* setup* */tests/*"/>
+  </step>
+
+
 -------------------
 ``<python:pylint>``
 -------------------
