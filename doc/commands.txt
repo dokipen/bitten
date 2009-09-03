@@ -827,9 +827,15 @@ Examples
 
 .. code-block:: xml
 
-  <step id="figleaf" description="Figleaf coverage">
-    <sh:exec executable="figleaf" args="setup.py test"/>
-    <python:figleaf summary=".figleaf" exclude="build/* setup* */tests/*"/>
+  <step id="test" description="Unittests with Figleaf coverage">
+    <python:distutils command="unittest"
+        options="--xml-output build/test-results.xml
+                 --coverage-summary build/test-coverage.txt
+                 --coverage-dir build/coverage
+                 --coverage-method figleaf" />
+    <python:unittest file="build/test-results.xml"/>
+    <python:figleaf summary="build/test-coverage.txt"
+        include="mypackage/*" exclude="*/tests/*" />
   </step>
 
 
