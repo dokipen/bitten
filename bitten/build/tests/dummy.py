@@ -24,4 +24,6 @@ class CommandLine(api.CommandLine):
         return self
 
     def execute(self):
-        return api._combine(self.stdout.readlines(), self.stderr.readlines())
+        return map(lambda x,y: (x,y),
+                    self.stdout.readlines(),
+                    self.stderr.readlines())

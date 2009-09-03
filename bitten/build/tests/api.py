@@ -14,13 +14,7 @@ import sys
 import tempfile
 import unittest
 
-try:
-    has_subprocess = __import__('subprocess') and True
-except:
-    has_subprocess = False
-
 from bitten.build import CommandLine, FileSet, TimeoutError, BuildError
-from bitten.build.api import _combine
 
 
 class CommandLineTestCase(unittest.TestCase):
@@ -39,33 +33,6 @@ class CommandLineTestCase(unittest.TestCase):
         fd.close()
         return filename
 
-    def test_extract_lines(self):
-        cmdline = CommandLine('test', [])
-        data = ['foo\n', 'bar\n']
-        lines = cmdline._extract_lines(data)
-        self.assertEqual(['foo', 'bar'], lines)
-        self.assertEqual([], data)
-
-    def test_extract_lines_spanned(self):
-        cmdline = CommandLine('test', [])
-        data = ['foo ', 'bar\n']
-        lines = cmdline._extract_lines(data)
-        self.assertEqual(['foo bar'], lines)
-        self.assertEqual([], data)
-
-    def test_extract_lines_trailing(self):
-        cmdline = CommandLine('test', [])
-        data = ['foo\n', 'bar']
-        lines = cmdline._extract_lines(data)
-        self.assertEqual(['foo'], lines)
-        self.assertEqual(['bar'], data)
-
-    def test_combine(self):
-        list1 = ['foo', 'bar']
-        list2 = ['baz']
-        combined = list(_combine(list1, list2))
-        self.assertEqual([('foo', 'baz'), ('bar', None)], combined)
-
     def test_single_argument(self):
         cmdline = CommandLine(sys.executable, ['-V'])
         stdout = []
@@ -77,10 +44,6 @@ class CommandLineTestCase(unittest.TestCase):
                 stderr.append(err)
         py_version = '.'.join([str(v) for (v) in sys.version_info[:3]]
                                                             ).rstrip('.0')
-
-        # NT without subprocess doesn't split stderr and stdout. See #256.
-        if not has_subprocess and os.name == "nt":
-            return
 
         self.assertEqual(['Python %s' % py_version], stderr)
         self.assertEqual([], stdout)
@@ -119,9 +82,7 @@ sys.stderr.flush()
             stdout.append(out)
             stderr.append(err)
         py_version = '.'.join([str(v) for (v) in sys.version_info[:3]])
-        # nt doesn't properly split stderr and stdout. See ticket #256.
-        if has_subprocess or os.name != "nt":
-            self.assertEqual(['Hello', 'world!', None], stdout)
+        self.assertEqual(['Hello', 'world!', None], stdout)
         self.assertEqual(0, cmdline.returncode)
 
     def test_input_stream_as_fileobj(self):
@@ -173,14 +134,9 @@ print 'Done'
 """)
         cmdline = CommandLine('python', [script_file])
         iterable = iter(cmdline.execute(timeout=.5))
-        if has_subprocess or os.name != "nt":
-            # commandline timeout not implemented on windows. See #257
-            self.assertRaises(TimeoutError, iterable.next)
+        self.assertRaises(TimeoutError, iterable.next)
 
     def test_nonexisting_command(self):
-        if not has_subprocess:
-            # Test only valid for subprocess execute()
-            return
         cmdline = CommandLine('doesnotexist', [])
         iterable = iter(cmdline.execute())
         try:

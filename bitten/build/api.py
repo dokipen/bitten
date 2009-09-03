@@ -32,22 +32,6 @@ class TimeoutError(Exception):
     """Exception raised when the execution of a command times out."""
 
 
-def _combine(*iterables):
-    iterables = [iter(iterable) for iterable in iterables]
-    size = len(iterables)
-    while True:
-        to_yield = [None] * size
-        for idx, iterable in enumerate(iterables):
-            if iterable is None:
-                continue
-            try:
-                to_yield[idx] = iterable.next()
-            except StopIteration:
-                iterables[idx] = None
-        if not [iterable for iterable in iterables if iterable is not None]:
-            break
-        yield tuple(to_yield)
-
 def _encode(text):
     """Encode input for call. Input must be unicode or utf-8 string."""
     if not isinstance(text, unicode):
@@ -166,28 +150,6 @@ class CommandLine(object):
 
         log.debug('%s exited with code %s', self.executable,
                   self.returncode)
-
-    def _extract_lines(self, data):
-        extracted = []
-        def _endswith_linesep(string):
-            for linesep in ('\n', '\r\n', '\r'):
-                if string.endswith(linesep):
-                    return True
-        buf = ''.join(data)
-        lines = buf.splitlines(True)
-        if len(lines) > 1:
-            extracted += lines[:-1]
-            if _endswith_linesep(lines[-1]):
-                extracted.append(lines[-1])
-                buf = ''
-            else:
-                buf = lines[-1]
-        elif _endswith_linesep(buf):
-            extracted.append(buf)
-            buf = ''
-        data[:] = [buf] * bool(buf)
-
-        return [line.rstrip() for line in extracted]
 
 
 class FileSet(object):
