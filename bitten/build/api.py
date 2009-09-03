@@ -96,31 +96,20 @@ class CommandLine(object):
         from threading import Thread
         from Queue import Queue, Empty
 
-        class ReadThread(Thread):
-            def __init__(self, pipe, pipe_name, queue):
-                self.pipe = pipe
-                self.pipe_name = pipe_name
-                self.queue = queue
-                Thread.__init__(self)
-            def run(self):
-                while self.pipe and not self.pipe.closed:
-                    line = self.pipe.readline()
-                    if line == '':
-                        break
-                    self.queue.put((self.pipe_name, line))
-                if not self.pipe.closed:
-                    self.pipe.close()
+        def reader(pipe, pipe_name, queue):
+            while pipe and not pipe.closed:
+                line = pipe.readline()
+                if line == '':
+                    break
+                queue.put((pipe_name, line))
+            if not pipe.closed:
+                pipe.close()
 
-        class WriteThread(Thread):
-            def __init__(self, pipe, data):
-                self.pipe = pipe
-                self.data = data
-                Thread.__init__(self)
-            def run(self):
-                if self.data and self.pipe and not self.pipe.closed:
-                    self.pipe.write(self.data)
-                if not self.pipe.closed:
-                    self.pipe.close()
+        def writer(pipe, data):
+            if data and pipe and not pipe.closed:
+                pipe.write(data)
+            if not pipe.closed:
+                pipe.close()
 
         args = [self.executable] + self.arguments
         try:
@@ -150,9 +139,9 @@ class CommandLine(object):
         queue = Queue()
         limit = timeout and timeout + time.time() or 0
 
-        pipe_in = WriteThread(p.stdin, in_data)
-        pipe_out = ReadThread(p.stdout, 'stdout', queue)
-        pipe_err = ReadThread(p.stderr, 'stderr', queue)
+        pipe_in = Thread(target=writer, args=(p.stdin, in_data))
+        pipe_out = Thread(target=reader, args=(p.stdout, 'stdout', queue))
+        pipe_err = Thread(target=reader, args=(p.stderr, 'stderr', queue))
         pipe_err.start(); pipe_out.start(); pipe_in.start()
 
         while True:
