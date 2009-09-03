@@ -160,14 +160,17 @@ class Configuration(object):
     _VAR_RE = re.compile(r'\$\{(?P<ref>\w[\w.]*?\w)(?:\:(?P<def>.+))?\}')
 
     def interpolate(self, text, **vars):
-        """Interpolate configuration properties into a string.
+        """Interpolate configuration and environment properties into a string.
         
-        Properties can be referenced in the text using the notation
+        Configuration properties can be referenced in the text using the notation
         ``${property.name}``. A default value can be provided by appending it to
         the property name separated by a colon, for example
         ``${property.name:defaultvalue}``. This value will be used when there's
         no such property in the configuration. Otherwise, if no default is
         provided, the reference is not replaced at all.
+        
+        Environment properties substitute from environment variables, supporting
+        common notations; ``$VAR``, ``${VAR}`` and ``%var%`` (Windows only).
 
         :param text: the string containing variable references
         :param vars: extra variables to use for the interpolation
@@ -182,4 +185,4 @@ class Configuration(object):
                 return m.group('def')
             else:
                 return m.group(0)
-        return self._VAR_RE.sub(_replace, text)
+        return os.path.expandvars(self._VAR_RE.sub(_replace, text))

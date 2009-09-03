@@ -175,6 +175,27 @@ name = invalid option
         self.assertEqual('foo ${python.path} bar',
                          config.interpolate('foo ${python.path} bar'))
 
+    def test_interpolate_environment(self):
+        config = Configuration()
+        if os.name == 'posix':
+            self.assertEquals(os.environ['USER'],
+                        config.interpolate('$USER'))
+            self.assertEquals('$user',
+                        config.interpolate('$user'))
+            self.assertEquals(os.environ['USER'],
+                        config.interpolate('${USER}'))
+            self.assertEquals('${user}',
+                        config.interpolate('${user}'))
+        elif os.name == 'nt':
+            # Additional custom syntax + also case insensitive
+            self.assertEquals(os.environ['PROGRAMFILES'],
+                        config.interpolate('%programfiles%'))
+            self.assertEquals(os.environ['programfiles'],
+                        config.interpolate('%PROGRAMFILES%'))
+            self.assertEquals(os.environ['PROGRAMFILES'],
+                        config.interpolate('$programfiles'))
+            self.assertEquals(os.environ['PROGRAMFILES'],
+                        config.interpolate('${programfiles}'))
 
 def suite():
     suite = unittest.TestSuite()
