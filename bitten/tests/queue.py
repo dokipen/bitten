@@ -285,16 +285,12 @@ class BuildQueueTestCase(unittest.TestCase):
         platform2 = TargetPlatform(self.env, config='test', name='P2')
         platform2.insert()
 
-        class BuildPopulator(threading.Thread):
-            def __init__(self, env):
-                self.env = env
-                threading.Thread.__init__(self)
-            def run(self):
-                queue = BuildQueue(self.env, build_all=True)
-                queue.populate()
-        
-        thread1 = BuildPopulator(self.env)
-        thread2 = BuildPopulator(self.env)
+        def build_populator():
+            queue = BuildQueue(self.env, build_all=True)
+            queue.populate()
+
+        thread1 = threading.Thread(target=build_populator)
+        thread2 = threading.Thread(target=build_populator)
         thread1.start(); thread2.start()
         thread1.join(); thread2.join()
 
