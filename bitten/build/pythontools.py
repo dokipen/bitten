@@ -410,7 +410,7 @@ def figleaf(ctxt, summary=None, include=None, exclude=None):
             else:
                 line_hits.append('0')
         module = xmlio.Element('coverage', name=modname,
-                               file=filename,
+                               file=filename.replace(os.sep, '/'),
                                percentage=percentage,
                                lines=len(interesting_lines),
                                line_hits=' '.join(line_hits))
