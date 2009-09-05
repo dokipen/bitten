@@ -1,0 +1,87 @@
+.. -*- mode: rst; encoding: utf-8 -*-
+
+==================
+Build Notification
+==================
+
+Introduction
+============
+
+Bitten includes a mechanism to send out notification mails whenever a build
+has failed (or succeeded, if required). 
+
+The notification mails contain the revision number of the build, the author
+name and the build log.
+
+Notification Example:
+
+.. code-block:: text
+
+    Failed build of MyProject [32]
+    ---------------------------------------------------------------------
+    
+    Changeset:             32 - <http://trac.mydomain.com/changeset/32>
+    Committed by:          author
+
+    Build Configuration:   main
+    Build Slave:           client
+    Build Number:          30 - <http://trac.mydomain.com/build/main/30> 
+    
+    Failed Steps:
+    Failure Log:
+
+
+Configuration
+=============
+
+The mechanism employs the trac notification system and uses most of its
+options of the ``[notification]`` section of ``trac.ini``, specifically:
+
+
++-------------------------+--------------------------------------------------+
+| Option                  | Description                                      |
++=========================+==================================================+
+| ``smtp_enabled``        | activates mail notifications                     |
++-------------------------+--------------------------------------------------+
+| ``smtp_default_domain`` | the domain to be appended to not fully qualified |
+|                         | usernames                                        |
++-------------------------+--------------------------------------------------+
+| ``smtp_server``         | the smtp server to use                           |
++-------------------------+--------------------------------------------------+
+| ``smtp_user``           | smtp server username                             |
++-------------------------+--------------------------------------------------+
+| ``smtp_password``       | smtp server password                             |
++-------------------------+--------------------------------------------------+
+
+For an indepth description of the trac notification system and its options
+please refer to the `Trac documentation`_.
+
+.. _`trac documentation`: http://trac.edgewall.org/wiki/TracNotification
+
+
+To further adjust the notification behaviour you can use the following
+options:
+
++--------------------------------+-------------------------------------------+
+| Option                         | Description                               |
++================================+===========================================+
+| ``notify_on_failed_build``     | notifies on failed builds (defaults to    |
+|                                | ``True``)                                 |
++--------------------------------+-------------------------------------------+
+| ``notify_on_successful_build`` | notifies on successful builds (defaults   |
+|                                | to ``False``)                             |
++--------------------------------+-------------------------------------------+
+
+Configuration Example:
+
+.. code-block:: ini
+
+    [notification]
+    smtp_enabled = true
+    smtp_default_domain = mydomain.com
+    smtp_server = smtp.mydomain.com
+    smtp_user = admin@mydomain.com
+    smtp_password = 12345
+    notify_on_failed_build = true
+    notify_on_successful_build = true
+

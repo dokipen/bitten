@@ -24,3 +24,4 @@ user interface.
  * `Build Recipe Commands <commands.html>`_
  * `Configuration <configure.html>`_
  * `Build Links <links.html>`_
+ * `Notification <notify.html>`_
