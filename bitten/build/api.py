@@ -102,11 +102,10 @@ class CommandLine(object):
                         stdout=subprocess.PIPE,
                         stderr=subprocess.PIPE,
                         cwd=(self.cwd or None),
-                        shell=(os.name == 'nt' and True or False),
+                        shell=False,
                         universal_newlines=True,
                         env=None)
         except Exception, e:
-            # NT executes through shell and will not raise BuildError
             raise BuildError('Error executing %s: %s %s' % (args,
                                         e.__class__.__name__, str(e)))
 

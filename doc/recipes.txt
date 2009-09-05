@@ -112,3 +112,16 @@ be quoted using regular XML entities:
 +-----------+------------+
 | ``'``     | ``&apos;`` |
 +-----------+------------+
+
+If needed, most commands use regular shell rules to split parts of the input -
+typically like ``args`` input for ``sh:exec`` command. Double-quotes
+(``&quot;``) can be used to mark the start and end if any sub-parts contain
+whitespace, alternatively ``'\'`` can be used to escape whitespace or any other
+character that carries meaning as part of input - including double-quotes and
+backslash itself:
+
+.. code-block:: xml
+
+  <sh:exec file="echo" args="o\\ne &quot;4 2&quot; \&quot;hi\ there\&quot;"/>
+
+This will pass 3 arguments: ``o\ne`` + ``4 2`` + ``"hi there"``.

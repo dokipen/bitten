@@ -33,6 +33,12 @@ class CommandLineTestCase(unittest.TestCase):
         fd.close()
         return filename
 
+    def test_escape_and_quote_args(self):
+        # Verify shlex.split() used by many commands to split input -> args
+        import shlex
+        self.assertEquals(['o\ne', '4 2', '"hi there"'],
+                shlex.split('o\\\ne "4 2" \\"hi\\ there\\"'))
+
     def test_single_argument(self):
         cmdline = CommandLine(sys.executable, ['-V'])
         stdout = []
@@ -141,11 +147,7 @@ print 'Done'
         iterable = iter(cmdline.execute())
         try:
             out, err = iterable.next()
-            if os.name == 'nt':
-                # NT executes through shell and will not raise BuildError
-                self.failUnless("'doesnotexist' is not recognized" in err)
-            else:
-                self.fail("Expected BuildError")
+            self.fail("Expected BuildError")
         except BuildError, e:
             self.failUnless("Error executing ['doesnotexist']" in str(e))
 
