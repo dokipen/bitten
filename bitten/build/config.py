@@ -15,6 +15,7 @@ import logging
 import os
 import platform
 import re
+from string import Template
 
 log = logging.getLogger('bitten.config')
 
@@ -170,7 +171,7 @@ class Configuration(object):
         provided, the reference is not replaced at all.
         
         Environment properties substitute from environment variables, supporting
-        common notations; ``$VAR``, ``${VAR}`` and ``%var%`` (Windows only).
+        the common notations of ``$VAR`` and ``${VAR}``.
 
         :param text: the string containing variable references
         :param vars: extra variables to use for the interpolation
@@ -185,4 +186,5 @@ class Configuration(object):
                 return m.group('def')
             else:
                 return m.group(0)
-        return os.path.expandvars(self._VAR_RE.sub(_replace, text))
+        return Template(self._VAR_RE.sub(_replace, text)
+                                                ).safe_substitute(os.environ)

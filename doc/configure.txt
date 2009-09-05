@@ -205,11 +205,11 @@ Default slave properties are also available for use in recipes:
     args="Slave: ${family} ${os} ${version} ${machine} ${processor}"/>
 
 Additionally, environment variables are also interpolated, supporting
-common notations; ``$VAR``, ``${VAR}`` and ``%var%`` (Windows only).
+the common notations of ``$VAR`` and ``${VAR}``.
 
 .. code-block:: xml
 
-  <sh:exec executable="%windir%/system32/hostname.exe" />
+  <sh:exec executable="${PROGRAMFILES}/SomeDir/MyProg.exe" />
 
 
 Authentication

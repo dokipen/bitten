@@ -177,25 +177,27 @@ name = invalid option
 
     def test_interpolate_environment(self):
         config = Configuration()
-        if os.name == 'posix':
-            self.assertEquals(os.environ['USER'],
-                        config.interpolate('$USER'))
-            self.assertEquals('$user',
-                        config.interpolate('$user'))
-            self.assertEquals(os.environ['USER'],
-                        config.interpolate('${USER}'))
-            self.assertEquals('${user}',
-                        config.interpolate('${user}'))
-        elif os.name == 'nt':
-            # Additional custom syntax + also case insensitive
-            self.assertEquals(os.environ['PROGRAMFILES'],
-                        config.interpolate('%programfiles%'))
-            self.assertEquals(os.environ['programfiles'],
-                        config.interpolate('%PROGRAMFILES%'))
-            self.assertEquals(os.environ['PROGRAMFILES'],
-                        config.interpolate('$programfiles'))
-            self.assertEquals(os.environ['PROGRAMFILES'],
-                        config.interpolate('${programfiles}'))
+        os.environ['BITTEN_TEST'] = 'foo'
+        try:
+            # regular substitutions
+            self.assertEquals(os.environ['BITTEN_TEST'],
+                        config.interpolate('$BITTEN_TEST'))
+            self.assertEquals(os.environ['BITTEN_TEST'],
+                        config.interpolate('${BITTEN_TEST}'))
+            if os.name == 'posix':
+                # case-sensitive
+                self.assertEquals('${bitten_test}',
+                            config.interpolate('${bitten_test}'))
+                self.assertEquals('$bitten_test',
+                            config.interpolate('$bitten_test'))
+            elif os.name == 'nt':
+                # case-insensitive
+                self.assertEquals(os.environ['bitten_test'],
+                            config.interpolate('$bitten_test'))
+                self.assertEquals(os.environ['bitten_test'],
+                            config.interpolate('${bitten_test}'))
+        finally:
+            del os.environ['BITTEN_TEST']
 
 def suite():
     suite = unittest.TestSuite()
