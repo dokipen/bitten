@@ -107,6 +107,12 @@ def execute(ctxt, executable=None, file_=None, input_=None, output=None,
     elif file_:
         args[:0] = [file_]
 
+    # Support important Windows CMD.EXE built-ins (and it does its own quoting)
+    if os.name == 'nt' and executable.upper() in ['COPY', 'DIR', 'ECHO',
+                'ERASE', 'DEL', 'MKDIR', 'MD', 'MOVE', 'RMDIR', 'RD', 'TYPE']:
+        args = ['/C', executable] + [arg.strip('"') for arg in args]
+        executable = os.environ['COMSPEC']
+
     if input_:
         input_file = file(resolve(input_), 'r')
     else:
