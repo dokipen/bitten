@@ -13,7 +13,7 @@ import os
 import tempfile
 import unittest
 
-from bitten.build.config import Configuration
+from bitten.build.config import Configuration, ConfigFileNotFound
 
 
 class ConfigurationTestCase(unittest.TestCase):
@@ -124,6 +124,14 @@ name = invalid option
                         "Invalid option 'name' should not be included...")
         finally:
             os.remove(ininame)
+
+    def test_package_configfile_non_existant(self):
+        try:
+            conf = Configuration(filename='doesnotexist.ini')
+            self.fail('Expected ConfigFileNotFound')
+        except ConfigFileNotFound, e:
+            self.assertEquals(str(e),
+                    "Configuration file 'doesnotexist.ini' not found.")
 
     def test_get_dirpath_non_existant(self):
         tempdir = tempfile.mkdtemp()

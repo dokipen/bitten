@@ -21,6 +21,8 @@ log = logging.getLogger('bitten.config')
 
 __docformat__ = 'restructuredtext en'
 
+class ConfigFileNotFound(Exception):
+    pass
 
 class Configuration(object):
     """Encapsulates the configuration of a build machine.
@@ -43,6 +45,9 @@ class Configuration(object):
         self.packages = {}
         parser = SafeConfigParser()
         if filename:
+            if not (os.path.isfile(filename) or os.path.islink(filename)):
+                raise ConfigFileNotFound(
+                            "Configuration file %r not found." % filename)
             parser.read(filename)
         self._merge_sysinfo(parser, properties)
         self._merge_packages(parser, properties)

@@ -24,15 +24,17 @@ import tempfile
 import time
 import re
 import cookielib
+from ConfigParser import MissingSectionHeaderError
 
 from bitten import PROTOCOL_VERSION
 from bitten.build import BuildError
-from bitten.build.config import Configuration
+from bitten.build.config import Configuration, ConfigFileNotFound
 from bitten.recipe import Recipe
 from bitten.util import xmlio
 
 EX_OK = getattr(os, "EX_OK", 0)
 EX_UNAVAILABLE = getattr(os, "EX_UNAVAILABLE", 69)
+EX_IOERR = getattr(os, "EX_IOERR", 74)
 EX_PROTOCOL = getattr(os, "EX_PROTOCOL", 76)
 EX_NOPERM = getattr(os, "EX_NOPERM", 77)
 
@@ -462,7 +464,9 @@ def main():
     log.info("Slave launched at %s" % \
                 datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
 
-    slave = BuildSlave(urls, name=options.name, config=options.config,
+    slave = None
+    try:
+        slave = BuildSlave(urls, name=options.name, config=options.config,
                        dry_run=options.dry_run, work_dir=options.work_dir,
                        build_dir=options.build_dir,
                        keep_files=options.keep_files,
@@ -472,15 +476,21 @@ def main():
                        username=options.username, password=options.password,
                        dump_reports=options.dump_reports,
                        form_auth=options.form_auth)
-    try:
         try:
             exit_code = slave.run()
         except KeyboardInterrupt:
             slave.quit()
+    except ConfigFileNotFound, e:
+        log.error(e)
+        exit_code = EX_IOERR
+    except MissingSectionHeaderError:
+        log.error("Error parsing configuration file %r. Wrong format?" \
+                            % options.config)
+        exit_code = EX_IOERR
     except ExitSlave, e:
         exit_code = e.exit_code
 
-    if not (options.work_dir or options.keep_files):
+    if slave and not (options.work_dir or options.keep_files):
         log.debug('Removing working directory %s' % slave.work_dir)
         _rmtree(slave.work_dir)
 
