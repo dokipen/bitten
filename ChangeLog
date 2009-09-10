@@ -1,6 +1,18 @@
+Version 0.7
+(???, from 0.7.x branch)
+http://svn.edgewall.org/repos/bitten/tags/0.7
+
+ * ???
+
 Version 0.6
-(?, from 0.6.x branch)
-http://svn.edgewall.org/repos/bitten/tags/0.6.0
+(???, from 0.6.x branch)
+http://svn.edgewall.org/repos/bitten/tags/0.6
+
+ * ???
+
+Version 0.6b1
+(10 September 2009, from 0.6.x branch)
+http://svn.edgewall.org/repos/bitten/tags/0.6b1
 
  * Python 2.4 is now required for slave, while master should still work using
    Python 2.3 (as is also Trac 0.11 minimum).
