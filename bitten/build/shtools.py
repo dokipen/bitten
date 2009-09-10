@@ -84,7 +84,6 @@ def execute(ctxt, executable=None, file_=None, input_=None, output=None,
     :param output: name of the file to which the output of the script should be
                    written
     :param args: command-line arguments to pass to the script
-    :param dirs:
     :param filter\_: function to filter out messages from the executable stdout
     """
     if args:

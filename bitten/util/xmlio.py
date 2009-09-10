@@ -10,7 +10,7 @@
 
 """Utility code for easy input and output of XML.
 
-The current implementation uses `xml.dom.minidom` under the hood for parsing.
+The current implementation uses ``xml.dom.minidom`` under the hood for parsing.
 """
 
 import os
@@ -168,10 +168,7 @@ class Element(Fragment):
     <foo><![CDATA[<bar a="3" b="4"><baz/></bar>]]></foo>
 
     Valid input are utf-8 or unicode strings, or any type easily converted
-    to unicode such as integers. Output is always utf-8:
-
-    >>> print str(Element(u'\xf8\xfc', arg=u'\xe9\u20ac'.encode('utf-8')))
-    <\xc3\xb8\xc3\xbc arg="\xc3\xa9\xe2\x82\xac"/>
+    to unicode such as integers. Output is always utf-8.
     """
     __slots__ = ['name', 'attr']
 

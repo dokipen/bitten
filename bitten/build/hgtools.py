@@ -14,7 +14,7 @@ def pull(ctxt, revision=None, dir_='.'):
     :param ctxt: the build context
     :type ctxt: `Context`
     :param revision: the revision to check out
-    :param dir_: the name of a local subdirectory containing the working copy
+    :param dir\_: the name of a local subdirectory containing the working copy
     """
     args = ['pull', '-u']
     if revision:

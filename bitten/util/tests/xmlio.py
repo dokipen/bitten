@@ -19,9 +19,17 @@ class XMLIOTestCase(unittest.TestCase):
 
     def test_parse(self):
         """Tests that simple test data is parsed correctly"""
-        s = """<build xmlns:c="http://bitten.cmlenz.net/tools/c">\n\n  <step id="build" description="Configure and build">\n\n    <c:configure />\n\n  </step>\n\n</build>"""
+        s = """<build xmlns:c="http://bitten.cmlenz.net/tools/c">
+                 <step id="build" description="Configure and build">
+                   <c:configure />
+                 </step>\
+               </build>"""
         x = xmlio.parse(s)
         assert x.name == "build"
+
+    def test_Element_encoding(self):
+        self.assertEquals('<\xc3\xb8\xc3\xbc arg="\xc3\xa9\xe2\x82\xac"/>',
+            str(xmlio.Element(u'\xf8\xfc', arg=u'\xe9\u20ac'.encode('utf-8'))))
 
     def test_ParsedElement_encoding(self):
         u = u'<root foo="øüé€"/>'

@@ -80,9 +80,9 @@ class IReportSummarizer(Interface):
     def render_summary(req, config, build, step, category):
         """Render a summary for the given report.
         
-        This function should return a tuple of the form `(template, data)`,
-        where `template` is the name of the template to use and `data` is the
-        data to be passed to the template.
+        This function should return a tuple of the form ``(template, data)``,
+        where ``template` is the name of the template to use and ``data`` is
+        the data to be passed to the template.
         
         :param req: the request object
         :param config: the build configuration
@@ -108,9 +108,9 @@ class IReportChartGenerator(Interface):
     def generate_chart_data(req, config, category):
         """Generate the data for a report chart.
         
-        This function should return a tuple of the form `(template, data)`,
-        where `template` is the name of the template to use and `data` is the
-        data to be passed to the template.
+        This function should return a tuple of the form ``(template, data)``,
+        where ``template`` is the name of the template to use and ``data`` is
+        the data to be passed to the template.
         
         :param req: the request object
         :param config: the build configuration

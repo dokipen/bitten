@@ -76,9 +76,9 @@ def checkout(ctxt, url, path=None, revision=None, dir_='.', verbose=False, share
     :param url: the URL of the repository
     :param path: the path inside the repository
     :param revision: the revision to check out
-    :param dir_: the name of a local subdirectory to check out into
+    :param dir\_: the name of a local subdirectory to check out into
     :param verbose: whether to log the list of checked out files
-    :param shared_path: a shared directory to do the checkout in, before copying to dir_
+    :param shared_path: a shared directory to do the checkout in, before copying to dir\_
     :param username: a username of the repository
     :param password: a password of the repository
     """
@@ -121,7 +121,7 @@ def export(ctxt, url, path=None, revision=None, dir_='.', username=None, passwor
     :param url: the URL of the repository
     :param path: the path inside the repository
     :param revision: the revision to check out
-    :param dir_: the name of a local subdirectory to export out into
+    :param dir\_: the name of a local subdirectory to export out into
     :param username: a username of the repository
     :param password: a password of the repository
     """
@@ -147,7 +147,7 @@ def update(ctxt, revision=None, dir_='.'):
     :param ctxt: the build context
     :type ctxt: `Context`
     :param revision: the revision to check out
-    :param dir_: the name of a local subdirectory containing the working copy
+    :param dir\_: the name of a local subdirectory containing the working copy
     """
     args = ['update']
     if revision:

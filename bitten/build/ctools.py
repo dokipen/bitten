@@ -32,7 +32,7 @@ def configure(ctxt, file_='configure', enable=None, disable=None, with_=None,
     :param file\_: name of the configure script
     :param enable: names of the features to enable, seperated by spaces
     :param disable: names of the features to disable, separated by spaces
-    :param with_: names of external packages to include
+    :param with\_: names of external packages to include
     :param without: names of external packages to exclude
     :param cflags: ``CFLAGS`` to pass to the configure script
     :param cxxflags: ``CXXFLAGS`` to pass to the configure script
@@ -78,8 +78,8 @@ def autoreconf(ctxt, file_='configure', force=None, install=None, symlink=None,
     :param install: copy missing auxiliary files
     :param symlink: install symbolic links instead of copies
     :param warnings: report the warnings falling in CATEGORY
-    :prepend_include: prepend directories to search path
-    :include: append directories to search path
+    :param prepend_include: prepend directories to search path
+    :param include: append directories to search path
 
     """
     args = []

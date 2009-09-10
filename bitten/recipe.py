@@ -168,7 +168,7 @@ class Context(object):
         :param file\_: the path to the file to attach, relative to
                        base directory.
         :param description: description saved with attachment
-        :resource: which resource to attach the file to,
+        :param resource: which resource to attach the file to,
                    either 'build' (default) or 'config'
         """
         filename = self.resolve(file_)
