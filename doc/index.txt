@@ -25,3 +25,5 @@ user interface.
  * `Configuration <configure.html>`_
  * `Build Links <links.html>`_
  * `Notification <notify.html>`_
+ * `Generated API Documentation <api/index.html>`_
+ 
