@@ -245,10 +245,10 @@ def fixup_generators(env, db):
     messages and report data."""
 
     mapping = {
-        'pipe': 'http://bitten.cmlenz.net/tools/sh#pipe',
-        'make': 'http://bitten.cmlenz.net/tools/c#make',
-        'distutils': 'http://bitten.cmlenz.net/tools/python#distutils',
-        'exec_': 'http://bitten.cmlenz.net/tools/python#exec' # Ambigious
+        'pipe': 'http://bitten.edgewall.org/tools/sh#pipe',
+        'make': 'http://bitten.edgewall.org/tools/c#make',
+        'distutils': 'http://bitten.edgewall.org/tools/python#distutils',
+        'exec_': 'http://bitten.edgewall.org/tools/python#exec' # Ambigious
     }
     cursor = db.cursor()
     cursor.execute("SELECT id,generator FROM bitten_log "
@@ -259,9 +259,9 @@ def fixup_generators(env, db):
                        "WHERE id=%s", (mapping[generator], log_id))
 
     mapping = {
-        'unittest': 'http://bitten.cmlenz.net/tools/python#unittest',
-        'trace': 'http://bitten.cmlenz.net/tools/python#trace',
-        'pylint': 'http://bitten.cmlenz.net/tools/python#pylint'
+        'unittest': 'http://bitten.edgewall.org/tools/python#unittest',
+        'trace': 'http://bitten.edgewall.org/tools/python#trace',
+        'pylint': 'http://bitten.edgewall.org/tools/python#pylint'
     }
     cursor.execute("SELECT id,generator FROM bitten_report "
                    "WHERE generator IN (%s)"

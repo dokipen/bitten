@@ -80,7 +80,7 @@ Shell Tools
 A bundle of generic tools that are not specific to any programming language or
 tool-chain.
 
-:Namespace: ``http://bitten.cmlenz.net/tools/sh``
+:Namespace: ``http://bitten.edgewall.org/tools/sh``
 :Common prefix: ``sh``
 
 
@@ -152,7 +152,7 @@ C/Unix Tools
 These commands provide support for tools commonly used for development of C/C++
 applications on Unix platforms, such as ``make``.
 
-:Namespace: ``http://bitten.cmlenz.net/tools/c``
+:Namespace: ``http://bitten.edgewall.org/tools/c``
 :Common prefix: ``c``
 
 
@@ -165,30 +165,22 @@ Executes ths autotool autoreconf.
 Parameters
 ----------
 
-    :param force: consider all files obsolete
-    :param install: copy missing auxiliary files
-    :param symlink: install symbolic links instead of copies
-    :param warnings: report the warnings falling in CATEGORY
-    :prepend_include: prepend directories to search path
-    :include: append directories to search path
-
-
-+--------------+-------------------------------------------------------------+
-| Name         | Description                                                 |
-+==============+=============================================================+
-| ``force``    | Consider all files obsolete                                 |
-+--------------+-------------------------------------------------------------+
-| ``install``  | Copy missing auxiliary files                                |
-+--------------+-------------------------------------------------------------+
-| ``symlink``  | Install symbolic links instead of copies                    |
-+--------------+-------------------------------------------------------------+
-| ``warnings`` | Report the warnings related to category                     |
-|              | (which can actually be a comma separated list)              |
-+--------------+-------------------------------------------------------------+
++----------------------+-----------------------------------------------------+
+| Name                 | Description                                         |
++======================+=====================================================+
+| ``force``            | Consider all files obsolete                         |
++----------------------+-----------------------------------------------------+
+| ``install``          | Copy missing auxiliary files                        |
++----------------------+-----------------------------------------------------+
+| ``symlink``          | Install symbolic links instead of copies            |
++----------------------+-----------------------------------------------------+
+| ``warnings``         | Report the warnings related to category             |
+|                      | (which can actually be a comma separated list)      |
++----------------------+-----------------------------------------------------+
 | ``prepend_include``  | Prepend directories to search path                  |
-+--------------+-------------------------------------------------------------+
-| ``include``   | Append directories to search path                          |
-+--------------+-------------------------------------------------------------+
++----------------------+-----------------------------------------------------+
+| ``include``          | Append directories to search path                   |
++----------------------+-----------------------------------------------------+
 
 Examples
 --------
@@ -368,7 +360,7 @@ Java Tools
 
 A bundle of recipe commands that support tools commonly used by Java projects.
 
-:Namespace: ``http://bitten.cmlenz.net/tools/java``
+:Namespace: ``http://bitten.edgewall.org/tools/java``
 :Common prefix: ``java``
 
 
@@ -489,7 +481,7 @@ Mono Tools
 
 A bundle of recipe commands that support tools commonly used by Mono/.NET projects.
 
-:Namespace: ``http://bitten.cmlenz.net/tools/mono``
+:Namespace: ``http://bitten.edgewall.org/tools/mono``
 :Common prefix: ``mono``
 
 ----------------
@@ -526,7 +518,7 @@ PHP Tools
 
 A bundle of recipe commands for PHP_ projects.
 
-:Namespace: ``http://bitten.cmlenz.net/tools/php``
+:Namespace: ``http://bitten.edgewall.org/tools/php``
 :Common prefix: ``php``
 
 .. _php: http://php.net/
@@ -628,7 +620,7 @@ Python Tools
 A bundle of recipe commands that support tools commonly used by Python_
 projects.
 
-:Namespace: ``http://bitten.cmlenz.net/tools/python``
+:Namespace: ``http://bitten.edgewall.org/tools/python``
 :Common prefix: ``python``
 
 .. _python: http://www.python.org/
@@ -874,7 +866,7 @@ recipe to actually pull the code that should be built from the repository.
 
 .. _subversion: http://subversion.tigris.org/
 
-:Namespace: ``http://bitten.cmlenz.net/tools/svn``
+:Namespace: ``http://bitten.edgewall.org/tools/svn``
 :Common prefix: ``svn``
 
 
@@ -1013,7 +1005,7 @@ XML Tools
 
 A collection of recipe commands for XML processing.
 
-:Namespace: ``http://bitten.cmlenz.net/tools/xml``
+:Namespace: ``http://bitten.edgewall.org/tools/xml``
 :Common prefix: ``x``
 
 
@@ -1064,7 +1056,7 @@ A collection of recipe commands for working with Mercurial_ (hg) repositories.
 .. _mercurial: http://mercurial.selenic.com/
 
 
-:Namespace: ``http://bitten.cmlenz.net/tools/hg``
+:Namespace: ``http://bitten.edgewall.org/tools/hg``
 :Common prefix: ``hg``
 
 

@@ -45,8 +45,8 @@ repository.
 
 .. code-block:: xml
 
-  <build xmlns:python="http://bitten.cmlenz.net/tools/python"
-         xmlns:svn="http://bitten.cmlenz.net/tools/svn">
+  <build xmlns:python="http://bitten.edgewall.org/tools/python"
+         xmlns:svn="http://bitten.edgewall.org/tools/svn">
   
     <step id="checkout" description="Checkout source from repository">
       <svn:checkout url="http://svn.example.org/repos/foo"

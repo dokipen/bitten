@@ -26,36 +26,39 @@ import logging
 if hasattr(logging, 'logMultiprocessing'):
     logging.logMultiprocessing = 0
 
-NS = 'http://bitten.cmlenz.net/tools/'
-recipe_commands = [
-        NS + 'sh#exec = bitten.build.shtools:exec_',
-        NS + 'sh#pipe = bitten.build.shtools:pipe',
-        NS + 'c#configure = bitten.build.ctools:configure',
-        NS + 'c#autoreconf = bitten.build.ctools:autoreconf',
-        NS + 'c#cppunit = bitten.build.ctools:cppunit',
-        NS + 'c#cunit = bitten.build.ctools:cunit',
-        NS + 'c#gcov = bitten.build.ctools:gcov',
-        NS + 'c#make = bitten.build.ctools:make',
-        NS + 'mono#nunit = bitten.build.monotools:nunit',
-        NS + 'java#ant = bitten.build.javatools:ant',
-        NS + 'java#junit = bitten.build.javatools:junit',
-        NS + 'java#cobertura = bitten.build.javatools:cobertura',
-        NS + 'php#phing = bitten.build.phptools:phing',
-        NS + 'php#phpunit = bitten.build.phptools:phpunit',
-        NS + 'php#coverage = bitten.build.phptools:coverage',
-        NS + 'python#coverage = bitten.build.pythontools:coverage',
-        NS + 'python#distutils = bitten.build.pythontools:distutils',
-        NS + 'python#exec = bitten.build.pythontools:exec_',
-        NS + 'python#figleaf = bitten.build.pythontools:figleaf',
-        NS + 'python#pylint = bitten.build.pythontools:pylint',
-        NS + 'python#trace = bitten.build.pythontools:trace',
-        NS + 'python#unittest = bitten.build.pythontools:unittest',
-        NS + 'svn#checkout = bitten.build.svntools:checkout',
-        NS + 'svn#export = bitten.build.svntools:export',
-        NS + 'svn#update = bitten.build.svntools:update',
-        NS + 'hg#pull = bitten.build.hgtools:pull',
-        NS + 'xml#transform = bitten.build.xmltools:transform'
+NS_old = 'http://bitten.cmlenz.net/tools/'
+NS_new = 'http://bitten.edgewall.org/tools/'
+tools = [
+        'sh#exec = bitten.build.shtools:exec_',
+        'sh#pipe = bitten.build.shtools:pipe',
+        'c#configure = bitten.build.ctools:configure',
+        'c#autoreconf = bitten.build.ctools:autoreconf',
+        'c#cppunit = bitten.build.ctools:cppunit',
+        'c#cunit = bitten.build.ctools:cunit',
+        'c#gcov = bitten.build.ctools:gcov',
+        'c#make = bitten.build.ctools:make',
+        'mono#nunit = bitten.build.monotools:nunit',
+        'java#ant = bitten.build.javatools:ant',
+        'java#junit = bitten.build.javatools:junit',
+        'java#cobertura = bitten.build.javatools:cobertura',
+        'php#phing = bitten.build.phptools:phing',
+        'php#phpunit = bitten.build.phptools:phpunit',
+        'php#coverage = bitten.build.phptools:coverage',
+        'python#coverage = bitten.build.pythontools:coverage',
+        'python#distutils = bitten.build.pythontools:distutils',
+        'python#exec = bitten.build.pythontools:exec_',
+        'python#figleaf = bitten.build.pythontools:figleaf',
+        'python#pylint = bitten.build.pythontools:pylint',
+        'python#trace = bitten.build.pythontools:trace',
+        'python#unittest = bitten.build.pythontools:unittest',
+        'svn#checkout = bitten.build.svntools:checkout',
+        'svn#export = bitten.build.svntools:export',
+        'svn#update = bitten.build.svntools:update',
+        'hg#pull = bitten.build.hgtools:pull',
+        'xml#transform = bitten.build.xmltools:transform'
     ]
+recipe_commands = [NS_old + tool for tool in tools] \
+                  + [NS_new + tool for tool in tools]
 
 class MasterFeature(Feature):
 

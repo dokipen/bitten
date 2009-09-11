@@ -160,6 +160,18 @@ class BuildConfigurationsAdminPageProvider(Component):
                     for warning in warnings:
                         add_warning(req, warning)
 
+                # FIXME: Deprecation notice for old namespace.
+                # Remove notice code when migration to new namespace is complete
+                if 'http://bitten.cmlenz.net/tools/' in config.recipe:
+                    add_notice(req, "Recipe uses a deprecated namespace. "
+                        "Replace 'http://bitten.cmlenz.net/tools/' with "
+                        "'http://bitten.edgewall.org/tools/'.")
+
+                # Add a notice if configuration is not active
+                if not warnings and not config.active and config.recipe:
+                    add_notice(req, "Configuration is not active. Activate "
+                        "from main 'Configurations' listing to enable it.")
+
                 # Prepare template variables
                 data['config'] = {
                     'name': config.name, 'label': config.label or config.name,

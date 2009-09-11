@@ -19,7 +19,7 @@ class XMLIOTestCase(unittest.TestCase):
 
     def test_parse(self):
         """Tests that simple test data is parsed correctly"""
-        s = """<build xmlns:c="http://bitten.cmlenz.net/tools/c">
+        s = """<build xmlns:c="http://bitten.edgewall.org/tools/c">
                  <step id="build" description="Configure and build">
                    <c:configure />
                  </step>\

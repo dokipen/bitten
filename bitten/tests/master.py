@@ -410,7 +410,7 @@ class BuildMasterTestCase(unittest.TestCase):
         inbody = StringIO("""<result step="foo" status="success"
                                      time="2007-04-01T15:30:00.0000"
                                      duration="3.45">
-    <log generator="http://bitten.cmlenz.net/tools/python#unittest">
+    <log generator="http://bitten.edgewall.org/tools/python#unittest">
         <message level="info">Doing stuff</message>
         <message level="error">Ouch that hurt</message>
     </log>
@@ -449,7 +449,7 @@ class BuildMasterTestCase(unittest.TestCase):
 
         logs = list(BuildLog.select(self.env, build=build.id, step='foo'))
         self.assertEqual(1, len(logs))
-        self.assertEqual('http://bitten.cmlenz.net/tools/python#unittest',
+        self.assertEqual('http://bitten.edgewall.org/tools/python#unittest',
                          logs[0].generator)
         self.assertEqual(2, len(logs[0].messages))
         self.assertEqual((u'info', u'Doing stuff'), logs[0].messages[0])
@@ -471,7 +471,7 @@ class BuildMasterTestCase(unittest.TestCase):
                                      time="2007-04-01T15:30:00.0000"
                                      duration="3.45">
     <report category="test"
-            generator="http://bitten.cmlenz.net/tools/python#unittest">
+            generator="http://bitten.edgewall.org/tools/python#unittest">
         <test fixture="my.Fixture" file="my/test/file.py">
             <stdout>Doing my thing</stdout>
         </test>
@@ -512,7 +512,7 @@ class BuildMasterTestCase(unittest.TestCase):
         reports = list(Report.select(self.env, build=build.id, step='foo'))
         self.assertEqual(1, len(reports))
         self.assertEqual('test', reports[0].category)
-        self.assertEqual('http://bitten.cmlenz.net/tools/python#unittest',
+        self.assertEqual('http://bitten.edgewall.org/tools/python#unittest',
                          reports[0].generator)
         self.assertEqual(1, len(reports[0].items))
         self.assertEqual({
@@ -615,7 +615,7 @@ class BuildMasterTestCase(unittest.TestCase):
         inbody = StringIO("""<result step="foo" status="success"
                                      time="2007-04-01T15:30:00.0000"
                                      duration="3.45">
-    <log generator="http://bitten.cmlenz.net/tools/python#unittest">
+    <log generator="http://bitten.edgewall.org/tools/python#unittest">
         <message level="info">Doing stuff</message>
         <message level="error">Ouch that hurt</message>
     </log>
@@ -665,7 +665,7 @@ class BuildMasterTestCase(unittest.TestCase):
         inbody = StringIO("""<result step="foo" status="success"
                                      time="2007-04-01T15:30:00.0000"
                                      duration="3.45">
-    <log generator="http://bitten.cmlenz.net/tools/python#unittest">
+    <log generator="http://bitten.edgewall.org/tools/python#unittest">
         <message level="info">Doing stuff</message>
         <message level="error">Ouch that hurt</message>
     </log>
@@ -705,7 +705,7 @@ class BuildMasterTestCase(unittest.TestCase):
         inbody = StringIO("""<result step="foo2" status="success"
                                      time="2007-04-01T15:45:00.0000"
                                      duration="4">
-    <log generator="http://bitten.cmlenz.net/tools/python#unittest">
+    <log generator="http://bitten.edgewall.org/tools/python#unittest">
         <message level="info">This is a step after invalidation</message>
     </log>
 </result>""")

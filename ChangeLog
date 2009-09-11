@@ -10,6 +10,10 @@ http://svn.edgewall.org/repos/bitten/tags/0.6
 
  * Slave-only install changed to `./setup.py --without-master install` (or any
    other valid distribution command).
+ * Tools namespace changed to `http://bitten.edgewall.org/tools/`. Both new and
+   old namespace will work, but Admin will issue a deprecation notice when
+   using the old namespace.
+
 
 Version 0.6b1
 (10 September 2009, from 0.6.x branch)
