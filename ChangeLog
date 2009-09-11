@@ -8,7 +8,8 @@ Version 0.6
 (???, from 0.6.x branch)
 http://svn.edgewall.org/repos/bitten/tags/0.6
 
- * ???
+ * Slave-only install changed to `./setup.py --without-master install` (or any
+   other valid distribution command).
 
 Version 0.6b1
 (10 September 2009, from 0.6.x branch)

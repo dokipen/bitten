@@ -10,8 +10,9 @@
 # are also available at http://bitten.edgewall.org/wiki/License.
 
 import os
-from setuptools import setup, find_packages
 import sys
+from setuptools import setup, find_packages, Feature
+from setuptools.command import egg_info
 
 sys.path.append(os.path.join('doc', 'common'))
 try:
@@ -55,55 +56,101 @@ recipe_commands = [
         NS + 'hg#pull = bitten.build.hgtools:pull',
         NS + 'xml#transform = bitten.build.xmltools:transform'
     ]
-shared_args = {
-        'version': '0.7',
-        'author': 'Edgewall Software',
-        'author_email': 'info@edgewall.org',
-        'license': 'BSD',
-        'url':'http://bitten.edgewall.org/',
-        'download_url': 'http://bitten.edgewall.org/wiki/Download',
-        'zip_safe': False
-    }
 
-if __name__ == '__main__':
-    setup(
-        name = 'Bitten',
-        description = 'Continuous integration for Trac',
-        long_description = \
-    """A Trac plugin for collecting software metrics via continuous integration.""",
+class MasterFeature(Feature):
 
-        packages = find_packages(exclude=['*.tests*']),
-        package_data = {
-            'bitten': ['htdocs/*.*',
-                       'htdocs/charts_library/*.swf',
-                       'templates/*.html',
-                       'templates/*.txt']
-        },
-        test_suite = 'bitten.tests.suite',
-        tests_require = [
-            'figleaf',
+    def exclude_from(self, dist):
+        # Called when master is disabled (--without-master)
+        pass
+
+    def include_in(self, dist):
+        # Called when master is enabled (default, or --with-master)
+        dist.metadata.name = 'Bitten'
+        dist.metadata.description = 'Continuous integration for Trac',
+        dist.long_description = "A Trac plugin for collecting software " \
+                                "metrics via continuous integration."""
+        # Use full manifest when master is included
+        egg_info.manifest_maker.template = "MANIFEST.in"
+        # Include tests in source distribution
+        if 'sdist' in dist.commands:
+            dist.packages = find_packages()
+        else:
+            dist.packages = find_packages(exclude=['*tests*'])
+        dist.test_suite = 'bitten.tests.suite'
+        dist.package_data = {
+              'bitten': ['htdocs/*.*',
+                    'htdocs/charts_library/*.swf',
+                    'templates/*.html',
+                    'templates/*.txt']}
+        dist.entry_points['trac.plugins'] = [
+                    'bitten.admin = bitten.admin',
+                    'bitten.main = bitten.main',
+                    'bitten.master = bitten.master',
+                    'bitten.web_ui = bitten.web_ui',
+                    'bitten.testing = bitten.report.testing',
+                    'bitten.coverage = bitten.report.coverage',
+                    'bitten.lint = bitten.report.lint',
+                    'bitten.notify = bitten.notify']
+
+master = MasterFeature(
+    description = "Bitten Master Trac plugin",
+    standard = True,
+    py_modules = [])
+
+egg_info.manifest_maker.template = "MANIFEST-SLAVE.in"
+
+if os.path.exists(os.path.join(os.path.dirname(__file__), 'MANIFEST.in')):
+    available_features = {"master": master}
+else:
+    # Building from a slave distribution
+    available_features = {}
+
+setup(
+    name = 'BittenSlave',
+    version =  '0.7',
+    author = 'Edgewall Software',
+    author_email = 'info@edgewall.org',
+    license = 'BSD',
+    url = 'http://bitten.edgewall.org/',
+    download_url = 'http://bitten.edgewall.org/wiki/Download',
+    zip_safe = False,
+    description = 'Continuous integration build slave for Trac',
+    long_description = "A slave for running builds and submitting them to " \
+                       "Bitten, the continuous integration system for Trac",
+    packages = {},
+    py_modules = ["bitten.__init__",
+                  "bitten.build.__init__",
+                  "bitten.build.api",
+                  "bitten.build.config",
+                  "bitten.build.ctools",
+                  "bitten.build.hgtools",
+                  "bitten.build.javatools",
+                  "bitten.build.monotools",
+                  "bitten.build.phptools",
+                  "bitten.build.pythontools",
+                  "bitten.build.shtools",
+                  "bitten.build.svntools",
+                  "bitten.build.xmltools",
+                  "bitten.recipe",
+                  "bitten.slave",
+                  "bitten.util.__init__",
+                  "bitten.util.loc",
+                  "bitten.util.testrunner",
+                  "bitten.util.xmlio",
+                ],
+    test_suite = 'bitten.slave_tests.suite',
+    tests_require = [
+        'figleaf',
+    ],
+    entry_points = {
+        'console_scripts': [
+            'bitten-slave = bitten.slave:main'
         ],
-        entry_points = {
-            'console_scripts': [
-                'bitten-slave = bitten.slave:main'
-            ],
-            'distutils.commands': [
-                'unittest = bitten.util.testrunner:unittest'
-            ],
-            'trac.plugins': [
-                'bitten.admin = bitten.admin',
-                'bitten.main = bitten.main',
-                'bitten.master = bitten.master',
-                'bitten.web_ui = bitten.web_ui',
-                'bitten.testing = bitten.report.testing',
-                'bitten.coverage = bitten.report.coverage',
-                'bitten.lint = bitten.report.lint',
-                'bitten.notify = bitten.notify'
-            ],
-            'bitten.recipe_commands': recipe_commands
-        },
-
-        cmdclass = {'build_doc': build_doc, 'test_doc': test_doc},
-        
-        **shared_args
-    )
+        'distutils.commands': [
+            'unittest = bitten.util.testrunner:unittest'
+        ],
+        'bitten.recipe_commands': recipe_commands
+    },
+    features = available_features,
+    cmdclass = {'build_doc': build_doc, 'test_doc': test_doc}
+)

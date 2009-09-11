@@ -14,7 +14,7 @@ try:
 except:
     try:
         __version__ = __import__('pkg_resources').get_distribution(
-                                                    'Bitten-Slave').version
+                                                    'BittenSlave').version
     except:
         pass
 

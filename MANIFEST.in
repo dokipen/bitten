@@ -1,2 +1,15 @@
+include ChangeLog
+include COPYING
+include MANIFEST-SLAVE.in
+include README.txt
+include bitten/htdocs/*.*
+include bitten/htdocs/charts_library/*.swf
+include bitten/templates/*.*
+include doc/*.*
 include doc/api/*.*
-include doc/*.html
+include doc/common/*.html
+include doc/common/*.py
+include doc/common/*.txt
+include doc/common/COPYING
+include doc/common/conf/*.ini
+include doc/common/style/*.*
