@@ -4,9 +4,9 @@ http://svn.edgewall.org/repos/bitten/tags/0.7
 
  * ???
 
-Version 0.6
-(???, from 0.6.x branch)
-http://svn.edgewall.org/repos/bitten/tags/0.6
+Version 0.6b2
+(12 September, from 0.6.x branch)
+http://svn.edgewall.org/repos/bitten/tags/0.6b2
 
  * Slave-only install changed to `./setup.py --without-master install` (or any
    other valid distribution command).

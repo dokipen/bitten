@@ -69,7 +69,7 @@ class MasterFeature(Feature):
     def include_in(self, dist):
         # Called when master is enabled (default, or --with-master)
         dist.metadata.name = 'Bitten'
-        dist.metadata.description = 'Continuous integration for Trac',
+        dist.metadata.description = 'Continuous integration for Trac'
         dist.long_description = "A Trac plugin for collecting software " \
                                 "metrics via continuous integration."""
         # Use full manifest when master is included
