@@ -187,7 +187,7 @@ class TestCoverageAnnotator(Component):
                     title='Annotate file with test coverage '
                           'data (if available)',
                     href=req.href.browser(resource.id, 
-                        annotate='coverage', rev=data.get('rev')))
+                        annotate='coverage', rev=resource.version))
         return template, data, content_type
 
     # IHTMLPreviewAnnotator methods
