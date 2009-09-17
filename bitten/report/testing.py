@@ -61,16 +61,13 @@ ORDER BY build.rev_time, build.platform""", (config.name,))
 
         data = {'title': 'Unit Tests',
                 'data': [
-                    {'label': 'Total', 'data': [[item[0], item[1]] for item in tests]},
-                    {'label': 'Failures', 'data': [[item[0], item[2]] for item in tests]},
-                    {'label': 'Ignored', 'data': [[item[0], item[3]] for item in tests]},
-                ],
-                'options': [
-                    {'xaxis': {'ticks': [[item[0], '[%s]' % item[0]] for item in tests]}},
-                ],
-               }
+                    [''] + ['[%s]' % item[0] for item in tests],
+                    ['Total'] + [item[1] for item in tests],
+                    ['Failures'] + [item[2] for item in tests],
+                    ['Ignored'] + [item[3] for item in tests],
+                ]}
 
-        return 'json.txt', {"json": data}
+        return 'bitten_chart_tests.html', data
 
 
 class TestResultsSummarizer(Component):

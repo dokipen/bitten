@@ -394,8 +394,7 @@ class BuildConfigController(Component):
             for generator in ReportChartController(self.env).generators: 
                 for category in generator.get_supported_categories(): 
                     chart_generators.append({
-                        'href': req.href.build(config.name, 'chart/' + category),
-                        'category': category,
+                        'href': req.href.build(config.name, 'chart/' + category) 
                     })
             data['config']['charts'] = chart_generators 
             charts_license = self.config.get('bitten', 'charts_license')
@@ -538,7 +537,6 @@ class BuildController(Component):
 
         add_script(req, 'common/js/folding.js')
         add_script(req, 'bitten/tabset.js')
-        add_script(req, 'bitten/jquery.flot.js')
         add_stylesheet(req, 'bitten/bitten.css')
         return 'bitten_build.html', data, None
 
@@ -702,7 +700,7 @@ class ReportChartController(Component):
         else:
             raise TracError('Unknown report category "%s"' % category)
 
-        return tmpl, data, 'text/plain'
+        return tmpl, data, 'text/xml'
 
 
 class SourceFileLinkFormatter(Component):
