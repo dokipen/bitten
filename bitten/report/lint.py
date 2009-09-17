@@ -45,7 +45,7 @@ select build.rev,
 from bitten_report as report
  left outer join bitten_build as build ON (report.build=build.id)
 where build.config='%s' and report.category='lint'
-group by build.rev_time, build.rev, build.platform
+group by build.rev_time, build.rev, build.platform, report.id
 order by build.rev_time;""" % (config.name,)
 
         #self.log.debug('sql=\'%s\'' % (query,))
