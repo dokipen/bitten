@@ -69,18 +69,15 @@ order by build.rev_time;""" % (config.name,)
 
         data = {'title': 'Lint Problems by Type',
                 'data': [
-                    {'label': 'Total Problems', 'data': [[item[0], item[1]] for item in lint]},
-                    {'label': 'Convention', 'data': [[item[0], item[2]] for item in lint]},
-                    {'label': 'Error', 'data': [[item[0], item[3]] for item in lint]},
-                    {'label': 'Refactor', 'data': [[item[0], item[4]] for item in lint]},
-                    {'label': 'Warning', 'data': [[item[0], item[5]] for item in lint]},
-                ],
-                'options': [
-                    {'xaxis': {'ticks': [[item[0], '[%s]' % item[0]] for item in lint]}},
-                ],
-               }
+                    ['Revision'] + ['[%s]' % item[0] for item in lint],
+                    ['Total Problems'] + [item[1] for item in lint],
+                    ['Convention'] + [item[2] for item in lint],
+                    ['Error'] + [item[3] for item in lint],
+                    ['Refactor'] + [item[4] for item in lint],
+                    ['Warning'] + [item[5] for item in lint],
+                ]}
 
-        return 'json.txt', {"json": data}
+        return 'bitten_chart_lint.html', data
 
 
 class PyLintSummarizer(Component):

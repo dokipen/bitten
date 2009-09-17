@@ -61,14 +61,12 @@ ORDER BY build.rev_time""" % (db.cast('item_lines.value', 'int'),
 
         data = {'title': 'Test Coverage',
                 'data': [
-                    {'label': 'Lines of code', 'data': [[item[0], item[1]] for item in coverage]},
-                    {'label': 'Coverage', 'data': [[item[0], item[2]] for item in coverage]},
-                ],
-                'options': [
-                    {'xaxis': {'ticks': [[item[0], '[%s]' % item[0]] for item in coverage]}},
-                ],
-               }
-        return 'json.txt', {"json": data}
+                    [''] + ['[%s]' % item[0] for item in coverage],
+                    ['Lines of code'] + [item[1] for item in coverage],
+                    ['Coverage'] + [int(item[2]) for item in coverage]
+                ]}
+
+        return 'bitten_chart_coverage.html', data
 
 
 class TestCoverageSummarizer(Component):
