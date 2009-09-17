@@ -8,6 +8,7 @@
   <xi:include href="macros.html" />
   <head>
     <title>$title</title>
+    <script type="text/javascript" src="${chrome.htdocs_location}../bitten/jquery.flot.js"></script>
   </head>
   <body>
     <strong py:def="build_status(status)" class="status">
@@ -143,14 +144,20 @@
         </py:if></py:for>)</i>
       </div></py:if>
       <div id="charts"><py:for each="chart in config.charts">
-        <object type="application/x-shockwave-flash"
-                width="320" height="240"
-                data="${href.chrome('bitten', 'charts.swf')}">
-          <param name="movie" value="${href.chrome('bitten', 'charts.swf')}" />
-          <param name="FlashVars"
-                 value="library_path=${href.chrome('bitten')}&amp;xml_source=$chart.href${config.charts_license and '&amp;license='+config.charts_license or ''}" />
-          <param name="wmode" value="transparent" />
-        </object><br /></py:for>
+        <div id="chart_${chart.category}" style="width:600px;height:300px;"></div>
+        <script type="text/javascript">
+          $(document).ready(function() { 
+               
+              $.getJSON('${chart.href}', function(json) { 
+                   
+                  var plot_data = new Array(); 
+                  var plot_ticks = new Array(); 
+                   
+                  $.plot($("#chart_${chart.category}"), json.data, json.options); 
+              }); 
+          });
+        </script>
+        <br /></py:for>
       </div>
 
       <table py:if="config.platforms and config.builds"
