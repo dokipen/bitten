@@ -291,7 +291,9 @@ class BuildQueueTestCase(unittest.TestCase):
 
         thread1 = threading.Thread(target=build_populator)
         thread2 = threading.Thread(target=build_populator)
-        thread1.start(); thread2.start()
+        # tiny sleep is to avoid odd segementation faults
+        # (on Linux) and bus errors (on Mac OS X)
+        thread1.start(); time.sleep(0.01); thread2.start()
         thread1.join(); thread2.join()
 
         # check builds got added
