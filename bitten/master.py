@@ -138,6 +138,7 @@ class BuildMaster(Component):
         """ Formats and sends the response, raising ``RequestDone``. """
         req.send_response(code)
         headers = headers or {}
+        headers.setdefault('Content-Length', len(body))
         for header in headers:
             req.send_header(header, headers[header])
         req.write(body)
