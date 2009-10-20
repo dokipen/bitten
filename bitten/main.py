@@ -127,7 +127,7 @@ class BuildSystem(Component):
                                  **kwargs):
         config_name, build_id = self._parse_resource(resource.id)
         config = BuildConfig.fetch(self.env, config_name)
-        config_label = config.label or config_name
+        config_label = config and config.label and config.label or config_name
         if context:
             if build_id:
                 return tag.a('Build %d ("%s")' % (build_id, config_label),
