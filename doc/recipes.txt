@@ -125,3 +125,6 @@ backslash itself:
   <sh:exec file="echo" args="o\\ne &quot;4 2&quot; \&quot;hi\ there\&quot;"/>
 
 This will pass 3 arguments: ``o\ne`` + ``4 2`` + ``"hi there"``.
+
+**Note:** On Windows, batch scripts and built-ins will execute through a shell.
+This may affect quoting of arguments.

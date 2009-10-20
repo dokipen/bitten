@@ -101,6 +101,12 @@ def execute(ctxt, executable=None, file_=None, input_=None, output=None,
     if file_ and os.path.isfile(resolve(file_)):
         file_ = resolve(file_)
 
+    shell = False
+
+    if file_ and os.name == 'nt':
+        # Need to execute script files through a shell on Windows
+        shell = True
+
     if executable is None:
         executable = file_
     elif file_:
@@ -109,8 +115,7 @@ def execute(ctxt, executable=None, file_=None, input_=None, output=None,
     # Support important Windows CMD.EXE built-ins (and it does its own quoting)
     if os.name == 'nt' and executable.upper() in ['COPY', 'DIR', 'ECHO',
                 'ERASE', 'DEL', 'MKDIR', 'MD', 'MOVE', 'RMDIR', 'RD', 'TYPE']:
-        args = ['/C', executable] + [arg.strip('"') for arg in args]
-        executable = os.environ['COMSPEC']
+        shell = True
 
     if input_:
         input_file = file(resolve(input_), 'r')
@@ -132,7 +137,7 @@ def execute(ctxt, executable=None, file_=None, input_=None, output=None,
 
     try:
         cmdline = CommandLine(executable, args, input=input_file,
-                              cwd=dir_)
+                              cwd=dir_, shell=shell)
         log_elem = xmlio.Fragment()
         for out, err in cmdline.execute():
             if out is not None:

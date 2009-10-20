@@ -60,7 +60,12 @@ def ant(ctxt, file_=None, target=None, keep_going=False, args=None):
     if target:
         args.append(target)
 
-    cmdline = CommandLine(executable, args, cwd=ctxt.basedir)
+    shell = False
+    if os.name == 'nt':
+        # Need to execute ant.bat through a shell on Windows
+        shell = True
+
+    cmdline = CommandLine(executable, args, cwd=ctxt.basedir, shell=shell)
     for out, err in cmdline.execute():
         if out is not None:
             log.info(out)

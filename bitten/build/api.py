@@ -50,7 +50,7 @@ def _decode(text):
 class CommandLine(object):
     """Simple helper for executing subprocesses."""
 
-    def __init__(self, executable, args, input=None, cwd=None):
+    def __init__(self, executable, args, input=None, cwd=None, shell=False):
         """Initialize the CommandLine object.
         
         :param executable: the name of the program to execute
@@ -66,6 +66,7 @@ class CommandLine(object):
         self.cwd = cwd
         if self.cwd:
             assert os.path.isdir(self.cwd)
+        self.shell = shell
         self.returncode = None
 
 
@@ -102,7 +103,7 @@ class CommandLine(object):
                         stdout=subprocess.PIPE,
                         stderr=subprocess.PIPE,
                         cwd=(self.cwd or None),
-                        shell=False,
+                        shell=self.shell,
                         universal_newlines=True,
                         env=None)
         except Exception, e:
