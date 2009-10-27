@@ -12,7 +12,8 @@ import unittest
 
 
 def master_suite():
-    from bitten.tests import admin, master, model, queue, web_ui, notify
+    from bitten.tests import admin, master, model, queue, web_ui, notify, \
+        upgrades
     from bitten.report import tests as report
     suite = unittest.TestSuite()
     suite.addTest(admin.suite())
@@ -22,6 +23,7 @@ def master_suite():
     suite.addTest(web_ui.suite())
     suite.addTest(report.suite())
     suite.addTest(notify.suite())
+    suite.addTest(upgrades.suite())
     return suite
 
 def suite():

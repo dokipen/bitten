@@ -71,11 +71,12 @@ class BuildSetup(Component):
                 for function in upgrades.map.get(version):
                     print textwrap.fill(inspect.getdoc(function))
                     function(self.env, db)
-                    print 'Done.'
-            cursor.execute("UPDATE system SET value=%s WHERE "
-                           "name='bitten_version'", (schema_version,))
-            self.log.info('Upgraded Bitten tables from version %d to %d',
-                          current_version, schema_version)
+                    cursor.execute("UPDATE system SET value=%s WHERE "
+                           "name='bitten_version'", (version,))
+                db.commit()
+                print "Bitten upgrade to version %d done." % version
+                self.log.info('Upgraded Bitten tables to version %d',
+                                version)
 
 class BuildSystem(Component):
 

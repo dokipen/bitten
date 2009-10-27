@@ -21,26 +21,85 @@ import codecs
 
 __docformat__ = 'restructuredtext en'
 
+# database abstraction functions
+
+def _parse_scheme(env):
+    """Retrieve the environment database scheme."""
+    connection_uri = DatabaseManager(env).connection_uri
+    parts = connection_uri.split(':', 1)
+    scheme = parts[0].lower()
+    return scheme
+
+def update_sequence(env, db, tbl, col):
+    """Update a sequence associated with an autoincrement column."""
+    # Hopefully Trac will eventually implement its own version
+    # of this function.
+    scheme = _parse_scheme(env)
+    if scheme == "postgres":
+        seq = '%s_%s_seq' % (tbl, col)
+        cursor = db.cursor()
+        cursor.execute("SELECT setval('%s', (SELECT MAX(%s) FROM %s))"
+            % (seq, col, tbl))
+
+def drop_index(env, db, tbl, idx):
+    """Drop an index associated with a table."""
+    # Hopefully Trac will eventually implement its own version
+    # of this function.
+    scheme = _parse_scheme(env)
+    cursor = db.cursor()
+    if scheme == "mysql":
+        cursor.execute("DROP INDEX %s ON %s" % (idx, tbl))
+    else:
+        cursor.execute("DROP INDEX %s" % (idx,))
+
+# upgrade scripts
+
 def add_log_table(env, db):
     """Add a table for storing the builds logs."""
-    from bitten.model import BuildLog, BuildStep
+    from trac.db import Table, Column
+    INFO_LEVEL = 'I'
+
     cursor = db.cursor()
 
+    build_log_schema_v3 = [
+        Table('bitten_log', key='id')[
+            Column('id', auto_increment=True), Column('build', type='int'),
+            Column('step'), Column('type')
+        ],
+        Table('bitten_log_message', key=('log', 'line'))[
+            Column('log', type='int'), Column('line', type='int'),
+            Column('level', size=1), Column('message')
+        ]
+    ]
+
+    build_step_schema_v3 = [
+        Table('bitten_step', key=('build', 'name'))[
+            Column('build', type='int'), Column('name'), Column('description'),
+            Column('status', size=1), Column('started', type='int'),
+            Column('stopped', type='int')
+        ]
+    ]
+
     connector, _ = DatabaseManager(env)._get_connector()
-    for table in BuildLog._schema:
+    for table in build_log_schema_v3:
         for stmt in connector.to_sql(table):
             cursor.execute(stmt)
 
+    update_cursor = db.cursor()
     cursor.execute("SELECT build,name,log FROM bitten_step "
                    "WHERE log IS NOT NULL")
     for build, step, log in cursor:
-        build_log = BuildLog(env, build, step)
-        build_log.messages = [(BuildLog.INFO, msg) for msg in log.splitlines()]
-        build_log.insert(db)
+        update_cursor.execute("INSERT INTO bitten_log (build, step) "
+                "VALUES (%s,%s)", (build, step))
+        log_id = db.get_last_id(update_cursor, 'bitten_log')
+        messages = [(log_id, line, INFO_LEVEL, msg)
+            for line, msg in enumerate(log.splitlines())]
+        update_cursor.executemany("INSERT INTO bitten_log_message (log, line, level, message) "
+            "VALUES (%s, %s, %s, %s)", messages)
 
     cursor.execute("CREATE TEMPORARY TABLE old_step AS SELECT * FROM bitten_step")
     cursor.execute("DROP TABLE bitten_step")
-    for table in BuildStep._schema:
+    for table in build_step_schema_v3:
         for stmt in connector.to_sql(table):
             cursor.execute(stmt)
     cursor.execute("INSERT INTO bitten_step (build,name,description,status,"
@@ -117,7 +176,7 @@ def add_order_to_log(env, db):
     from bitten.model import BuildLog
     cursor = db.cursor()
 
-    cursor.execute("CREATE TEMPORARY TABLE old_log AS "
+    cursor.execute("CREATE TEMPORARY TABLE old_log_v5 AS "
                    "SELECT * FROM bitten_log")
     cursor.execute("DROP TABLE bitten_log")
 
@@ -126,7 +185,7 @@ def add_order_to_log(env, db):
         cursor.execute(stmt)
 
     cursor.execute("INSERT INTO bitten_log (id,build,step,generator,orderno) "
-                   "SELECT id,build,step,type,0 FROM old_log")
+                   "SELECT id,build,step,type,0 FROM old_log_v5")
 
 def add_report_tables(env, db):
     """Add database tables for report storage."""
@@ -289,7 +348,7 @@ def add_filename_to_logs(env, db):
     from bitten.model import BuildLog
     cursor = db.cursor()
 
-    cursor.execute("CREATE TEMPORARY TABLE old_log AS "
+    cursor.execute("CREATE TEMPORARY TABLE old_log_v8 AS "
                    "SELECT * FROM bitten_log")
     cursor.execute("DROP TABLE bitten_log")
 
@@ -298,7 +357,7 @@ def add_filename_to_logs(env, db):
         cursor.execute(stmt)
 
     cursor.execute("INSERT INTO bitten_log (id,build,step,generator,orderno,filename) "
-                   "SELECT id,build,step,generator,orderno,'' FROM old_log")
+                   "SELECT id,build,step,generator,orderno,'' FROM old_log_v8")
 
 def migrate_logs_to_files(env, db):
     """Migrates logs that are stored in the bitten_log_messages table into files."""
@@ -309,7 +368,7 @@ def migrate_logs_to_files(env, db):
     if not os.path.isabs(logs_dir):
         logs_dir = os.path.join(env.path, logs_dir)
     if not os.path.exists(logs_dir):
-        os.mkdir(logs_dir)
+        os.makedirs(logs_dir)
 
     message_table = Table('bitten_log_message', key=('log', 'line'))[
             Column('log', type='int'), Column('line', type='int'),
@@ -345,7 +404,6 @@ def migrate_logs_to_files(env, db):
 
 def recreate_rule_with_int_id(env, db):
         """Recreates the bitten_rule table with an integer id column rather than a text one."""
-        from trac.db import Table, Column
         from bitten.model import TargetPlatform
         cursor = db.cursor()
         connector, _ = DatabaseManager(env)._get_connector()
@@ -393,10 +451,26 @@ def add_config_platform_rev_index_to_build(env, db):
 
     if not duplicates_exist:
         cursor = db.cursor()
-        cursor.execute("CREATE UNIQUE INDEX bitten_build_config_rev_platform_idx ON bitten_build (config,rev,platform)")
-        cursor.execute("DROP INDEX bitten_build_config_rev_slave_idx")
+        scheme = _parse_scheme(env)
+        if scheme == "mysql":
+            # 111 = 333 / len(columns in index) -- this is the Trac default
+            cursor.execute("CREATE UNIQUE INDEX bitten_build_config_rev_platform_idx ON bitten_build (config(111), rev(111), platform)")
+        else:
+            cursor.execute("CREATE UNIQUE INDEX bitten_build_config_rev_platform_idx ON bitten_build (config,rev,platform)")
+        drop_index(env, db, 'bitten_build', 'bitten_build_config_rev_slave_idx')
     else:
         raise TracError('')
+
+def fix_sequences(env, db):
+    """Fixes any auto increment sequences that might have been left in an inconsistent state.
+
+       Upgrade scripts for schema versions > 10 should handle sequence updates correctly themselves.
+       """
+    update_sequence(env, db, 'bitten_build', 'id')
+    update_sequence(env, db, 'bitten_log', 'id')
+    update_sequence(env, db, 'bitten_platform', 'id')
+    update_sequence(env, db, 'bitten_report', 'id')
+
 
 map = {
     2: [add_log_table],
@@ -407,5 +481,5 @@ map = {
     7: [add_error_table],
     8: [add_filename_to_logs,migrate_logs_to_files],
     9: [recreate_rule_with_int_id],
-   10: [add_config_platform_rev_index_to_build],
+   10: [add_config_platform_rev_index_to_build, fix_sequences],
 }
