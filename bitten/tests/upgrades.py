@@ -30,7 +30,12 @@ class BaseUpgradeTestCase(unittest.TestCase):
 
     def setUp(self):
         self.env = EnvironmentStub()
-        self.env.config.set('trac', 'database', self.env.dburi)
+        if hasattr(self.env, 'dburi'):
+            # Trac gained support for testing against different databases in 0.11.5
+            # If this support is available, we copy the test db uri configuration
+            # into the main test config so it can be picked up by
+            # upgrades._parse_scheme()
+            self.env.config.set('trac', 'database', self.env.dburi)
         self.env.path = tempfile.mkdtemp()
         logs_dir = self.env.config.get("bitten", "logs_dir")
         if os.path.isabs(logs_dir):
