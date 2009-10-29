@@ -109,7 +109,7 @@ class BittenChrome(Component):
                 if not status:
                     status='bittenpending'
             yield ('mainnav', 'build',
-                   tag.a('Builds Status', href=req.href.build(), accesskey=5, 
+                   tag.a('Build Status', href=req.href.build(), accesskey=5, 
                          class_=status))
 
     # ITemplatesProvider methods
