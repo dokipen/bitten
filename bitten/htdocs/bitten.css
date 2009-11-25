@@ -163,15 +163,15 @@
 /* collapsible failure details */
 #content.build table.tests tr th p { margin: 0; padding: 0; text-align: left; }
 #content.build table.tests tr th p.details {
-  margin: 0; padding-left: 32px; padding-top: 5px; text-align: left; font-weight: normal;
+  margin: 0; padding-left: 4px; padding-top: 5px; text-align: left; font-weight: normal;
 }
 #content.build table.tests tr th p.details span {
   white-space: pre; font-family: monospace; font-weight: normal; font-size: smaller;
   color: #666;
 }
-#content.build table.tests .fixture { display: inline; }
+#content.build table.tests .fixture { display: inline-block; }
 #content.build table.tests tr.failed th .fixture a { 
-  background: url(../common/expanded.png) 0 50% no-repeat; padding-left: 16px;
+  background: url(../common/expanded.png) 50% 50% no-repeat; padding-left: 16px;
 }
 #content.build table.tests tr.failed th.collapsed .fixture a {
   background-image: url(../common/collapsed.png);
