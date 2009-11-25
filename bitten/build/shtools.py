@@ -10,6 +10,7 @@
 
 """Generic recipe commands for executing external processes."""
 
+import codecs
 import logging
 import os
 import shlex
@@ -118,12 +119,12 @@ def execute(ctxt, executable=None, file_=None, input_=None, output=None,
         shell = True
 
     if input_:
-        input_file = file(resolve(input_), 'r')
+        input_file = codecs.open(resolve(input_), 'r', 'utf-8')
     else:
         input_file = None
 
     if output:
-        output_file = file(resolve(output), 'w')
+        output_file = codecs.open(resolve(output), 'w', 'utf-8')
     else:
         output_file = None
 
