@@ -192,10 +192,12 @@ class BuildSlave(object):
             try:
                 try:
                     if self.username and not self.auth_map.get(url):
+                        login_url = '%s/login?referer=%s' % (url[:-7],
+                                                        urllib.quote_plus(url))
                         # First request to url, authentication needed
                         if self.form_auth:
                             log.debug('Performing http form authentication')
-                            resp = self.request('POST', url[:-7] + '/login')
+                            resp = self.request('POST', login_url)
                             match = FORM_TOKEN_RE.search(resp.read())
                             if not match:
                                 log.error("Project %s does not support form "
@@ -207,11 +209,11 @@ class BuildSlave(object):
                                                                 None, url)[1],
                                       'referer': '',
                                       '__FORM_TOKEN': match.group(1)} 
-                            self.request('POST', url[:-7] + '/login',
+                            self.request('POST', login_url,
                                          body=urllib.urlencode(values))
                         else:
                             log.debug('Performing basic/digest authentication')
-                            self.request('HEAD', url[:-7] + '/login')
+                            self.request('HEAD', login_url)
                         self.auth_map[url] = True
                     elif self.username:
                         log.debug('Reusing authentication information.')

@@ -99,8 +99,8 @@ class BuildMaster(Component):
 
         if 'id' not in req.args:
             if req.method != 'POST':
-                self._send_error(req, HTTP_METHOD_NOT_ALLOWED,
-                                      'Only POST allowed for build creation')
+                self._send_response(req,
+                                body='Only POST allowed for build creation.')
             return self._process_build_creation(req, slave_token)
 
         build = Build.fetch(self.env, req.args['id'])

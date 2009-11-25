@@ -144,8 +144,8 @@ class BuildMasterTestCase(unittest.TestCase):
 
         self.assertRaises(RequestDone, module.process_request, req)
 
-        self.assertEquals(405, outheaders['Status'])
-        self.assertEquals('Only POST allowed for build creation',
+        self.assertEquals(200, outheaders['Status'])
+        self.assertEquals('Only POST allowed for build creation.',
                     outbody.getvalue())
 
     def test_create_build_no_match(self):
