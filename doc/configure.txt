@@ -40,6 +40,8 @@ By default, the following properties are included:
 :`version`:   The operating system version.
 :`machine`:   The hardware platform (for example “i686” or “Power Macintosh”).
 :`processor`: The processor architecture (for example “athlon” or “powerpc”).
+:`name`:      The name of the slave.
+:`ipnr`:      The IP address of the slave.
 
 Note that not all of these properties may be available for all platforms,
 depending on OS and Python version.
