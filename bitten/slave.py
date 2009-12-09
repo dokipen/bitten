@@ -169,9 +169,8 @@ class BuildSlave(object):
                                         ).startswith('text/plain'):
                     content = e.read()
                 else:
-                    content = 'no message available'
-                log.debug('Server returned error %d: %s (%s)',
-                                        e.code, e.msg, content)
+                    content = 'Unknown cause of error'
+                e.msg = '%s (%s)' % (e.msg, content)
                 raise
             return e
 

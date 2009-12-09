@@ -19,4 +19,4 @@ except:
         pass
 
 # The master-slave protocol/configuration version
-PROTOCOL_VERSION = 2
+PROTOCOL_VERSION = 3
