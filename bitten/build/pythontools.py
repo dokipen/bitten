@@ -399,6 +399,8 @@ def figleaf(ctxt, summary=None, include=None, exclude=None):
         modname = base.replace(os.path.sep, '.')
         realfilename = ctxt.resolve(filename)
         interesting_lines = get_lines(open(realfilename))
+        if not interesting_lines:
+            continue
         covered_lines = coverage_data.get(realfilename, set())
         percentage = int(round(len(covered_lines) * 100 / len(interesting_lines)))
         line_hits = []
