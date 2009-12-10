@@ -33,8 +33,8 @@ def suite():
         suite.addTest(master_suite())
     except ImportError:
         print "\nTrac not installed -- Skipping master tests\n"
-    import bitten.slave_tests
-    suite.addTest(bitten.slave_tests.suite())
+    import bitten.tests_slave
+    suite.addTest(bitten.tests_slave.suite())
     return suite
 
 if __name__ == '__main__':

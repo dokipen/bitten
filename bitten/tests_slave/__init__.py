@@ -9,7 +9,7 @@
 # are also available at http://bitten.edgewall.org/wiki/License.
 
 import unittest
-from bitten.slave_tests import recipe, slave
+from bitten.tests_slave import recipe, slave
 from bitten.build import tests as build
 from bitten.util import tests as util
 

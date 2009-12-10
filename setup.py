@@ -141,7 +141,7 @@ setup(
                   "bitten.util.testrunner",
                   "bitten.util.xmlio",
                 ],
-    test_suite = 'bitten.slave_tests.suite',
+    test_suite = 'bitten.tests_slave.suite',
     tests_require = [
         'figleaf',
     ],

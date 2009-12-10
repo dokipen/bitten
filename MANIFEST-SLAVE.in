@@ -18,6 +18,6 @@ include bitten/build/*.py
 include bitten/build/tests/*.py
 include bitten/recipe.py
 include bitten/slave.py
-include bitten/slave_tests/*.py
+include bitten/tests_slave/*.py
 include bitten/util/*.py
 include bitten/util/tests/*.py
