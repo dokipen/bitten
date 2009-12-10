@@ -22,7 +22,7 @@ from trac.mimeview.api import Context
 from trac.resource import Resource
 from trac.timeline import ITimelineEventProvider
 from trac.util import escape, pretty_timedelta, format_datetime, shorten_line, \
-                      Markup
+                      Markup, arity
 from trac.util.datefmt import to_timestamp, to_datetime, utc
 from trac.util.html import html
 from trac.web import IRequestHandler, IRequestFilter, HTTPNotFound
@@ -444,7 +444,10 @@ class BuildConfigController(Component):
         if more:
             next_href = req.href.build(config.name, page=page + 1)
             add_link(req, 'next', next_href, 'Next Page')
-        prevnext_nav(req, 'Page')
+        if arity(prevnext_nav) == 4: # Trac 0.12 compat, see #450
+            prevnext_nav(req, 'Previous Page', 'Next Page')
+        else:
+            prevnext_nav (req, 'Page')
         return data
 
 
