@@ -384,7 +384,8 @@ def migrate_logs_to_files(env, db):
         message_cursor.execute("SELECT message, level FROM bitten_log_message WHERE log=%s ORDER BY line", (log_id,))
         full_filename = os.path.join(logs_dir, filename)
         message_file = codecs.open(full_filename, "wb", "UTF-8")
-        level_file = codecs.open(full_filename+".level", "wb", "UTF-8")
+        # Note: the original version of this code erroneously wrote to filename + ".level" instead of ".levels", producing unused level files
+        level_file = codecs.open(full_filename + BuildLog.LEVELS_SUFFIX, "wb", "UTF-8")
         for message, level in message_cursor.fetchall() or []:
             message_file.write(to_unicode(message) + "\n")
             level_file.write(to_unicode(level) + "\n")

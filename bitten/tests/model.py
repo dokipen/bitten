@@ -509,7 +509,7 @@ class BuildLogTestCase(BaseModelTestCase):
         build_log = BuildLog.fetch(self.env, id=build_log.id)
         self.assertEquals(build_log.filename, "%s.log" % build_log.id)
         log_file = build_log.get_log_file(build_log.filename)
-        levels_file = log_file+'.levels'
+        levels_file = log_file + BuildLog.LEVELS_SUFFIX
         self.failUnless(os.path.exists(log_file), 'log_file does not exist')
         self.failUnless(os.path.exists(levels_file),
                                                 'levels_file does not exist')

@@ -703,6 +703,7 @@ class BuildLog(object):
     WARNING = 'W'
     ERROR = 'E'
     UNKNOWN = ''
+    LEVELS_SUFFIX = '.levels'
 
     def __init__(self, env, build=None, step=None, generator=None,
                  orderno=None, filename=None):
@@ -751,7 +752,7 @@ class BuildLog(object):
                     os.remove(log_file)
                 except Exception, e:
                     self.env.log.warning("Error removing log file %s: %s" % (log_file, e))
-            level_file = log_file + '.levels'
+            level_file = log_file + self.LEVELS_SUFFIX
             if os.path.exists(level_file):
                 try:
                     self.env.log.debug("Deleting level file: %s" % level_file)
@@ -786,7 +787,7 @@ class BuildLog(object):
         cursor.execute("UPDATE bitten_log SET filename=%s WHERE id=%s", (log_file, id))
         if self.messages:
             log_file_name = self.get_log_file(log_file)
-            level_file_name = log_file_name + ".levels"
+            level_file_name = log_file_name + self.LEVELS_SUFFIX
             codecs.open(log_file_name, "wb", "UTF-8").writelines([to_unicode(msg[1]+"\n") for msg in self.messages])
             codecs.open(level_file_name, "wb", "UTF-8").writelines([to_unicode(msg[0]+"\n") for msg in self.messages])
 
@@ -813,7 +814,7 @@ class BuildLog(object):
                 log_lines = codecs.open(log_filename, "rb", "UTF-8").readlines()
             else:
                 log_lines = []
-            level_filename = log.get_log_file(log.filename + ".levels")
+            level_filename = log.get_log_file(log.filename + cls.LEVELS_SUFFIX)
             if os.path.exists(level_filename):
                 log_levels = dict(enumerate(codecs.open(level_filename, "rb", "UTF-8").readlines()))
             else:
