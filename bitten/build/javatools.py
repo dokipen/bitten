@@ -135,7 +135,7 @@ def junit(ctxt, file_=None, srcdir=None):
                         # Sometimes the traceback isn't prefixed with the
                         # exception type and message, so add it in if needed
                         tracebackprefix = "%s: %s" % (result[0].attr['type'],
-                                                      result[0].attr['message'])
+                                    result[0].attr.get('message', ''))
                         if result[0].gettext().startswith(tracebackprefix):
                             test.append(xmlio.Element('traceback')[
                                         result[0].gettext()])
