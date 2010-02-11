@@ -6,5 +6,9 @@ Build Links
 
 Bitten supports the ability to link between any wiki-enabled objects in Trac.
 
-To link to a particular build, use the TracLink syntax ``build:N`` (where ``N`` is the number of the build)
- 
+To link to a particular build, use the TracLink syntax ``build:N``
+(where ``N`` is the number of the build).
+
+Linking to a particular step of the build is also supported by adding an
+anchor reference, like ``build:N#Test``. If the step ID contains spaces,
+the link must be quoted: ``build:"N#My Step"``.

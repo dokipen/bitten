@@ -18,6 +18,7 @@ from trac.db import DatabaseManager
 from trac.env import IEnvironmentSetupParticipant
 from trac.perm import IPermissionRequestor
 from trac.resource import IResourceManager
+from trac.util.html import escape
 from trac.wiki import IWikiSyntaxProvider
 from bitten.api import IBuildListener
 from bitten.model import schema, schema_version, Build, BuildConfig
@@ -100,6 +101,9 @@ class BuildSystem(Component):
 
     def get_link_resolvers(self):
         def _format_link(formatter, ns, name, label):
+            segments = name.split('#')
+            name = segments[0]
+            step = len(segments) == 2 and segments[1] or ''
             try:
                 name = int(name)
             except ValueError:
@@ -109,9 +113,13 @@ class BuildSystem(Component):
                 config = BuildConfig.fetch(self.env, build.config)
                 title = 'Build %d ([%s] of %s) by %s' % (build.id, build.rev,
                         config.label, build.slave)
+                if step:
+                    if not step.startswith('step_'):
+                        step = 'step_' + step
+                    step = '#' + escape(step)
                 return '<a class="build" href="%s" title="%s">%s</a>' \
-                       % (formatter.href.build(build.config, build.id), title,
-                          label)
+                       % (formatter.href.build(build.config, build.id) + step,
+                            title, label)
             return label
         yield 'build', _format_link
 
