@@ -19,10 +19,9 @@ def pull(ctxt, revision=None, dir_='.'):
     args = ['pull', '-u']
     if revision:
         args += ['-r', revision.split(':')[0]]
-    args += [dir_]
 
     from bitten.build import shtools
-    returncode = shtools.execute(ctxt, file_='hg', args=args)
+    returncode = shtools.execute(ctxt, file_='hg', args=args, dir_=dir_)
     if returncode != 0:
         ctxt.error('hg pull -u failed (%s)' % returncode)
 
