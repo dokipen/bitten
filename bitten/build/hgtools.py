@@ -18,7 +18,7 @@ def pull(ctxt, revision=None, dir_='.'):
     """
     args = ['pull', '-u']
     if revision:
-        args += ['-r', revision.split(':')[0]]
+        args += ['-r', revision.split(':')[1]]
 
     from bitten.build import shtools
     returncode = shtools.execute(ctxt, file_='hg', args=args, dir_=dir_)
