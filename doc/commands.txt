@@ -707,11 +707,14 @@ Instructs `distutils` to produce a source distribution.
   <python:distutils command="unittest" options="
       --xml-output build/test-results.xml
       --coverage-summary build/test-coverage.txt
-      --coverage-dir build/coverage"/>
+      --coverage-dir build/coverage
+      --coverage-method trace"/>
 
 Instructs `distutils` to run the ``unittest`` command (which is provided by
 Bitten), and passes the options needed to determine the output paths for test
 results and code coverage reports.
+
+Option ``--coverage-method`` is one of ``trace``, ``coverage`` or ``figleaf``.
 
 Configuration
 -------------
@@ -768,7 +771,7 @@ Parameters
 | Name         | Description                                                 |
 +==============+=============================================================+
 | ``summary``  | Path to the summary file written by ``trace.py``,           |
-|              | relative to the project source directory.                   |
+|              | relative to the project source directory.                   |
 +--------------+-------------------------------------------------------------+
 | ``coverdir`` | Path to the directory containing the coverage files written |
 |              | by ``trace.py``, relative to the project source directory.  |
@@ -789,6 +792,52 @@ Examples
   <python:trace summary="build/trace.out" coverdir="build/coverage" />
 
 
+---------------------
+``<python:coverage>``
+---------------------
+
+Extract data from a coverage.py_ run.
+
+.. _coverage.py: http://nedbatchelder.com/code/coverage/
+
+Parameters
+----------
+
++--------------+-------------------------------------------------------------+
+| Name         | Description                                                 |
++==============+=============================================================+
+| ``summary``  | Path to the summary file with ``coverage.py`` information,  |
+|              | relative to the project source directory.                   |
++--------------+-------------------------------------------------------------+
+| ``coverdir`` | Path to the directory containing per-module coverage        |
+|              | details, relative to the project source directory.          |
++--------------+-------------------------------------------------------------+
+| ``include``  | List of glob patterns (separated by space) that specify     |
+|              | which Python file should be included in the coverage report |
++--------------+-------------------------------------------------------------+
+| ``exclude``  | List of glob patterns (separated by space) that specify     |
+|              | which Python file should be excluded from the coverage      |
+|              | report                                                      |
++--------------+-------------------------------------------------------------+
+
+Examples
+--------
+
+.. code-block:: xml
+
+  <step id="test" description="Unittests with coverage.py information">
+    <python:distutils command="unittest"
+        options="--xml-output build/test-results.xml
+                 --coverage-summary build/test-coverage.txt
+                 --coverage-dir build/coverage
+                 --coverage-method coverage" />
+    <python:unittest file="build/test-results.xml"/>
+    <python:coverage summary="build/test-coverage.txt"
+        coverdir="build/coverage"
+        include="mypackage/*" exclude="*/tests/*" />
+  </step>
+
+
 --------------------
 ``<python:figleaf>``
 --------------------
@@ -804,7 +853,7 @@ Parameters
 | Name         | Description                                                 |
 +==============+=============================================================+
 | ``summary``  | Path to the summary file written by ``figleaf``,            |
-|              | relative to the project source directory.                   |
+|              | relative to the project source directory.                   |
 +--------------+-------------------------------------------------------------+
 | ``include``  | List of glob patterns (separated by space) that specify     |
 |              | which Python file should be included in the coverage report |
