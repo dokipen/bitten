@@ -1,0 +1,8 @@
+*.egg-info
+*.patch
+*.pyc
+.stgit-*
+build/
+dist/
+patches-*/
+*.egg/
